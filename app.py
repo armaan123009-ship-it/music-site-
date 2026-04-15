@@ -304,11 +304,16 @@ def home():
 
 @app.route("/stream/<video_id>")
 def stream(video_id):
+    # This automatically finds cookies.txt whether on your laptop or Render
+    cookie_path = os.path.join(os.path.dirname(__file__), 'cookies.txt')
+    
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
-        'extract_flat': False,
+        'cookiefile': cookie_path,
+        # Brave/Chrome User-Agent to make the request look like a real browser
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -316,7 +321,7 @@ def stream(video_id):
             return jsonify({"url": info['url']})
     except Exception as e:
         print("Stream error:", e)
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": "YouTube blocking detected. Update cookies.txt"}), 400
 
 # ---------- ADMIN: VIEW ALL REGISTERED USERS ----------
 # ... (all your other routes and API endpoints)
