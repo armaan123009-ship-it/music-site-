@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 REGISTER · PIXEL ROCKET MUSIC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0a1a, #02020c);
+            font-family: 'Space Mono', monospace;
+            color: #eef5ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .register-container {
+            background: rgba(5, 5, 20, 0.85);
+            backdrop-filter: blur(4px);
+            border: 2px solid #44aaff;
+            padding: 40px;
+            width: 350px;
+            text-align: center;
+            box-shadow: 8px 8px 0 rgba(68, 170, 255, 0.3);
+        }
+        h1 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 1rem;
+            color: #ff44ee;
+            margin-bottom: 30px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #010113;
+            border: 2px solid #44aaff;
+            color: #fff;
+            font-family: 'Space Mono', monospace;
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #0a0a24;
+            border: 2px solid #44ffaa;
+            color: #44ffaa;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.7rem;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        button:hover {
+            background: #44ffaa22;
+            color: white;
+        }
+        .flash {
+            margin-top: 15px;
+            color: #ffaa44;
+            font-size: 0.7rem;
+        }
+        a {
+            color: #44aaff;
+            text-decoration: none;
+            font-size: 0.7rem;
+        }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="register-container">
+        <h1>🚀 REGISTER</h1>
+        <form method="POST">
+            <input type="text" name="username" placeholder="USERNAME" required>
+            <input type="email" name="email" placeholder="EMAIL" required>
+            <input type="password" name="password" placeholder="PASSWORD" required>
+            <button type="submit">CREATE ACCOUNT</button>
+        </form>
+        <div class="flash">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <div>{{ message }}</div>
+                {% endfor %}
+            {% endwith %}
+        </div>
+        <div style="margin-top: 20px;">
+            <a href="{{ url_for('login') }}">← BACK TO LOGIN</a>
+        </div>
+    </div>
+</body>
+</html>

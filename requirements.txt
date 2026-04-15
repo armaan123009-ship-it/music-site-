@@ -1,0 +1,7 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+ytmusicapi
+yt-dlp
+bcrypt
+psycopg2-binary

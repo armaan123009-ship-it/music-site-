@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>👤 PROFILE · PIXEL ROCKET MUSIC</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0a1a, #02020c);
+            font-family: 'Space Mono', monospace;
+            color: #eef5ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .profile-container {
+            background: rgba(5, 5, 20, 0.85);
+            backdrop-filter: blur(4px);
+            border: 2px solid #44aaff;
+            padding: 30px;
+            width: 500px;
+            max-width: 90%;
+            box-shadow: 8px 8px 0 rgba(68, 170, 255, 0.3);
+        }
+        h1 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 1rem;
+            color: #ff44ee;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .info {
+            margin: 20px 0;
+            padding: 15px;
+            background: #010113;
+            border: 1px solid #44aaff;
+        }
+        .info p {
+            margin: 10px 0;
+            font-size: 0.8rem;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .stat-box {
+            background: #0a0a24;
+            padding: 10px;
+            border: 1px solid #ff44ee;
+            min-width: 100px;
+        }
+        .stat-number {
+            font-size: 1.5rem;
+            font-family: 'Press Start 2P';
+            color: #44ffaa;
+        }
+        .stat-label {
+            font-size: 0.6rem;
+            margin-top: 5px;
+        }
+        button {
+            background: #0a0a24;
+            border: 2px solid #44ffaa;
+            color: #44ffaa;
+            padding: 10px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.6rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #44ffaa22;
+            color: white;
+        }
+        a {
+            color: #44aaff;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 15px;
+            font-size: 0.7rem;
+        }
+        a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="profile-container">
+        <h1>👤 PIXEL VOYAGER</h1>
+        <div class="info">
+            <p>⭐ USERNAME: {{ user.username }}</p>
+            <p>📧 EMAIL: {{ user.email }}</p>
+            <p>🗓️ JOINED: {{ user.created_at.strftime('%Y-%m-%d') }}</p>
+        </div>
+        <div class="stats">
+            <div class="stat-box">
+                <div class="stat-number">{{ user.get_liked_songs()|length }}</div>
+                <div class="stat-label">LIKED SONGS</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-number">{{ user.get_playlists()|length }}</div>
+                <div class="stat-label">PLAYLISTS</div>
+            </div>
+        </div>
+        <button onclick="window.location.href='{{ url_for('index') }}'">🎵 BACK TO MUSIC</button>
+        <button onclick="window.location.href='{{ url_for('logout') }}'" style="border-color:#ff44ee; color:#ff44ee;">🚪 LOGOUT</button>
+        <div style="text-align: center;">
+            <a href="{{ url_for('index') }}">← HOME</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 ADMIN · REGISTERED USERS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: radial-gradient(circle at 20% 30%, #0a0a1a, #02020c);
+            font-family: 'Space Mono', monospace;
+            color: #eef5ff;
+            padding: 40px;
+        }
+        .admin-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(5, 5, 20, 0.85);
+            backdrop-filter: blur(4px);
+            border: 2px solid #44aaff;
+            padding: 20px;
+            box-shadow: 8px 8px 0 rgba(68, 170, 255, 0.3);
+        }
+        h1 {
+            font-family: 'Press Start 2P', monospace;
+            font-size: 1.2rem;
+            color: #ff44ee;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.7rem;
+        }
+        th, td {
+            border: 1px solid #44aaff;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background: #0a0a24;
+            font-family: 'Press Start 2P', monospace;
+            color: #ffdd88;
+        }
+        td {
+            background: #010113;
+        }
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            background: #0a0a24;
+            border: 2px solid #44ffaa;
+            color: #44ffaa;
+            padding: 8px 16px;
+            font-family: 'Press Start 2P', monospace;
+            font-size: 0.6rem;
+            text-decoration: none;
+            transition: 0.1s;
+        }
+        .back-link:hover {
+            background: #44ffaa22;
+            color: white;
+        }
+        .no-users {
+            text-align: center;
+            padding: 40px;
+            font-family: 'Press Start 2P';
+            color: #ffaa44;
+        }
+    </style>
+</head>
+<body>
+<div class="admin-container">
+    <h1>👥 REGISTERED USERS</h1>
+    {% if users %}
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Username</th><th>Email</th><th>Joined</th><th>Liked Songs</th><th>Playlists</th></tr>
+        </thead>
+        <tbody>
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>{{ user.username }}</td>
+                <td>{{ user.email }}</td>
+                <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') if user.created_at else 'Unknown' }}</td>
+                <td>{{ user.get_liked_songs()|length }}</td>
+                <td>{{ user.get_playlists()|length }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="no-users">⚠️ No users found in database.</div>
+    {% endif %}
+    <a href="{{ url_for('index') }}" class="back-link">← BACK TO PLAYER</a>
+</div>
+</body>
+</html>
