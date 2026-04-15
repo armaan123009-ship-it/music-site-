@@ -478,7 +478,8 @@
     <div id="queueList"></div>
 </div>
 
-<audio id="audioEngine"></audio>
+<div id="youtubePlayer" style="display:none;"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
 
 <script>
     // ---------- STARFIELD (unchanged) ----------
@@ -511,7 +512,51 @@
     let currentIndex = 0;
     let repeatMode = 'none';
     let shuffleMode = false;
-    let audio = document.getElementById('audioEngine');
+    let ytPlayer;
+    let isPlayerReady = false;
+    let isPlaying = false;
+    let progressInterval;
+
+    window.onYouTubeIframeAPIReady = function() {
+        ytPlayer = new YT.Player('youtubePlayer', {
+            height: '0',
+            width: '0',
+            playerVars: { 'playsinline': 1, 'controls': 0, 'disablekb': 1 },
+            events: {
+                'onReady': () => { isPlayerReady = true; if(volumeSlider) ytPlayer.setVolume(volumeSlider.value * 100); },
+                'onStateChange': onPlayerStateChange
+            }
+        });
+    };
+
+    function onPlayerStateChange(event) {
+        if (event.data === YT.PlayerState.PLAYING) {
+            playPauseBtn.innerText = "⏸";
+            isPlaying = true;
+            if(progressInterval) clearInterval(progressInterval);
+            progressInterval = setInterval(updateProgress, 1000);
+        } else if (event.data === YT.PlayerState.PAUSED) {
+            playPauseBtn.innerText = "▶";
+            isPlaying = false;
+            clearInterval(progressInterval);
+        } else if (event.data === YT.PlayerState.ENDED) {
+            clearInterval(progressInterval);
+            nextTrack();
+        }
+    }
+
+    function updateProgress() {
+        if (ytPlayer && isPlaying) {
+            let curr = ytPlayer.getCurrentTime();
+            let dur = ytPlayer.getDuration();
+            if (dur > 0) {
+                progressFill.style.width = (curr / dur) * 100 + '%';
+                currentTimeSpan.innerText = formatTime(curr);
+                totalSpan.innerText = formatTime(dur);
+            }
+        }
+    }
+
     let playPauseBtn = document.getElementById('playPauseBtn');
     let progressFill = document.getElementById('progressFill');
     let currentTimeSpan = document.getElementById('currentTime');
@@ -876,19 +921,14 @@
         playPauseBtn.innerText = "⏳";
         playerDiv.style.opacity = '1';
         playerDiv.style.pointerEvents = 'all';
-        try {
-            const res = await fetch(`/stream/${song.id}`);
-            const data = await res.json();
-            if (data.url) {
-                audio.src = `/proxy?url=${encodeURIComponent(data.url)}`;
-                await audio.play();
-                playPauseBtn.innerText = "⏸";
-            } else throw new Error("No stream URL");
-        } catch(e) {
-            console.error("Stream error", e);
-            playPauseBtn.innerText = "▶";
-            playerArtist.innerText = "Stream error";
+        
+        if (isPlayerReady) {
+            ytPlayer.loadVideoById(song.id);
+        } else {
+            setTimeout(() => playFromQueue(index), 500);
+            return;
         }
+
         updateQueueUI();
         localStorage.setItem('lastQueue', JSON.stringify(currentQueue));
         localStorage.setItem('lastIndex', currentIndex);
@@ -898,7 +938,15 @@
         currentQueue.push(song);
         if (shuffleMode) reshuffleQueue();
         updateQueueUI();
-        if (!audio.src || audio.paused) playFromQueue(currentIndex);
+        
+        if (isPlayerReady) {
+            const state = ytPlayer.getPlayerState();
+            if (state !== YT.PlayerState.PLAYING && state !== YT.PlayerState.BUFFERING) {
+                if (currentQueue.length === 1 || currentIndex >= currentQueue.length - 1) {
+                    playFromQueue(currentIndex);
+                }
+            }
+        }
     }
 
     function playNow(song) {
@@ -913,7 +961,7 @@
         let nextIdx = currentIndex + 1;
         if (nextIdx >= currentQueue.length) {
             if (repeatMode === 'all') nextIdx = 0;
-            else { audio.pause(); playPauseBtn.innerText = "▶"; return; }
+            else { playPauseBtn.innerText = "▶"; if(isPlayerReady) ytPlayer.stopVideo(); return; }
         }
         playFromQueue(nextIdx);
     }
@@ -1012,24 +1060,21 @@
     document.getElementById('nextBtn').onclick = nextTrack;
     document.getElementById('shuffleBtn').onclick = toggleShuffle;
     document.getElementById('repeatBtn').onclick = toggleRepeat;
-    playPauseBtn.onclick = () => audio.paused ? audio.play() : audio.pause();
-    volumeSlider.oninput = () => audio.volume = volumeSlider.value;
+    playPauseBtn.onclick = () => {
+        if (!isPlayerReady || !ytPlayer) return;
+        const state = ytPlayer.getPlayerState();
+        if (state === YT.PlayerState.PLAYING) ytPlayer.pauseVideo();
+        else ytPlayer.playVideo();
+    };
+    volumeSlider.oninput = () => { if(ytPlayer) ytPlayer.setVolume(volumeSlider.value * 100); };
     progressBar.addEventListener('click', (e) => {
-        if (!audio.duration) return;
+        if (!ytPlayer || !ytPlayer.getDuration) return;
+        const dur = ytPlayer.getDuration();
+        if (!dur) return;
         const rect = progressBar.getBoundingClientRect();
         const percent = (e.clientX - rect.left) / rect.width;
-        audio.currentTime = percent * audio.duration;
+        ytPlayer.seekTo(percent * dur, true);
     });
-    audio.addEventListener('timeupdate', () => {
-        if (audio.duration) {
-            progressFill.style.width = (audio.currentTime / audio.duration) * 100 + '%';
-            currentTimeSpan.innerText = formatTime(audio.currentTime);
-            totalSpan.innerText = formatTime(audio.duration);
-        }
-    });
-    audio.addEventListener('ended', nextTrack);
-    audio.addEventListener('play', () => playPauseBtn.innerText = "⏸");
-    audio.addEventListener('pause', () => playPauseBtn.innerText = "▶");
     toggleQueueBtn.onclick = () => { queuePanel.style.display = queuePanel.style.display === 'none' ? 'block' : 'none'; };
     document.getElementById('lyricsBtn').onclick = fetchAndShowLyrics;
 

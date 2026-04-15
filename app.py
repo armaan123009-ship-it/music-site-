@@ -2,7 +2,6 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, f
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from ytmusicapi import YTMusic
-import yt_dlp
 import bcrypt
 import json
 import os
@@ -302,60 +301,6 @@ def home():
     except Exception as e:
         print("Home error:", e)
         return jsonify([])
-
-import os
-
-@app.route("/stream/<video_id>")
-def stream(video_id):
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    cookie_path = os.path.join(base_path, 'cookies.txt')
-
-    # Clean, simple config without contradictory headers
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'quiet': True,
-        'no_warnings': True,
-        'extractor_args': {'youtube': {'player_client': ['web', 'default']}}
-    }
-    # ⬆️ ⬆️ ⬆️
-
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
-                info = ydl.extract_info(f"https://music.youtube.com/watch?v={video_id}", download=False)
-            except Exception as e1:
-                print("YTM extraction failed, trying standard YT...", str(e1))
-                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            return jsonify({"url": info['url']})
-    except Exception as e:
-        print("Detailed Stream error:", str(e))
-        return jsonify({"error": "Stream blocked. Please try a different song or update cookies."}), 400
-
-@app.route("/proxy")
-def proxy():
-    url = request.args.get('url')
-    if not url:
-        return "No URL", 400
-        
-    headers = {}
-    if request.headers.get("Range"):
-        headers["Range"] = request.headers.get("Range")
-        
-    try:
-        r = requests.get(url, headers=headers, stream=True)
-        def generate():
-            for chunk in r.iter_content(chunk_size=8192):
-                if chunk:
-                    yield chunk
-                    
-        response = Response(stream_with_context(generate()), status=r.status_code)
-        for key, value in r.headers.items():
-            if key.lower() not in ['content-encoding', 'transfer-encoding', 'connection']:
-                response.headers[key] = value
-        return response
-    except Exception as e:
-        print("Proxy error:", str(e))
-        return str(e), 500
 
 # ---------- ADMIN: VIEW ALL REGISTERED USERS ----------
 # ... (all your other routes and API endpoints)
