@@ -6,3 +6,4 @@ yt-dlp==2026.3.17
 bcrypt==5.0.0
 psycopg2-binary==2.9.11
 gunicorn==23.0.0
+python-dotenv==1.0.0   # optional for local .env
