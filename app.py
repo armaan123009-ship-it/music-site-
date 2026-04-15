@@ -321,7 +321,11 @@ def stream(video_id):
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            try:
+                info = ydl.extract_info(f"https://music.youtube.com/watch?v={video_id}", download=False)
+            except Exception as e1:
+                print("YTM extraction failed, trying standard YT...", str(e1))
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
             return jsonify({"url": info['url']})
     except Exception as e:
         print("Detailed Stream error:", str(e))
