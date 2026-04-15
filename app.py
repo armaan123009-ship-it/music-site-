@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for, flash
+from flask import Flask, render_template, request, jsonify, redirect, url_for, flash, Response, stream_with_context
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from ytmusicapi import YTMusic
@@ -6,6 +6,7 @@ import yt_dlp
 import bcrypt
 import json
 import os
+import requests
 
 app = Flask(__name__)
 app.secret_key = 'your-secret-key-change-in-production'  # CHANGE THIS!
@@ -327,6 +328,32 @@ def stream(video_id):
     except Exception as e:
         print("Detailed Stream error:", str(e))
         return jsonify({"error": "Stream blocked. Please try a different song or update cookies."}), 400
+
+@app.route("/proxy")
+def proxy():
+    url = request.args.get('url')
+    if not url:
+        return "No URL", 400
+        
+    headers = {}
+    if request.headers.get("Range"):
+        headers["Range"] = request.headers.get("Range")
+        
+    try:
+        r = requests.get(url, headers=headers, stream=True)
+        def generate():
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+                    
+        response = Response(stream_with_context(generate()), status=r.status_code)
+        for key, value in r.headers.items():
+            if key.lower() not in ['content-encoding', 'transfer-encoding', 'connection']:
+                response.headers[key] = value
+        return response
+    except Exception as e:
+        print("Proxy error:", str(e))
+        return str(e), 500
 
 # ---------- ADMIN: VIEW ALL REGISTERED USERS ----------
 # ... (all your other routes and API endpoints)

@@ -880,7 +880,7 @@
             const res = await fetch(`/stream/${song.id}`);
             const data = await res.json();
             if (data.url) {
-                audio.src = data.url;
+                audio.src = `/proxy?url=${encodeURIComponent(data.url)}`;
                 await audio.play();
                 playPauseBtn.innerText = "⏸";
             } else throw new Error("No stream URL");
