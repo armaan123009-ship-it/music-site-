@@ -310,14 +310,12 @@ def stream(video_id):
     base_path = os.path.dirname(os.path.abspath(__file__))
     cookie_path = os.path.join(base_path, 'cookies.txt')
 
-    # ⬇️ REPLACE YOUR EXISTING ydl_opts WITH THIS ⬇️
+    # Clean, simple config without contradictory headers
     ydl_opts = {
         'format': 'bestaudio/best',
         'quiet': True,
         'no_warnings': True,
-        'cookiefile': cookie_path,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'extractor_args': {'youtube': {'player_client': ['android']}}
+        'extractor_args': {'youtube': {'player_client': ['web', 'default']}}
     }
     # ⬆️ ⬆️ ⬆️
 
