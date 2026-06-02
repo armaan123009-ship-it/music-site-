@@ -2,16 +2,23 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, f
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from ytmusicapi import YTMusic
+import yt_dlp
 import bcrypt
 import json
 import os
 import requests
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-change-in-production'  # CHANGE THIS!
+app.secret_key = os.environ.get('SECRET_KEY', 'rocket-music-dev-key-change-in-prod')
 
 # ---------- DATABASE SETUP ----------
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+db_url = os.environ.get('DATABASE_URL')
+if db_url:
+    if db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 login_manager = LoginManager()
@@ -73,8 +80,13 @@ def format_song(item):
             artist = artists
         else:
             artist = 'Unknown Artist'
-        thumbs = item.get('thumbnails', [])
-        thumb_url = thumbs[-1]['url'] if thumbs else ''
+        thumbs = item.get('thumbnails') or item.get('thumbnail') or []
+        if isinstance(thumbs, dict):
+            thumb_url = thumbs.get('url', '')
+        elif isinstance(thumbs, list) and thumbs:
+            thumb_url = thumbs[-1].get('url', '') if isinstance(thumbs[-1], dict) else thumbs[-1]
+        else:
+            thumb_url = ''
         duration = item.get('duration', '0:00')
         return {
             "id": video_id,
@@ -196,11 +208,10 @@ def manage_playlists():
         db.session.commit()
         return jsonify({"success": True})
     elif request.method == 'DELETE':  # remove song from playlist
-        data = request.json
-        playlist_id = data.get('playlistId')
-        song_id = data.get('songId')
+        playlist_id = request.args.get('playlistId')
+        song_id = request.args.get('songId')
         for pl in playlists:
-            if pl['id'] == playlist_id:
+            if str(pl['id']) == str(playlist_id):
                 pl['songs'] = [s for s in pl['songs'] if s['id'] != song_id]
                 break
         current_user.set_playlists(playlists)
@@ -212,10 +223,12 @@ def manage_playlists():
 def trending():
     try:
         charts = yt.get_charts()
-        trending_videos = charts.get('trending', {}).get('videos', [])
-        if not trending_videos:
-            trending_videos = yt.search("trending music", filter="videos")[:20]
-        songs = [format_song(v) for v in trending_videos if format_song(v)]
+        trending_songs = charts.get('songs', {}).get('items', [])
+        if not trending_songs:
+            trending_songs = charts.get('trending', {}).get('videos', [])
+        if not trending_songs:
+            trending_songs = yt.search("trending music", filter="songs")[:20]
+        songs = [format_song(v) for v in trending_songs if format_song(v)]
         return jsonify(songs)
     except Exception as e:
         print("Trending error:", e)
@@ -225,12 +238,14 @@ def trending():
 def charts():
     try:
         charts = yt.get_charts()
-        top_moves = charts.get('topMoves', {}).get('videos', [])
-        if not top_moves:
-            top_moves = charts.get('top_moves', {}).get('videos', [])
-        if not top_moves:
-            top_moves = yt.search("top hits", filter="videos")[:20]
-        songs = [format_song(v) for v in top_moves if format_song(v)]
+        top_songs = charts.get('songs', {}).get('items', [])
+        if not top_songs:
+            top_songs = charts.get('topMoves', {}).get('videos', [])
+        if not top_songs:
+            top_songs = charts.get('top_moves', {}).get('videos', [])
+        if not top_songs:
+            top_songs = yt.search("top hits", filter="songs")[:20]
+        songs = [format_song(v) for v in top_songs if format_song(v)]
         return jsonify(songs)
     except Exception as e:
         print("Charts error:", e)
@@ -268,7 +283,7 @@ def search():
     if not q:
         return jsonify([])
     try:
-        results = yt.search(q, filter="videos")[:30]
+        results = yt.search(q, filter="songs")[:30]
         songs = [format_song(r) for r in results if format_song(r)]
         return jsonify(songs)
     except Exception as e:
@@ -301,6 +316,72 @@ def home():
     except Exception as e:
         print("Home error:", e)
         return jsonify([])
+
+@app.route("/api/autoplay/<video_id>")
+def autoplay_next(video_id):
+    try:
+        watch_playlist = yt.get_watch_playlist(videoId=video_id, limit=5)
+        tracks = watch_playlist.get('tracks', [])
+        recommended = []
+        for track in tracks:
+            formatted = format_song(track)
+            if formatted and formatted.get('id') != video_id:
+                recommended.append(formatted)
+        return jsonify(recommended)
+    except Exception as e:
+        print("Autoplay recommendations error:", e)
+        return jsonify([])
+
+@app.route("/stream/<video_id>")
+def stream(video_id):
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+        }
+        cookie_path = 'cookies.txt'
+        if os.path.exists(cookie_path) and os.path.getsize(cookie_path) > 0:
+            try:
+                with open(cookie_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    first_line = f.readline()
+                    if 'Netscape' in first_line or 'HTTP Cookie' in first_line or '#' in first_line:
+                        ydl_opts['cookiefile'] = cookie_path
+            except Exception as ce:
+                print("Cookie file read error:", ce)
+                
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            return jsonify({"url": info['url']})
+    except Exception as e:
+        print("Detailed Stream error:", str(e))
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/proxy")
+def proxy():
+    url = request.args.get('url')
+    if not url:
+        return "No URL", 400
+        
+    headers = {}
+    if request.headers.get("Range"):
+        headers["Range"] = request.headers.get("Range")
+        
+    try:
+        r = requests.get(url, headers=headers, stream=True)
+        def generate():
+            for chunk in r.iter_content(chunk_size=8192):
+                if chunk:
+                    yield chunk
+                    
+        response = Response(stream_with_context(generate()), status=r.status_code)
+        for key, value in r.headers.items():
+            if key.lower() not in ['content-encoding', 'transfer-encoding', 'connection']:
+                response.headers[key] = value
+        return response
+    except Exception as e:
+        print("Proxy error:", str(e))
+        return str(e), 500
 
 # ---------- ADMIN: VIEW ALL REGISTERED USERS ----------
 # ... (all your other routes and API endpoints)
