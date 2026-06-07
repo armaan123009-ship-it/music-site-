@@ -13,6 +13,13 @@ app = Flask(__name__, static_folder='dist', static_url_path='/_static')
 app.secret_key = os.environ.get('SECRET_KEY', 'premium-music-secret-key-12345')
 CORS(app, supports_credentials=True)
 
+# Production cookie settings for cross-origin authentication
+if os.environ.get('FLASK_ENV') == 'production' or os.environ.get('DATABASE_URL'):
+    app.config.update(
+        SESSION_COOKIE_SAMESITE='None',
+        SESSION_COOKIE_SECURE=True
+    )
+
 # ---------- DATABASE SETUP ----------
 db_url = os.environ.get('DATABASE_URL')
 if db_url:

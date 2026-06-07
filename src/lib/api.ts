@@ -1,10 +1,15 @@
 const getApiBase = () => {
+    // Priority: environment variable set at build-time
+    if (import.meta.env.PUBLIC_API_URL) {
+        return import.meta.env.PUBLIC_API_URL;
+    }
+    
     if (typeof window !== 'undefined') {
-        // If we are on the dev server (4321), point to the backend (5000)
+        // If we are on the dev server (4321), point to the local backend (5000)
         if (window.location.port === '4321') {
             return 'http://127.0.0.1:5000';
         }
-        // Otherwise use the current origin (handles port 5000 or production URL)
+        // Otherwise use the current origin
         return window.location.origin;
     }
     return 'http://127.0.0.1:5000'; // Fallback for SSR
