@@ -1,0 +1,69 @@
+---
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+import AudioPlayer from '../components/AudioPlayer.astro';
+import BottomNav from '../components/BottomNav.astro';
+import Header from '../components/Header.astro';
+
+interface Props {
+	title: string;
+	description?: string;
+	showNav?: boolean;
+	activeNav?: string;
+}
+
+const { title, description = "Premium Music Experience", showNav = true, activeNav = 'home' } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="dark">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content={description} />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<ClientRouter />
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
+	</head>
+	<body class="bg-background text-foreground selection:bg-primary/30 antialiased">
+		<div class="relative min-h-screen flex flex-col">
+			<!-- Subtle Background Glow -->
+			<div class="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
+				<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px]"></div>
+				<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px]"></div>
+			</div>
+			
+			{showNav && <Header />}
+
+			<slot />
+
+			{showNav && <BottomNav active={activeNav} />}
+			{showNav && <AudioPlayer />}
+		</div>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--font-sans: 'Geist', sans-serif;
+	}
+	
+	/* Custom Scrollbar */
+	::-webkit-scrollbar {
+		width: 8px;
+	}
+	::-webkit-scrollbar-track {
+		background: hsl(var(--background));
+	}
+	::-webkit-scrollbar-thumb {
+		background: hsl(var(--muted-foreground) / 0.2);
+		border-radius: 10px;
+	}
+	::-webkit-scrollbar-thumb:hover {
+		background: hsl(var(--muted-foreground) / 0.4);
+	}
+</style>

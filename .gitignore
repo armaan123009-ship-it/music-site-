@@ -1,35 +1,28 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
+# Dependencies
+node_modules/
+.pnpm-store/
 .venv/
-venv/
-env/
-*.egg-info/
+env.d.ts
+
+# Astro build outputs
 dist/
-build/
+.astro/
 
-# Flask / SQLite
-instance/
-*.db
-*.sqlite3
-
-# Environment
+# Environment files and secrets
 .env
 .env.*
+!.env.example
+cookies.txt
+browser.json
 
-# Node / npm
-node_modules/
-npm-debug.log*
-
-# OS
+# IDEs & System files
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
 
-# IDE
-.vscode/
-.idea/
-
-# Secrets (DO NOT COMMIT - add to Render secret files instead)
-# cookies.txt
-# browser.json
+# Python caches and local db
+__pycache__/
+*.pyc
+instance/
+users.db

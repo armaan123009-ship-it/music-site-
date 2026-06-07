@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "tailwind-v4-docs": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "tailwindcss-docs-mcp"
+      ]
+    },
+    "astro-docs": {
+      "url": "https://mcp.docs.astro.build/mcp",
+      "type": "sse"
+    }
+  }
+}

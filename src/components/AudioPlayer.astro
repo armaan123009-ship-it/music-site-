@@ -1,0 +1,854 @@
+---
+import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic, Languages, ChevronUp, Sparkles } from 'lucide-react';
+---
+
+<!-- Full Screen Immersive Player Overlay -->
+<div id="immersive-player" transition:persist class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-8 overflow-y-auto scrollbar-hide">
+    <button id="close-immersive" class="absolute top-8 left-8 p-3 hover:bg-muted rounded-full transition-all z-20">
+        <SkipBack className="w-6 h-6 rotate-[-90deg]" />
+    </button>
+
+    <div class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 max-w-7xl mx-auto w-full h-full mt-16 lg:mt-0">
+        <!-- Artwork & Info & Playback Controls -->
+        <div class="w-full lg:w-1/2 flex flex-col items-center text-center space-y-6 md:space-y-8 shrink-0">
+            <!-- Artwork -->
+            <div class="relative w-56 h-56 md:w-96 md:h-96 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/10 group">
+                <img id="immersive-artwork" src="" alt="Artwork" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+            </div>
+
+            <!-- Title & Artist & Like Button -->
+            <div class="flex items-center justify-between w-full max-w-md px-4 gap-4">
+                <div class="flex-1 text-left space-y-1 min-w-0">
+                    <h1 id="immersive-title" class="text-3xl md:text-5xl font-black tracking-tighter text-white truncate">Select a track</h1>
+                    <p id="immersive-artist" class="text-base md:text-lg text-primary font-bold truncate">Premium Artist</p>
+                </div>
+                <button id="immersive-like-btn" class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 hidden">
+                    <svg id="immersive-like-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full max-w-md px-4 space-y-2">
+                <div class="group relative w-full h-1.5 bg-white/10 rounded-full cursor-pointer overflow-hidden" id="immersive-progress-container">
+                    <div id="immersive-progress-bar" class="absolute top-0 left-0 h-full bg-primary transition-all duration-100 ease-linear" style="width: 0%"></div>
+                    <div class="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-10 bg-primary transition-opacity"></div>
+                </div>
+                <div class="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    <span id="immersive-current-time">0:00</span>
+                    <span id="immersive-duration">0:00</span>
+                </div>
+            </div>
+
+            <!-- Controls Row -->
+            <div class="flex items-center justify-center gap-6 w-full max-w-md pb-4 border-b border-white/5 lg:border-none lg:pb-0">
+                <button id="immersive-shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5" title="Shuffle">
+                    <Shuffle className="w-5 h-5" />
+                </button>
+                <button id="immersive-prev-btn" class="text-foreground hover:scale-110 transition-transform p-2">
+                    <SkipBack className="w-6 h-6 fill-current text-white" />
+                </button>
+                <button id="immersive-play-pause-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/30 shrink-0">
+                    <Play id="immersive-play-icon" className="w-6 h-6 md:w-8 md:h-8 fill-current" />
+                    <Pause id="immersive-pause-icon" className="w-6 h-6 md:w-8 md:h-8 fill-current hidden" />
+                </button>
+                <button id="immersive-next-btn" class="text-foreground hover:scale-110 transition-transform p-2">
+                    <SkipForward className="w-6 h-6 fill-current text-white" />
+                </button>
+                <button id="immersive-repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5" title="Repeat">
+                    <Repeat className="w-5 h-5" />
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs Section (Lyrics / Queue) -->
+        <div class="w-full lg:w-1/2 flex flex-col h-[500px] lg:h-[600px] bg-muted/20 rounded-[2rem] border border-white/5 overflow-hidden">
+            <div class="flex border-b border-white/5">
+                <button id="tab-lyrics" class="flex-1 py-4 text-sm font-bold border-b-2 border-primary bg-primary/5 transition-all flex items-center justify-center gap-2 text-white">
+                    <Languages className="w-4 h-4" /> Lyrics
+                </button>
+                <button id="tab-queue" class="flex-1 py-4 text-sm font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60">
+                    <ListMusic className="w-4 h-4" /> Queue
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-8 relative">
+                <div id="lyrics-content" class="text-xl md:text-2xl font-medium leading-relaxed text-white/80 space-y-4">
+                    <p class="opacity-50 italic">Select a track to see lyrics...</p>
+                </div>
+                <div id="queue-content" class="hidden space-y-4">
+                    <div class="flex items-center justify-between pb-4 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10">
+                        <span class="text-sm font-bold text-white/80">Queue list</span>
+                        <label class="relative inline-flex items-center cursor-pointer select-none">
+                            <input type="checkbox" id="autoplay-toggle" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                            <span class="ms-2 text-xs font-bold text-white/80">Autoplay</span>
+                        </label>
+                    </div>
+                    <div id="queue-list-container" class="space-y-4">
+                        <!-- Queue items -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bottom Mini Player -->
+<div id="audio-player" transition:persist class="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border p-4 transition-transform duration-500 translate-y-full">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        <!-- Track Info -->
+        <div id="mini-info" class="flex items-center gap-3 md:gap-4 w-1/2 md:w-1/3 cursor-pointer group min-w-0">
+            <div class="relative w-12 h-12 rounded-lg overflow-hidden border border-border shrink-0">
+                <img id="player-artwork" src="" alt="Artwork" class="w-full h-full object-cover animate-spin-slow paused group-[.playing]:running" />
+                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ChevronUp className="w-4 h-4 text-white" />
+                </div>
+            </div>
+            <div class="flex flex-col overflow-hidden min-w-0">
+                <span id="player-title" class="text-sm font-semibold truncate text-white">Select a track</span>
+                <span id="player-artist" class="text-xs text-muted-foreground truncate">Premium Music</span>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex flex-col items-center gap-2 w-1/2 md:w-1/3">
+            <div class="flex items-center gap-3 sm:gap-6">
+                <button id="shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5" title="Shuffle"><Shuffle className="w-4 h-4" /></button>
+                <button id="prev-btn" class="text-foreground hover:scale-110 transition-transform p-1"><SkipBack className="w-5 h-5 fill-current text-white" /></button>
+                <button id="play-pause-btn" class="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0">
+                    <Play id="play-icon" className="w-5 h-5 fill-current" />
+                    <Pause id="pause-icon" className="w-5 h-5 fill-current hidden" />
+                </button>
+                <button id="next-btn" class="text-foreground hover:scale-110 transition-transform p-1"><SkipForward className="w-5 h-5 fill-current text-white" /></button>
+                <button id="repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5" title="Repeat"><Repeat className="w-4 h-4" /></button>
+                <button id="autoplay-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5" title="Autoplay recommendations"><Sparkles className="w-4 h-4" /></button>
+            </div>
+            
+            <div class="flex items-center gap-3 w-full max-w-md">
+                <span id="current-time" class="text-[10px] tabular-nums text-muted-foreground w-10 text-right">0:00</span>
+                <div class="group relative flex-1 h-1 bg-muted rounded-full cursor-pointer overflow-hidden" id="progress-container">
+                    <div id="progress-bar" class="absolute top-0 left-0 h-full bg-primary transition-all duration-100 ease-linear" style="width: 0%"></div>
+                    <div class="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-10 bg-primary transition-opacity"></div>
+                </div>
+                <span id="duration" class="text-[10px] tabular-nums text-muted-foreground w-10">0:00</span>
+            </div>
+        </div>
+
+        <!-- Volume & Actions -->
+        <div class="flex items-center justify-end gap-2 md:gap-6 w-auto md:w-1/3">
+            <button id="mini-like-btn" class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group hidden">
+                <svg id="mini-like-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            </button>
+            <div class="hidden md:flex items-center gap-3">
+                <Volume2 className="w-4 h-4 text-muted-foreground" />
+                <div id="volume-container" class="w-24 h-1 bg-muted rounded-full cursor-pointer relative overflow-hidden group">
+                    <div id="volume-bar" class="absolute top-0 left-0 h-full bg-foreground" style="width: 80%"></div>
+                </div>
+            </div>
+            <button id="toggle-immersive-btn" class="p-2 hover:bg-muted rounded-full transition-all shrink-0">
+                <ListMusic className="w-5 h-5 text-white" />
+            </button>
+        </div>
+    </div>
+</div>
+
+<audio id="main-audio" transition:persist preload="auto"></audio>
+
+<script>
+    import { apiFetch, fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData } from '../lib/api';
+
+    let isPlaying = false;
+    let currentQueue: any[] = [];
+    let originalQueue: any[] = [];
+    let currentIndex = -1;
+    let isShuffle = false;
+    let repeatMode = 'none'; // 'none' | 'all' | 'one'
+    let isAutoplay = true;
+    let currentUser: any = null;
+
+    let audio: HTMLAudioElement;
+    let miniPlayer: HTMLElement | null;
+    let immersivePlayer: HTMLElement | null;
+    
+    const titleEls = () => [document.getElementById('player-title'), document.getElementById('immersive-title')];
+    const artistEls = () => [document.getElementById('player-artist'), document.getElementById('immersive-artist')];
+    const artworkEls = () => [document.getElementById('player-artwork'), document.getElementById('immersive-artwork')];
+    
+    const miniLikeBtn = () => document.getElementById('mini-like-btn');
+    const miniLikeIcon = () => document.getElementById('mini-like-icon');
+
+    const lyricsContent = () => document.getElementById('lyrics-content');
+    const queueListContainer = () => document.getElementById('queue-list-container');
+
+    const shuffleBtn = () => document.getElementById('shuffle-btn');
+    const repeatBtn = () => document.getElementById('repeat-btn');
+    const autoplayBtn = () => document.getElementById('autoplay-btn');
+    const autoplayToggle = () => document.getElementById('autoplay-toggle') as HTMLInputElement;
+
+    async function initUser() {
+        currentUser = await getUserData();
+        const likeBtn = miniLikeBtn();
+        const immLikeBtn = document.getElementById('immersive-like-btn');
+        if (currentUser && currentUser.logged_in) {
+            likeBtn?.classList.remove('hidden');
+            immLikeBtn?.classList.remove('hidden');
+            if (currentIndex !== -1 && currentQueue[currentIndex]) {
+                updateLikeUI(currentQueue[currentIndex].id);
+            }
+        } else {
+            likeBtn?.classList.add('hidden');
+            immLikeBtn?.classList.add('hidden');
+        }
+    }
+
+    function formatTime(seconds: number) {
+        if (isNaN(seconds)) return "0:00";
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.floor(seconds % 60);
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    async function fetchStreamAndPlay(track: any) {
+        if (!track) return;
+        try {
+            titleEls().forEach(el => el && (el.textContent = "Connecting..."));
+            updateLikeUI(track.id);
+
+            const proxyUrl = await getStreamProxyUrl(track.id);
+            if (!proxyUrl) throw new Error("Could not get stream URL");
+
+            audio.src = proxyUrl;
+            
+            titleEls().forEach(el => el && (el.textContent = track.title));
+            artistEls().forEach(el => el && (el.textContent = track.artist));
+            artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+            
+            miniPlayer?.classList.remove('translate-y-full');
+            
+            audio.play().catch(e => {
+                console.log("Autoplay prevented. User interaction required.");
+                isPlaying = false;
+                const playIcon = document.getElementById('play-icon');
+                const pauseIcon = document.getElementById('pause-icon');
+                playIcon?.classList.remove('hidden');
+                pauseIcon?.classList.add('hidden');
+            });
+
+            updateLyrics(track.id);
+            updateQueueUI();
+            saveState();
+        } catch (err) {
+            console.error("Playback failed:", err);
+            titleEls().forEach(el => el && (el.textContent = "Playback Error"));
+        }
+    }
+
+    function updateLikeUI(songId: string) {
+        const likeIcon = miniLikeIcon();
+        const likeBtn = miniLikeBtn();
+        const immLikeIcon = document.getElementById('immersive-like-icon');
+        const immLikeBtn = document.getElementById('immersive-like-btn');
+        if (!currentUser || !currentUser.logged_in) {
+            likeBtn?.classList.add('hidden');
+            immLikeBtn?.classList.add('hidden');
+            return;
+        }
+        likeBtn?.classList.remove('hidden');
+        immLikeBtn?.classList.remove('hidden');
+        const isLiked = currentUser.liked_songs.some((s: any) => s.id === songId);
+        if (isLiked) {
+            likeIcon?.classList.add('fill-primary', 'text-primary');
+            likeIcon?.setAttribute('fill', 'currentColor');
+            immLikeIcon?.classList.add('fill-primary', 'text-primary');
+            immLikeIcon?.setAttribute('fill', 'currentColor');
+        } else {
+            likeIcon?.classList.remove('fill-primary', 'text-primary');
+            likeIcon?.setAttribute('fill', 'none');
+            immLikeIcon?.classList.remove('fill-primary', 'text-primary');
+            immLikeIcon?.setAttribute('fill', 'none');
+        }
+    }
+
+    async function handleLikeToggle(e: Event) {
+        e.stopPropagation();
+        if (!currentUser || !currentUser.logged_in || currentIndex === -1) return;
+        const currentTrack = currentQueue[currentIndex];
+        const isLiked = currentUser.liked_songs.some((s: any) => s.id === currentTrack.id);
+        const action = isLiked ? 'remove' : 'add';
+        
+        if (action === 'add') {
+            currentUser.liked_songs.push(currentTrack);
+        } else {
+            currentUser.liked_songs = currentUser.liked_songs.filter((s: any) => s.id !== currentTrack.id);
+        }
+        updateLikeUI(currentTrack.id);
+
+        const res = await toggleLike(currentTrack, action);
+        if (res && res.success) {
+            currentUser.liked_songs = res.liked_songs;
+        }
+    }
+
+    async function updateLyrics(id: string) {
+        const lyr = lyricsContent();
+        if (lyr) lyr.innerHTML = '<p class="animate-pulse text-lg text-white/50">Fetching lyrics...</p>';
+        const lyrics = await fetchLyrics(id);
+        const lyrUpdate = lyricsContent();
+        if (lyrUpdate) {
+            lyrUpdate.innerHTML = lyrics ? lyrics.replace(/\n/g, '<br/>') : "No lyrics found for this track.";
+        }
+    }
+
+    function updateQueueUI() {
+        const qContainer = queueListContainer();
+        if (!qContainer) return;
+        qContainer.innerHTML = currentQueue.map((track, idx) => `
+            <div class="flex items-center justify-between p-4 rounded-2xl ${idx === currentIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-white/5'} transition-all cursor-pointer queue-item" data-index="${idx}">
+                <div class="flex items-center gap-4 pointer-events-none min-w-0">
+                    <img src="${track.image}" class="w-12 h-12 rounded-xl object-cover shrink-0" />
+                    <div class="min-w-0">
+                        <p class="font-bold text-sm text-white truncate">${track.title}</p>
+                        <p class="text-xs opacity-70 text-white/70 truncate">${track.artist}</p>
+                    </div>
+                </div>
+                ${idx === currentIndex ? '<div class="w-2 h-2 rounded-full bg-white animate-ping shrink-0 ml-2"></div>' : ''}
+            </div>
+        `).join('');
+
+        qContainer.querySelectorAll('.queue-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                const index = parseInt((item as HTMLElement).dataset.index!);
+                currentIndex = index;
+                fetchStreamAndPlay(currentQueue[currentIndex]);
+            });
+        });
+    }
+
+    async function nextTrack() {
+        if (currentQueue.length === 0) return;
+
+        if (currentIndex < currentQueue.length - 1) {
+            currentIndex++;
+            fetchStreamAndPlay(currentQueue[currentIndex]);
+        } else {
+            if (isAutoplay) {
+                const lastTrack = currentQueue[currentIndex];
+                titleEls().forEach(el => el && (el.textContent = "Autoplay recommendations..."));
+                try {
+                    const suggestions = await fetchSuggestions(lastTrack.id);
+                    if (suggestions && suggestions.length > 0) {
+                        const newTracks = suggestions.filter((s: any) => !currentQueue.some((t: any) => t.id === s.id));
+                        if (newTracks.length > 0) {
+                            currentQueue.push(...newTracks);
+                            currentIndex++;
+                            updateQueueUI();
+                            fetchStreamAndPlay(currentQueue[currentIndex]);
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Autoplay suggestions fetch failed:", e);
+                }
+            }
+
+            if (repeatMode === 'all') {
+                currentIndex = 0;
+                fetchStreamAndPlay(currentQueue[currentIndex]);
+            } else {
+                audio.pause();
+                isPlaying = false;
+                const playIcon = document.getElementById('play-icon');
+                const pauseIcon = document.getElementById('pause-icon');
+                playIcon?.classList.remove('hidden');
+                pauseIcon?.classList.add('hidden');
+            }
+        }
+    }
+
+    function prevTrack() {
+        if (currentQueue.length === 0) return;
+        currentIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
+        fetchStreamAndPlay(currentQueue[currentIndex]);
+    }
+
+    function saveState() {
+        localStorage.setItem('premium_music_state', JSON.stringify({
+            queue: currentQueue,
+            originalQueue: originalQueue,
+            index: currentIndex,
+            shuffle: isShuffle,
+            repeat: repeatMode
+        }));
+    }
+
+    function updateControlsUI() {
+        const sBtn = shuffleBtn();
+        const immSBtn = document.getElementById('immersive-shuffle-btn');
+        if (isShuffle) {
+            sBtn?.classList.add('text-primary');
+            sBtn?.classList.remove('text-muted-foreground');
+            immSBtn?.classList.add('text-primary');
+            immSBtn?.classList.remove('text-muted-foreground');
+        } else {
+            sBtn?.classList.remove('text-primary');
+            sBtn?.classList.add('text-muted-foreground');
+            immSBtn?.classList.remove('text-primary');
+            immSBtn?.classList.add('text-muted-foreground');
+        }
+
+        const rBtn = repeatBtn();
+        const immRBtn = document.getElementById('immersive-repeat-btn');
+        
+        // Helper to update repeat state styling
+        const applyRepeatStyle = (btn: HTMLElement | null) => {
+            if (!btn) return;
+            if (repeatMode === 'none') {
+                btn.classList.add('text-muted-foreground');
+                btn.classList.remove('text-primary', 'text-blue-400');
+                btn.querySelector('.repeat-badge')?.remove();
+            } else if (repeatMode === 'all') {
+                btn.classList.add('text-primary');
+                btn.classList.remove('text-muted-foreground', 'text-blue-400');
+                btn.querySelector('.repeat-badge')?.remove();
+            } else if (repeatMode === 'one') {
+                btn.classList.add('text-blue-400');
+                btn.classList.remove('text-muted-foreground', 'text-primary');
+                if (!btn.querySelector('.repeat-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'repeat-badge absolute -top-1 -right-1 text-[8px] font-black bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center';
+                    badge.innerText = '1';
+                    btn.appendChild(badge);
+                }
+            }
+        };
+
+        applyRepeatStyle(rBtn);
+        applyRepeatStyle(immRBtn);
+
+        const aBtn = autoplayBtn();
+        const aTgl = autoplayToggle();
+        if (isAutoplay) {
+            aBtn?.classList.add('text-primary');
+            aBtn?.classList.remove('text-muted-foreground');
+            if (aTgl) aTgl.checked = true;
+        } else {
+            aBtn?.classList.remove('text-primary');
+            aBtn?.classList.add('text-muted-foreground');
+            if (aTgl) aTgl.checked = false;
+        }
+    }
+
+    function handleShuffleToggle() {
+        if (currentQueue.length === 0) return;
+        isShuffle = !isShuffle;
+        if (isShuffle) {
+            originalQueue = [...currentQueue];
+            const currentTrack = currentQueue[currentIndex];
+            const remaining = currentQueue.filter((_, idx) => idx !== currentIndex);
+            
+            for (let i = remaining.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+            }
+            
+            currentQueue = [currentTrack, ...remaining];
+            currentIndex = 0;
+        } else {
+            const currentTrack = currentQueue[currentIndex];
+            if (originalQueue.length > 0) {
+                currentQueue = [...originalQueue];
+                currentIndex = currentQueue.findIndex(t => t.id === currentTrack.id);
+            }
+        }
+        updateQueueUI();
+        updateControlsUI();
+        saveState();
+    }
+
+    function handleRepeatToggle() {
+        if (repeatMode === 'none') {
+            repeatMode = 'all';
+        } else if (repeatMode === 'all') {
+            repeatMode = 'one';
+        } else {
+            repeatMode = 'none';
+        }
+        updateControlsUI();
+        saveState();
+    }
+
+    function handleAutoplayToggle(e: Event) {
+        const aTgl = autoplayToggle();
+        if (e.target === aTgl) {
+            isAutoplay = aTgl.checked;
+        } else {
+            isAutoplay = !isAutoplay;
+        }
+        localStorage.setItem('premium_music_autoplay', isAutoplay.toString());
+        updateControlsUI();
+    }
+
+    const toggleImmersive = () => immersivePlayer?.classList.toggle('translate-y-full');
+
+    function loadState() {
+        const savedAutoplay = localStorage.getItem('premium_music_autoplay');
+        if (savedAutoplay !== null) {
+            isAutoplay = savedAutoplay === 'true';
+        }
+
+        const saved = localStorage.getItem('premium_music_state');
+        if (saved) {
+            try {
+                const state = JSON.parse(saved);
+                currentQueue = state.queue || [];
+                originalQueue = state.originalQueue || [];
+                currentIndex = state.index || -1;
+                isShuffle = state.shuffle || false;
+                repeatMode = state.repeat || 'none';
+                if (currentIndex !== -1 && currentQueue[currentIndex]) {
+                    const track = currentQueue[currentIndex];
+                    titleEls().forEach(el => el && (el.textContent = track.title));
+                    artistEls().forEach(el => el && (el.textContent = track.artist));
+                    artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+                    miniPlayer?.classList.remove('translate-y-full');
+                    updateQueueUI();
+                }
+            } catch (e) {}
+        }
+        updateControlsUI();
+        initUser();
+    }
+
+    function initPlayer() {
+        audio = document.getElementById('main-audio') as HTMLAudioElement;
+        miniPlayer = document.getElementById('audio-player');
+        immersivePlayer = document.getElementById('immersive-player');
+
+        if (!audio) return;
+
+        // Attach listeners on media object only once
+        if (!audio.dataset.bound) {
+            audio.dataset.bound = "true";
+            
+            audio.onended = () => {
+                if (repeatMode === 'one') {
+                    audio.currentTime = 0;
+                    audio.play();
+                } else {
+                    nextTrack();
+                }
+            };
+            audio.onplay = () => {
+                isPlaying = true;
+                const playIcon = document.getElementById('play-icon');
+                const pauseIcon = document.getElementById('pause-icon');
+                const immPlayIcon = document.getElementById('immersive-play-icon');
+                const immPauseIcon = document.getElementById('immersive-pause-icon');
+                playIcon?.classList.add('hidden');
+                pauseIcon?.classList.remove('hidden');
+                immPlayIcon?.classList.add('hidden');
+                immPauseIcon?.classList.remove('hidden');
+                document.getElementById('mini-info')?.classList.add('playing');
+            };
+            audio.onpause = () => {
+                isPlaying = false;
+                const playIcon = document.getElementById('play-icon');
+                const pauseIcon = document.getElementById('pause-icon');
+                const immPlayIcon = document.getElementById('immersive-play-icon');
+                const immPauseIcon = document.getElementById('immersive-pause-icon');
+                playIcon?.classList.remove('hidden');
+                pauseIcon?.classList.add('hidden');
+                immPlayIcon?.classList.remove('hidden');
+                immPauseIcon?.classList.add('hidden');
+                document.getElementById('mini-info')?.classList.remove('playing');
+            };
+            audio.ontimeupdate = () => {
+                const progressBar = document.getElementById('progress-bar');
+                const currentTimeEl = document.getElementById('current-time');
+                const immProgressBar = document.getElementById('immersive-progress-bar');
+                const immCurrentTimeEl = document.getElementById('immersive-current-time');
+                
+                const progress = (audio.currentTime / audio.duration) * 100;
+                if (progressBar) progressBar.style.width = `${progress}%`;
+                if (currentTimeEl) currentTimeEl.textContent = formatTime(audio.currentTime);
+                if (immProgressBar) immProgressBar.style.width = `${progress}%`;
+                if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(audio.currentTime);
+            };
+            audio.onloadedmetadata = () => {
+                const durationEl = document.getElementById('duration');
+                const immDurationEl = document.getElementById('immersive-duration');
+                if (durationEl) durationEl.textContent = formatTime(audio.duration);
+                if (immDurationEl) immDurationEl.textContent = formatTime(audio.duration);
+            };
+        }
+
+        // Attach event listeners to player controls
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        if (playPauseBtn && !playPauseBtn.dataset.bound) {
+            playPauseBtn.dataset.bound = "true";
+            playPauseBtn.addEventListener('click', () => isPlaying ? audio.pause() : audio.play());
+        }
+
+        const immPlayPauseBtn = document.getElementById('immersive-play-pause-btn');
+        if (immPlayPauseBtn && !immPlayPauseBtn.dataset.bound) {
+            immPlayPauseBtn.dataset.bound = "true";
+            immPlayPauseBtn.addEventListener('click', () => isPlaying ? audio.pause() : audio.play());
+        }
+
+        const nextBtn = document.getElementById('next-btn');
+        if (nextBtn && !nextBtn.dataset.bound) {
+            nextBtn.dataset.bound = "true";
+            nextBtn.addEventListener('click', nextTrack);
+        }
+
+        const immNextBtn = document.getElementById('immersive-next-btn');
+        if (immNextBtn && !immNextBtn.dataset.bound) {
+            immNextBtn.dataset.bound = "true";
+            immNextBtn.addEventListener('click', nextTrack);
+        }
+
+        const prevBtn = document.getElementById('prev-btn');
+        if (prevBtn && !prevBtn.dataset.bound) {
+            prevBtn.dataset.bound = "true";
+            prevBtn.addEventListener('click', prevTrack);
+        }
+
+        const immPrevBtn = document.getElementById('immersive-prev-btn');
+        if (immPrevBtn && !immPrevBtn.dataset.bound) {
+            immPrevBtn.dataset.bound = "true";
+            immPrevBtn.addEventListener('click', prevTrack);
+        }
+
+        const sBtn = shuffleBtn();
+        if (sBtn && !sBtn.dataset.bound) {
+            sBtn.dataset.bound = "true";
+            sBtn.addEventListener('click', handleShuffleToggle);
+        }
+
+        const immSBtn = document.getElementById('immersive-shuffle-btn');
+        if (immSBtn && !immSBtn.dataset.bound) {
+            immSBtn.dataset.bound = "true";
+            immSBtn.addEventListener('click', handleShuffleToggle);
+        }
+
+        const rBtn = repeatBtn();
+        if (rBtn && !rBtn.dataset.bound) {
+            rBtn.dataset.bound = "true";
+            rBtn.addEventListener('click', handleRepeatToggle);
+        }
+
+        const immRBtn = document.getElementById('immersive-repeat-btn');
+        if (immRBtn && !immRBtn.dataset.bound) {
+            immRBtn.dataset.bound = "true";
+            immRBtn.addEventListener('click', handleRepeatToggle);
+        }
+
+        const aBtn = autoplayBtn();
+        if (aBtn && !aBtn.dataset.bound) {
+            aBtn.dataset.bound = "true";
+            aBtn.addEventListener('click', handleAutoplayToggle);
+        }
+
+        const aTgl = autoplayToggle();
+        if (aTgl && !aTgl.dataset.bound) {
+            aTgl.dataset.bound = "true";
+            aTgl.addEventListener('change', handleAutoplayToggle);
+        }
+
+        const lBtn = miniLikeBtn();
+        if (lBtn && !lBtn.dataset.bound) {
+            lBtn.dataset.bound = "true";
+            lBtn.addEventListener('click', handleLikeToggle);
+        }
+
+        const immLikeBtn = document.getElementById('immersive-like-btn');
+        if (immLikeBtn && !immLikeBtn.dataset.bound) {
+            immLikeBtn.dataset.bound = "true";
+            immLikeBtn.addEventListener('click', handleLikeToggle);
+        }
+
+        const progressContainer = document.getElementById('progress-container');
+        if (progressContainer && !progressContainer.dataset.bound) {
+            progressContainer.dataset.bound = "true";
+            progressContainer.addEventListener('click', (e) => {
+                const rect = progressContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                audio.currentTime = pos * audio.duration;
+            });
+        }
+
+        const immProgressContainer = document.getElementById('immersive-progress-container');
+        if (immProgressContainer && !immProgressContainer.dataset.bound) {
+            immProgressContainer.dataset.bound = "true";
+            immProgressContainer.addEventListener('click', (e) => {
+                const rect = immProgressContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                audio.currentTime = pos * audio.duration;
+            });
+        }
+
+        const volumeContainer = document.getElementById('volume-container');
+        if (volumeContainer && !volumeContainer.dataset.bound) {
+            volumeContainer.dataset.bound = "true";
+            volumeContainer.addEventListener('click', (e) => {
+                const rect = volumeContainer.getBoundingClientRect();
+                const pos = (e.clientX - rect.left) / rect.width;
+                audio.volume = Math.max(0, Math.min(1, pos));
+                const volumeBar = document.getElementById('volume-bar');
+                if (volumeBar) volumeBar.style.width = `${pos * 100}%`;
+            });
+        }
+
+        const mInfo = document.getElementById('mini-info');
+        if (mInfo && !mInfo.dataset.bound) {
+            mInfo.dataset.bound = "true";
+            mInfo.addEventListener('click', toggleImmersive);
+        }
+
+        const toggleImmBtn = document.getElementById('toggle-immersive-btn');
+        if (toggleImmBtn && !toggleImmBtn.dataset.bound) {
+            toggleImmBtn.dataset.bound = "true";
+            toggleImmBtn.addEventListener('click', toggleImmersive);
+        }
+
+        const closeImm = document.getElementById('close-immersive');
+        if (closeImm && !closeImm.dataset.bound) {
+            closeImm.dataset.bound = "true";
+            closeImm.addEventListener('click', toggleImmersive);
+        }
+
+        const tLyrics = document.getElementById('tab-lyrics');
+        if (tLyrics && !tLyrics.dataset.bound) {
+            tLyrics.dataset.bound = "true";
+            tLyrics.addEventListener('click', () => {
+                const lyr = lyricsContent();
+                const qContent = document.getElementById('queue-content');
+                const tQueue = document.getElementById('tab-queue');
+                lyr?.classList.remove('hidden');
+                qContent?.classList.add('hidden');
+                tLyrics.classList.add('bg-primary/5', 'border-primary', 'text-white');
+                tLyrics.classList.remove('text-white/60');
+                tQueue?.classList.remove('bg-primary/5', 'border-primary', 'text-white');
+                tQueue?.classList.add('text-white/60');
+            });
+        }
+
+        const tQueue = document.getElementById('tab-queue');
+        if (tQueue && !tQueue.dataset.bound) {
+            tQueue.dataset.bound = "true";
+            tQueue.addEventListener('click', () => {
+                const lyr = lyricsContent();
+                const qContent = document.getElementById('queue-content');
+                const tLyrics = document.getElementById('tab-lyrics');
+                lyr?.classList.add('hidden');
+                qContent?.classList.remove('hidden');
+                tQueue.classList.add('bg-primary/5', 'border-primary', 'text-white');
+                tQueue.classList.remove('text-white/60');
+                tLyrics?.classList.remove('bg-primary/5', 'border-primary', 'text-white');
+                tLyrics?.classList.add('text-white/60');
+                updateQueueUI();
+            });
+        }
+
+        // Global Custom event listener for play-track (bound exactly once on window)
+        if (!(window as any).playTrackListenerBound) {
+            (window as any).playTrackListenerBound = true;
+            window.addEventListener('play-track', (async (e: CustomEvent) => {
+                const track = e.detail;
+                const existingIdx = currentQueue.findIndex(t => t.id === track.id);
+                if (existingIdx === -1) {
+                    currentQueue.push(track);
+                    currentIndex = currentQueue.length - 1;
+                } else {
+                    currentIndex = existingIdx;
+                }
+                if (isShuffle) {
+                    if (!originalQueue.some(t => t.id === track.id)) {
+                        originalQueue.push(track);
+                    }
+                }
+                fetchStreamAndPlay(currentQueue[currentIndex]);
+            }) as any);
+        }
+
+        // Global Custom event listener for add-to-queue (bound exactly once on window)
+        if (!(window as any).addToQueueListenerBound) {
+            (window as any).addToQueueListenerBound = true;
+            window.addEventListener('add-to-queue', ((e: CustomEvent) => {
+                const track = e.detail;
+                if (!currentQueue.find(t => t.id === track.id)) {
+                    currentQueue.push(track);
+                    if (isShuffle) {
+                        originalQueue.push(track);
+                    }
+                    updateQueueUI();
+                    miniPlayer?.classList.remove('translate-y-full');
+                    saveState();
+                }
+            }) as any);
+        }
+
+        // Unified Document Click Delegation for all dynamically rendered song triggers and playlist routing
+        if (!(document as any).clickBound) {
+            (document as any).clickBound = true;
+            document.addEventListener('click', (e) => {
+                const target = e.target as HTMLElement;
+
+                // Playlist click routing
+                const plTrigger = target.closest('.playlist-trigger');
+                if (plTrigger) {
+                    const id = (plTrigger as HTMLElement).dataset.id;
+                    window.location.href = `/playlist?id=${id}`;
+                    return;
+                }
+
+                // Add to queue trigger
+                const queueBtn = target.closest('.queue-add');
+                if (queueBtn) {
+                    e.stopPropagation();
+                    const track = queueBtn.closest('.track-trigger') as HTMLElement;
+                    window.dispatchEvent(new CustomEvent('add-to-queue', { detail: { ...track.dataset } }));
+                    return;
+                }
+
+                // Play track trigger
+                const trigger = target.closest('.track-trigger');
+                if (trigger) {
+                    const { id, title, artist, artwork } = (trigger as HTMLElement).dataset;
+                    window.dispatchEvent(new CustomEvent('play-track', { detail: { id, title, artist, artwork, image: artwork } }));
+                }
+            });
+        }
+
+        loadState();
+    }
+
+    document.addEventListener('astro:page-load', initPlayer);
+</script>
+
+<style>
+    .animate-spin-slow {
+        animation: spin 12s linear infinite;
+    }
+    .paused {
+        animation-play-state: paused;
+    }
+    .running {
+        animation-play-state: running;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Responsive position override for mobile viewports above BottomNav */
+    @media (max-width: 1279px) {
+        #audio-player {
+            bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)) !important;
+        }
+    }
+</style>

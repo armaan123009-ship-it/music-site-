@@ -1,0 +1,99 @@
+---
+import { Home, Compass, Library, Plus, Play } from 'lucide-react';
+
+const { active = 'home' } = Astro.props;
+---
+
+<aside class="fixed left-0 top-0 h-full w-64 bg-black/40 backdrop-blur-3xl border-r border-white/5 hidden xl:flex flex-col p-6 z-40">
+    <div class="flex items-center gap-3 px-2 mb-10">
+        <a href="/" class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">
+                <Play className="w-6 h-6 text-primary-foreground fill-current" />
+            </div>
+            <span class="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60">Music.</span>
+        </a>
+    </div>
+
+    <nav class="flex flex-col gap-1">
+        <a href="/" class={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all border ${active === 'home' ? 'bg-white/5 text-white font-bold border-white/5' : 'text-muted-foreground hover:text-white hover:bg-white/5 border-transparent'}`}>
+            <Home className={`w-5 h-5 ${active === 'home' ? 'text-primary' : ''}`} /> Home
+        </a>
+        <a href="/explore" class={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all border ${active === 'explore' ? 'bg-white/5 text-white font-bold border-white/5' : 'text-muted-foreground hover:text-white hover:bg-white/5 border-transparent'}`}>
+            <Compass className={`w-5 h-5 ${active === 'explore' ? 'text-primary' : ''}`} /> Explore
+        </a>
+        <a href="/library" class={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all border ${active === 'library' ? 'bg-white/5 text-white font-bold border-white/5' : 'text-muted-foreground hover:text-white hover:bg-white/5 border-transparent'}`}>
+            <Library className={`w-5 h-5 ${active === 'library' ? 'text-primary' : ''}`} /> Library
+        </a>
+    </nav>
+
+    <div class="mt-10 pt-10 border-t border-white/5">
+        <div class="flex items-center justify-between px-4 mb-4">
+            <span class="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Your Playlists</span>
+            <Plus id="sidebar-create-playlist-btn" className="w-4 h-4 text-muted-foreground cursor-pointer hover:text-white" />
+        </div>
+        <div id="sidebar-playlists" class="space-y-1">
+            <!-- Dynamically loaded -->
+            <p class="px-4 py-2 text-xs text-muted-foreground italic">Sign in to see playlists</p>
+        </div>
+    </div>
+
+    <div class="mt-auto">
+        <div class="p-6 rounded-[2rem] bg-gradient-to-br from-primary/20 to-blue-500/10 border border-white/5 relative overflow-hidden group cursor-pointer">
+            <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-primary/20 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+            <p class="text-sm font-black mb-1 relative z-10">Premium Plus</p>
+            <p class="text-[10px] text-muted-foreground mb-4 relative z-10 leading-tight">Unlock lossless audio and offline playback.</p>
+            <button class="w-full py-2.5 bg-white text-black text-xs font-black rounded-xl hover:bg-primary hover:text-white transition-all shadow-xl relative z-10">Upgrade Now</button>
+        </div>
+    </div>
+</aside>
+
+<script>
+    import { createPlaylist } from '../lib/api';
+
+    async function loadSidebarPlaylists() {
+        try {
+            const res = await fetch('/api/playlists');
+            if (res.ok) {
+                const playlists = await res.json();
+                const container = document.getElementById('sidebar-playlists');
+                if (container) {
+                    if (playlists.length > 0) {
+                        container.innerHTML = playlists.map((pl: any) => `
+                            <a href="/playlist?id=${pl.id}" class="flex items-center gap-3 px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-white hover:bg-white/5 transition-all truncate">${pl.name}</a>
+                        `).join('');
+                    } else {
+                        container.innerHTML = '<p class="px-4 py-2 text-xs text-muted-foreground italic">No playlists yet</p>';
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
+    function initSidebar() {
+        loadSidebarPlaylists();
+
+        const createBtn = document.getElementById('sidebar-create-playlist-btn');
+        if (createBtn && !createBtn.dataset.bound) {
+            createBtn.dataset.bound = "true";
+            createBtn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const name = prompt("Enter playlist name:", "New Playlist");
+                if (name) {
+                    const res = await createPlaylist(name);
+                    if (res && res.success) {
+                        loadSidebarPlaylists();
+                        // Sync library and profile content if open
+                        window.dispatchEvent(new CustomEvent('reload-library-data'));
+                        window.dispatchEvent(new CustomEvent('reload-profile-data'));
+                    }
+                }
+            });
+        }
+    }
+
+    document.addEventListener('astro:page-load', initSidebar);
+
+    window.addEventListener('reload-sidebar-playlists', () => {
+        loadSidebarPlaylists();
+    });
+</script>

@@ -1,0 +1,120 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
+---
+
+<Layout title="Playlist | Premium Music" activeNav="library">
+    <Sidebar active="library" />
+
+    <main class="xl:ml-64 flex-1 flex flex-col min-h-screen pb-32">
+        <header id="playlist-header" class="relative h-[30vh] md:h-[40vh] min-h-[300px] md:min-h-[400px] flex items-end p-4 sm:p-8 md:p-12 overflow-hidden bg-gradient-to-t from-background to-primary/20">
+            <div class="absolute inset-0 z-0">
+                <img id="playlist-img" src="" class="w-full h-full object-cover blur-3xl opacity-30" />
+            </div>
+            
+            <div class="relative z-10 flex flex-col md:flex-row items-end gap-4 md:gap-8 w-full">
+                <div class="w-36 h-36 md:w-64 md:h-64 rounded-2xl md:rounded-[2rem] overflow-hidden shadow-2xl bg-white/5 border border-white/10 shrink-0">
+                    <img id="playlist-cover" src="" class="w-full h-full object-cover" />
+                </div>
+                <div class="flex-1 space-y-4">
+                    <span class="text-xs font-black uppercase tracking-[0.3em] text-primary">Playlist</span>
+                    <h1 id="playlist-title" class="text-5xl md:text-8xl font-black tracking-tighter drop-shadow-2xl text-white">Loading...</h1>
+                    <div class="flex items-center gap-4 text-sm font-bold text-white/60">
+                        <span id="playlist-user" class="text-white">Premium User</span>
+                        <span>•</span>
+                        <span id="playlist-count">0 tracks</span>
+                    </div>
+                    <div class="flex items-center gap-4 pt-4">
+                        <button id="play-all-btn" class="px-8 py-4 bg-primary text-primary-foreground font-black rounded-full hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center gap-2">
+                            <Play className="w-6 h-6 fill-current" /> Play Now
+                        </button>
+                        <button class="p-4 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all">
+                            <MoreHorizontal className="w-6 h-6 text-white" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="p-4 sm:p-8 md:p-12">
+            <div class="grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-white/5 mb-4">
+                <div class="w-8 text-center">#</div>
+                <div>Title</div>
+                <div class="w-12 text-right"><Clock className="w-4 h-4" /></div>
+            </div>
+            
+            <div id="playlist-songs-list" class="space-y-1">
+                <!-- Tracks -->
+            </div>
+        </div>
+    </main>
+</Layout>
+
+<script>
+    async function loadPlaylist() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const playlistId = urlParams.get('id');
+        
+        if (!playlistId) {
+            window.location.href = '/';
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/playlist/${playlistId}`);
+            if (!res.ok) throw new Error("Failed to fetch playlist");
+            const data = await res.json();
+            
+            const titleEl = document.getElementById('playlist-title');
+            const countEl = document.getElementById('playlist-count');
+            const coverEl = document.getElementById('playlist-cover') as HTMLImageElement;
+            const imgEl = document.getElementById('playlist-img') as HTMLImageElement;
+
+            if (titleEl) titleEl.textContent = data.title;
+            if (countEl) countEl.textContent = `${data.songs.length} tracks`;
+            
+            if (data.songs.length > 0) {
+                if (coverEl) coverEl.src = data.songs[0].image;
+                if (imgEl) imgEl.src = data.songs[0].image;
+            }
+
+            const list = document.getElementById('playlist-songs-list');
+            if (list) {
+                list.innerHTML = data.songs.map((track: any, i: number) => `
+                    <div class="track-trigger grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-3 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer items-center"
+                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                        <div class="w-8 text-center text-sm font-bold text-muted-foreground group-hover:text-primary">${i + 1}</div>
+                        <div class="flex items-center gap-4 min-w-0">
+                            <img src="${track.image}" class="w-10 h-10 rounded-lg object-cover" />
+                            <div class="min-w-0">
+                                <p class="font-bold text-sm truncate text-white">${track.title}</p>
+                                <p class="text-xs text-muted-foreground truncate">${track.artist}</p>
+                            </div>
+                        </div>
+                        <div class="w-12 text-right text-xs font-bold text-muted-foreground">${track.duration || '3:45'}</div>
+                    </div>
+                `).join('');
+            }
+
+            const playAllBtn = document.getElementById('play-all-btn');
+            if (playAllBtn && !playAllBtn.dataset.bound) {
+                playAllBtn.dataset.bound = "true";
+                playAllBtn.addEventListener('click', () => {
+                    if (data.songs.length > 0) {
+                        window.dispatchEvent(new CustomEvent('play-track', {
+                            detail: data.songs[0]
+                        }));
+                    }
+                });
+            }
+
+        } catch (e) {
+            console.error('Failed to load playlist:', e);
+        }
+    }
+
+    document.addEventListener('astro:page-load', () => {
+        loadPlaylist();
+    });
+</script>

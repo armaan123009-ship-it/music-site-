@@ -1,0 +1,74 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Music, ArrowLeft } from 'lucide-react';
+---
+
+<Layout title="Register | Premium Music" showNav={false}>
+    <div class="min-h-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_left,var(--primary)_0%,transparent_25%),radial-gradient(circle_at_bottom_right,blue_0%,transparent_25%)]">
+        <div class="w-full max-w-md space-y-8 bg-card/40 backdrop-blur-2xl p-8 rounded-3xl border border-border shadow-2xl">
+            <div class="text-center space-y-2">
+                <a href="/login" class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4">
+                    <ArrowLeft className="w-4 h-4" /> Back to Login
+                </a>
+                <div class="flex justify-center mb-4">
+                    <div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
+                        <Music className="w-7 h-7 text-primary-foreground" />
+                    </div>
+                </div>
+                <h1 class="text-3xl font-bold tracking-tight">Create Account</h1>
+                <p class="text-muted-foreground">Join the premium audio community</p>
+            </div>
+
+            <form id="register-form" class="space-y-6">
+                <div class="space-y-2">
+                    <label for="username" class="text-sm font-medium">Username</label>
+                    <input type="text" id="username" name="username" required class="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                </div>
+                <div class="space-y-2">
+                    <label for="email" class="text-sm font-medium">Email Address</label>
+                    <input type="email" id="email" name="email" required class="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                </div>
+                <div class="space-y-2">
+                    <label for="password" class="text-sm font-medium">Password</label>
+                    <input type="password" id="password" name="password" required class="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
+                </div>
+                <button type="submit" class="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20">
+                    Get Started
+                </button>
+            </form>
+
+            <div class="text-center">
+                <p class="text-sm text-muted-foreground">
+                    Already have an account? 
+                    <a href="/login" class="text-primary font-bold hover:underline">Sign In</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</Layout>
+
+<script>
+    const form = document.getElementById('register-form') as HTMLFormElement;
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(form);
+        
+        try {
+            const res = await fetch('/register', {
+                method: 'POST',
+                body: formData,
+            });
+            
+            const data = await res.json();
+            if (res.ok && data.success) {
+                alert('Registration successful! Redirecting...');
+                window.location.href = '/';
+            } else {
+                alert(data.error || 'Registration failed. Username or email might be taken.');
+            }
+        } catch (err) {
+            console.error('Registration error:', err);
+            alert('An error occurred during registration. Please try again.');
+        }
+    });
+</script>

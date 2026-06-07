@@ -1,0 +1,142 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import { Library, ListMusic, Heart, History } from 'lucide-react';
+
+const stats = [
+    { label: "Playlists", icon: ListMusic, count: "...", id: "lib-playlists-count" },
+    { label: "Liked Songs", icon: Heart, count: "...", id: "lib-liked-count" },
+    { label: "Recent", icon: History, count: "Active", id: "lib-recent-count" },
+];
+---
+
+<Layout title="Your Library | Premium Music" activeNav="library">
+    <Sidebar active="library" />
+
+    <main class="xl:ml-64 flex-1 flex flex-col min-h-screen pb-32">
+        <div class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-12">
+            <!-- Library Header -->
+            <div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Your Collection</p>
+                <h1 class="text-4xl md:text-5xl font-black tracking-tighter text-white mt-1 flex items-center gap-3">
+                    <Library className="w-8 h-8 md:w-10 md:h-10 text-primary" /> Library
+                </h1>
+            </div>
+
+            <!-- Library Stats -->
+            <section class="grid grid-cols-3 gap-3 md:gap-6">
+                {stats.map((stat) => (
+                    <div class="p-4 md:p-8 rounded-2xl md:rounded-[2rem] bg-white/5 border border-white/5 flex flex-col gap-1 md:gap-2 group hover:bg-white/[0.08] transition-all cursor-pointer">
+                        <stat.icon className="w-5 h-5 md:w-8 md:h-8 text-primary mb-1 md:mb-2" />
+                        <span id={stat.id} class="text-xl md:text-4xl font-black tracking-tighter text-white">{stat.count}</span>
+                        <span class="text-[9px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest truncate">{stat.label}</span>
+                    </div>
+                ))}
+            </section>
+
+            <!-- Playlists & Content -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+                <section>
+                    <h2 class="text-2xl font-black tracking-tight mb-6 flex items-center gap-2 text-white">
+                        <Heart className="w-6 h-6 text-primary fill-current" /> Liked Songs
+                    </h2>
+                    <div id="lib-liked-list" class="space-y-2 bg-white/5 rounded-3xl p-2 sm:p-4 border border-white/5">
+                        <p class="text-sm text-muted-foreground italic p-4">Loading your collection...</p>
+                    </div>
+                </section>
+
+                <section>
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-black tracking-tight flex items-center gap-2 text-white">
+                            <ListMusic className="w-6 h-6 text-blue-500" /> Playlists
+                        </h2>
+                        <button id="create-playlist-btn" class="px-4 py-2 bg-muted hover:bg-border/60 rounded-full text-xs font-bold transition-all text-white">+ New Playlist</button>
+                    </div>
+                    <div id="lib-playlists-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Playlists -->
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+</Layout>
+
+<script>
+    import { createPlaylist } from '../lib/api';
+
+    async function loadLibraryData() {
+        try {
+            const res = await fetch('/api/user_data');
+            const data = await res.json();
+            
+            if (!data.logged_in) {
+                window.location.href = '/login';
+                return;
+            }
+
+            const plCountEl = document.getElementById('lib-playlists-count');
+            const lkCountEl = document.getElementById('lib-liked-count');
+
+            if (plCountEl) plCountEl.textContent = data.playlists.length;
+            if (lkCountEl) lkCountEl.textContent = data.liked_songs.length;
+
+            const likedList = document.getElementById('lib-liked-list');
+            if (likedList) {
+                likedList.innerHTML = data.liked_songs.map((track: any) => `
+                    <div class="track-trigger flex items-center justify-between p-3 rounded-2xl hover:bg-white/10 group transition-all cursor-pointer"
+                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                        <div class="flex items-center gap-4">
+                            <img src="${track.image}" class="w-12 h-12 rounded-xl object-cover" />
+                            <div>
+                                <h3 class="font-bold text-sm text-white">${track.title}</h3>
+                                <p class="text-xs text-muted-foreground">${track.artist}</p>
+                            </div>
+                        </div>
+                        <button class="opacity-0 group-hover:opacity-100 p-2 bg-primary text-primary-foreground rounded-full transition-all">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        </button>
+                    </div>
+                `).join('') || '<p class="text-sm text-muted-foreground p-4">No liked songs yet.</p>';
+            }
+
+            const playlistGrid = document.getElementById('lib-playlists-grid');
+            if (playlistGrid) {
+                playlistGrid.innerHTML = data.playlists.map((pl: any) => `
+                    <div class="playlist-trigger p-5 md:p-6 rounded-2xl md:rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all cursor-pointer group" data-id="${pl.id}">
+                        <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4 text-blue-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
+                        </div>
+                        <h3 class="font-black text-xl text-white">${pl.name}</h3>
+                        <p class="text-sm text-muted-foreground font-bold uppercase tracking-widest">${pl.songs.length} tracks</p>
+                    </div>
+                `).join('');
+            }
+            
+            // Bind playlist creation button
+            const createBtn = document.getElementById('create-playlist-btn');
+            if (createBtn && !createBtn.dataset.bound) {
+                createBtn.dataset.bound = "true";
+                createBtn.addEventListener('click', async () => {
+                    const name = prompt("Enter playlist name:", "New Playlist");
+                    if (name) {
+                        const res = await createPlaylist(name);
+                        if (res && res.success) {
+                            loadLibraryData();
+                            // Signal sidebar to reload playlists
+                            window.dispatchEvent(new CustomEvent('reload-sidebar-playlists'));
+                        }
+                    }
+                });
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener('astro:page-load', () => {
+        loadLibraryData();
+    });
+
+    // Handle cross-page reloads
+    window.addEventListener('reload-library-data', () => {
+        loadLibraryData();
+    });
+</script>

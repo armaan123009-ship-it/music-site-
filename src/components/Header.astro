@@ -1,0 +1,62 @@
+---
+import { Search, User } from 'lucide-react';
+---
+
+<header transition:persist id="global-header" class="sticky top-0 z-30 bg-background/40 backdrop-blur-2xl border-b border-white/[0.02] px-4 md:px-8 py-4 flex items-center justify-between xl:ml-64">
+    <div class="relative w-full max-w-xl group">
+        <div class="absolute inset-0 bg-primary/5 rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
+        <input id="global-search-input" type="text" placeholder="Search for songs, artists..." class="w-full bg-white/5 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white/[0.08] transition-all text-white placeholder:text-muted-foreground" />
+    </div>
+    
+    <div class="flex items-center gap-6 ml-3 shrink-0">
+        <div id="auth-btn" class="flex items-center gap-2 p-1.5 pl-3 sm:pl-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full cursor-pointer transition-all">
+            <span class="text-xs font-bold text-white hidden sm:inline">Account</span>
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                <User className="w-5 h-5" />
+            </div>
+        </div>
+    </div>
+</header>
+
+<script>
+    import { navigate } from 'astro:transitions/client';
+
+    function initHeader() {
+        const searchInput = document.getElementById('global-search-input') as HTMLInputElement;
+        const authBtn = document.getElementById('auth-btn');
+
+        if (searchInput && !searchInput.dataset.bound) {
+            searchInput.dataset.bound = "true";
+
+            searchInput.addEventListener('input', (e) => {
+                const val = (e.target as HTMLInputElement).value;
+                if (window.location.pathname !== '/') {
+                    navigate(`/?q=${encodeURIComponent(val)}`);
+                }
+            });
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    searchInput.blur();
+                }
+            });
+        }
+
+        if (authBtn && !authBtn.dataset.bound) {
+            authBtn.dataset.bound = "true";
+            authBtn.addEventListener('click', async () => {
+                try {
+                    const res = await fetch('/api/user_data');
+                    const data = await res.json();
+                    navigate(data.logged_in ? '/profile' : '/login');
+                } catch (err) {
+                    navigate('/login');
+                }
+            });
+        }
+    }
+
+    // Attach listener for initial load and subsequent navigation swaps
+    document.addEventListener('astro:page-load', initHeader);
+</script>

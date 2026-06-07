@@ -1,0 +1,105 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Sidebar from '../components/Sidebar.astro';
+import { Compass, Zap, Headphones, Flame, Radio } from 'lucide-react';
+
+const exploreCategories = [
+    { title: "New Releases", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-500/10" },
+    { title: "Charts", icon: Flame, color: "text-orange-500", bg: "bg-orange-500/10" },
+    { title: "Moods & Genres", icon: Headphones, color: "text-blue-500", bg: "bg-blue-500/10" },
+    { title: "Live Streams", icon: Radio, color: "text-primary", bg: "bg-primary/10" },
+];
+
+const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&B", "Indie", "Dance", "Country"];
+---
+
+<Layout title="Explore | Premium Music" activeNav="explore">
+    <Sidebar active="explore" />
+
+    <main class="xl:ml-64 flex-1 flex flex-col min-h-screen pb-32">
+        <div class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-16">
+            <!-- Explore Header -->
+            <div>
+                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Discover</p>
+                <h1 class="text-4xl md:text-5xl font-black tracking-tighter text-white mt-1 flex items-center gap-3">
+                    <Compass className="w-8 h-8 md:w-10 md:h-10 text-primary" /> Explore
+                </h1>
+            </div>
+
+            <!-- Explore Grid -->
+            <section class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                {exploreCategories.map((cat) => (
+                    <div class={`explore-category-trigger p-6 md:p-8 rounded-3xl md:rounded-[2.5rem] ${cat.bg} border border-white/5 group cursor-pointer hover:scale-[1.02] transition-all relative overflow-hidden`} data-query={cat.title}>
+                        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-white/5 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                        <cat.icon className={`w-6 h-6 md:w-8 md:h-8 ${cat.color} mb-3 md:mb-4`} />
+                        <h3 class="text-base md:text-xl font-black text-white">{cat.title}</h3>
+                    </div>
+                ))}
+            </section>
+
+            <!-- Genres Section -->
+            <section>
+                <h2 class="text-2xl md:text-3xl font-black tracking-tighter mb-6 md:mb-8 text-white">Moods & Genres</h2>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
+                    {genres.map((genre) => (
+                        <div class="explore-genre-trigger h-24 md:h-32 rounded-2xl md:rounded-3xl bg-white/5 border border-white/5 flex items-center justify-center group cursor-pointer hover:bg-white/[0.08] transition-all overflow-hidden relative" data-query={genre}>
+                            <div class="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <span class="text-base md:text-lg font-black tracking-tight relative z-10 text-white">{genre}</span>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            <!-- Dynamic Trending via API -->
+            <section id="trending-section">
+                <h2 class="text-2xl md:text-3xl font-black tracking-tighter mb-6 md:mb-8 text-white">Trending Worldwide</h2>
+                <div id="explore-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
+                    <div class="flex items-center gap-2 opacity-50"><div class="w-4 h-4 rounded-full bg-primary animate-pulse"></div> <span class="text-xs font-bold uppercase tracking-widest text-white">Fetching trends...</span></div>
+                </div>
+            </section>
+        </div>
+    </main>
+</Layout>
+
+<script>
+    import { navigate } from 'astro:transitions/client';
+
+    async function loadExploreData() {
+        try {
+            const res = await fetch('/api/trending');
+            const tracks = await res.json();
+            const grid = document.getElementById('explore-grid');
+            if (grid && tracks.length > 0) {
+                grid.innerHTML = tracks.slice(0, 18).map((track: any) => `
+                    <div class="track-trigger group space-y-3 cursor-pointer" data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                        <div class="relative aspect-square rounded-2xl overflow-hidden border border-white/5 shadow-xl bg-white/5">
+                            <img src="${track.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8 text-white"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </div>
+                        </div>
+                        <h4 class="font-bold text-sm truncate text-white group-hover:text-primary transition-colors">${track.title}</h4>
+                        <p class="text-xs text-muted-foreground truncate">${track.artist}</p>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {}
+    }
+
+    document.addEventListener('astro:page-load', () => {
+        loadExploreData();
+
+        // Bind clicks on genres & explore categories to search
+        document.querySelectorAll('.explore-category-trigger, .explore-genre-trigger').forEach(trigger => {
+            if (!trigger.dataset.bound) {
+                trigger.dataset.bound = "true";
+                trigger.addEventListener('click', () => {
+                    const query = (trigger as HTMLElement).dataset.query;
+                    if (query) {
+                        navigate(`/?q=${encodeURIComponent(query)}`);
+                    }
+                });
+            }
+        });
+    });
+</script>
