@@ -48,7 +48,10 @@ export async function getStreamUrl(videoId: string) {
 
 export async function getStreamProxyUrl(videoId: string) {
     const data = await apiFetch(`/stream/${videoId}`);
-    return data ? data.proxy_url : null;
+    if (data && data.proxy_url) {
+        return data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+    }
+    return null;
 }
 
 export async function fetchSuggestions(videoId: string) {

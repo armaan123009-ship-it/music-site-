@@ -170,6 +170,143 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     let audio: HTMLAudioElement;
     let miniPlayer: HTMLElement | null;
     let immersivePlayer: HTMLElement | null;
+
+    let activePlayer = 'audio'; // 'audio' | 'youtube'
+    let ytPlayer: any = null;
+    let ytApiReady = false;
+    let ytTimeUpdateInterval: any = null;
+
+    function loadYoutubeApi() {
+        if ((window as any).YT) {
+            ytApiReady = true;
+            return;
+        }
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+        
+        (window as any).onYouTubeIframeAPIReady = () => {
+            ytApiReady = true;
+        };
+    }
+
+    function startYtTimeUpdate() {
+        stopYtTimeUpdate();
+        ytTimeUpdateInterval = setInterval(() => {
+            if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
+                const currentTime = ytPlayer.getCurrentTime();
+                const duration = ytPlayer.getDuration();
+                
+                const progressBar = document.getElementById('progress-bar');
+                const currentTimeEl = document.getElementById('current-time');
+                const immProgressBar = document.getElementById('immersive-progress-bar');
+                const immCurrentTimeEl = document.getElementById('immersive-current-time');
+                
+                const progress = (currentTime / (duration || 1)) * 100;
+                if (progressBar) progressBar.style.width = `${progress}%`;
+                if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
+                if (immProgressBar) immProgressBar.style.width = `${progress}%`;
+                if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
+                
+                const durationEl = document.getElementById('duration');
+                const immDurationEl = document.getElementById('immersive-duration');
+                if (durationEl) durationEl.textContent = formatTime(duration);
+                if (immDurationEl) immDurationEl.textContent = formatTime(duration);
+            }
+        }, 500);
+    }
+
+    function stopYtTimeUpdate() {
+        if (ytTimeUpdateInterval) {
+            clearInterval(ytTimeUpdateInterval);
+            ytTimeUpdateInterval = null;
+        }
+    }
+
+    function handleYoutubeStateChange(state: number) {
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const immPlayIcon = document.getElementById('immersive-play-icon');
+        const immPauseIcon = document.getElementById('immersive-pause-icon');
+
+        if (state === 1) { // PLAYING
+            isPlaying = true;
+            playIcon?.classList.add('hidden');
+            pauseIcon?.classList.remove('hidden');
+            immPlayIcon?.classList.add('hidden');
+            immPauseIcon?.classList.remove('hidden');
+            document.getElementById('mini-info')?.classList.add('playing');
+            startYtTimeUpdate();
+        } else if (state === 2 || state === 3) { // PAUSED or BUFFERING
+            isPlaying = false;
+            playIcon?.classList.remove('hidden');
+            pauseIcon?.classList.add('hidden');
+            immPlayIcon?.classList.remove('hidden');
+            immPauseIcon?.classList.add('hidden');
+            document.getElementById('mini-info')?.classList.remove('playing');
+            if (state === 2) stopYtTimeUpdate();
+        } else if (state === 0) { // ENDED
+            stopYtTimeUpdate();
+            if (repeatMode === 'one') {
+                ytPlayer.seekTo(0, true);
+                ytPlayer.playVideo();
+            } else {
+                nextTrack();
+            }
+        }
+    }
+
+    function initYoutubePlayer(videoId: string, autoplay: boolean = true) {
+        return new Promise<void>((resolve) => {
+            if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
+                ytPlayer.loadVideoById(videoId);
+                if (autoplay) ytPlayer.playVideo();
+                resolve();
+                return;
+            }
+
+            // Create container
+            let container = document.getElementById('yt-player-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'yt-player-container';
+                container.style.position = 'absolute';
+                container.style.width = '1px';
+                container.style.height = '1px';
+                container.style.opacity = '0';
+                container.style.pointerEvents = 'none';
+                document.body.appendChild(container);
+            }
+
+            const playerDiv = document.createElement('div');
+            playerDiv.id = 'yt-player-iframe';
+            container.appendChild(playerDiv);
+
+            ytPlayer = new (window as any).YT.Player('yt-player-iframe', {
+                height: '1',
+                width: '1',
+                videoId: videoId,
+                playerVars: {
+                    'autoplay': autoplay ? 1 : 0,
+                    'controls': 0,
+                    'disablekb': 1,
+                    'fs': 0,
+                    'rel': 0,
+                    'showinfo': 0,
+                    'iv_load_policy': 3
+                },
+                events: {
+                    'onReady': () => {
+                        resolve();
+                    },
+                    'onStateChange': (event: any) => {
+                        handleYoutubeStateChange(event.data);
+                    }
+                }
+            });
+        });
+    }
     
     const titleEls = () => [document.getElementById('player-title'), document.getElementById('immersive-title')];
     const artistEls = () => [document.getElementById('player-artist'), document.getElementById('immersive-artist')];
@@ -215,25 +352,61 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             titleEls().forEach(el => el && (el.textContent = "Connecting..."));
             updateLikeUI(track.id);
 
-            const proxyUrl = await getStreamProxyUrl(track.id);
-            if (!proxyUrl) throw new Error("Could not get stream URL");
+            // Stop current playback
+            if (activePlayer === 'audio') {
+                audio.pause();
+            } else if (activePlayer === 'youtube' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+                ytPlayer.pauseVideo();
+                stopYtTimeUpdate();
+            }
 
-            audio.src = proxyUrl;
-            
-            titleEls().forEach(el => el && (el.textContent = track.title));
-            artistEls().forEach(el => el && (el.textContent = track.artist));
-            artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
-            
-            miniPlayer?.classList.remove('translate-y-full');
-            
-            audio.play().catch(e => {
-                console.log("Autoplay prevented. User interaction required.");
-                isPlaying = false;
-                const playIcon = document.getElementById('play-icon');
-                const pauseIcon = document.getElementById('pause-icon');
-                playIcon?.classList.remove('hidden');
-                pauseIcon?.classList.add('hidden');
-            });
+            let proxyUrl = null;
+            try {
+                proxyUrl = await getStreamProxyUrl(track.id);
+            } catch (err) {
+                console.warn("Failed to retrieve proxy URL, using YouTube Player fallback.");
+            }
+
+            if (proxyUrl) {
+                activePlayer = 'audio';
+                audio.src = proxyUrl;
+                
+                titleEls().forEach(el => el && (el.textContent = track.title));
+                artistEls().forEach(el => el && (el.textContent = track.artist));
+                artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+                
+                miniPlayer?.classList.remove('translate-y-full');
+                
+                audio.play().catch(e => {
+                    console.log("Autoplay prevented. User interaction required.");
+                    isPlaying = false;
+                    const playIcon = document.getElementById('play-icon');
+                    const pauseIcon = document.getElementById('pause-icon');
+                    playIcon?.classList.remove('hidden');
+                    pauseIcon?.classList.add('hidden');
+                });
+            } else {
+                activePlayer = 'youtube';
+                titleEls().forEach(el => el && (el.textContent = track.title));
+                artistEls().forEach(el => el && (el.textContent = track.artist));
+                artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+                miniPlayer?.classList.remove('translate-y-full');
+
+                if (!ytApiReady) {
+                    loadYoutubeApi();
+                    let attempts = 0;
+                    while (!ytApiReady && attempts < 40) {
+                        await new Promise(r => setTimeout(r, 100));
+                        attempts++;
+                    }
+                }
+
+                if (ytApiReady) {
+                    await initYoutubePlayer(track.id, true);
+                } else {
+                    throw new Error("YouTube Player API failed to load");
+                }
+            }
 
             updateLyrics(track.id);
             updateQueueUI();
@@ -525,6 +698,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         miniPlayer = document.getElementById('audio-player');
         immersivePlayer = document.getElementById('immersive-player');
 
+        loadYoutubeApi(); // Pre-load YouTube API script
+
         if (!audio) return;
 
         // Attach listeners on media object only once
@@ -587,13 +762,25 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const playPauseBtn = document.getElementById('play-pause-btn');
         if (playPauseBtn && !playPauseBtn.dataset.bound) {
             playPauseBtn.dataset.bound = "true";
-            playPauseBtn.addEventListener('click', () => isPlaying ? audio.pause() : audio.play());
+            playPauseBtn.addEventListener('click', () => {
+                if (activePlayer === 'audio') {
+                    isPlaying ? audio.pause() : audio.play();
+                } else if (activePlayer === 'youtube' && ytPlayer) {
+                    isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+                }
+            });
         }
 
         const immPlayPauseBtn = document.getElementById('immersive-play-pause-btn');
         if (immPlayPauseBtn && !immPlayPauseBtn.dataset.bound) {
             immPlayPauseBtn.dataset.bound = "true";
-            immPlayPauseBtn.addEventListener('click', () => isPlaying ? audio.pause() : audio.play());
+            immPlayPauseBtn.addEventListener('click', () => {
+                if (activePlayer === 'audio') {
+                    isPlaying ? audio.pause() : audio.play();
+                } else if (activePlayer === 'youtube' && ytPlayer) {
+                    isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+                }
+            });
         }
 
         const nextBtn = document.getElementById('next-btn');
@@ -674,7 +861,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             progressContainer.addEventListener('click', (e) => {
                 const rect = progressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
-                audio.currentTime = pos * audio.duration;
+                if (activePlayer === 'audio') {
+                    audio.currentTime = pos * audio.duration;
+                } else if (activePlayer === 'youtube' && ytPlayer) {
+                    const duration = ytPlayer.getDuration();
+                    ytPlayer.seekTo(pos * duration, true);
+                }
             });
         }
 
@@ -684,7 +876,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             immProgressContainer.addEventListener('click', (e) => {
                 const rect = immProgressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
-                audio.currentTime = pos * audio.duration;
+                if (activePlayer === 'audio') {
+                    audio.currentTime = pos * audio.duration;
+                } else if (activePlayer === 'youtube' && ytPlayer) {
+                    const duration = ytPlayer.getDuration();
+                    ytPlayer.seekTo(pos * duration, true);
+                }
             });
         }
 
@@ -694,7 +891,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             volumeContainer.addEventListener('click', (e) => {
                 const rect = volumeContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
-                audio.volume = Math.max(0, Math.min(1, pos));
+                const volume = Math.max(0, Math.min(1, pos));
+                audio.volume = volume;
+                if (ytPlayer && typeof ytPlayer.setVolume === 'function') {
+                    ytPlayer.setVolume(volume * 100);
+                }
                 const volumeBar = document.getElementById('volume-bar');
                 if (volumeBar) volumeBar.style.width = `${pos * 100}%`;
             });
