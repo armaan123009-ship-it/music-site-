@@ -44,6 +44,8 @@ import { Music, ArrowLeft } from 'lucide-react';
 </Layout>
 
 <script>
+    import { navigate } from 'astro:transitions/client';
+
     const form = document.getElementById('login-form') as HTMLFormElement;
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -57,7 +59,7 @@ import { Music, ArrowLeft } from 'lucide-react';
             
             const data = await res.json();
             if (res.ok && data.success) {
-                window.location.href = '/';
+                navigate('/');
             } else {
                 alert(data.error || 'Invalid username or password');
             }

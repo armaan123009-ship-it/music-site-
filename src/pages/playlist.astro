@@ -52,12 +52,14 @@ import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
 </Layout>
 
 <script>
+    import { navigate } from 'astro:transitions/client';
+
     async function loadPlaylist() {
         const urlParams = new URLSearchParams(window.location.search);
         const playlistId = urlParams.get('id');
         
         if (!playlistId) {
-            window.location.href = '/';
+            navigate('/');
             return;
         }
 

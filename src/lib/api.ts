@@ -41,13 +41,13 @@ export async function searchSongs(query: string) {
     return await apiFetch(`/api/search?q=${encodeURIComponent(query)}`) || [];
 }
 
-export async function getStreamUrl(videoId: string) {
-    const data = await apiFetch(`/stream/${videoId}`);
+export async function getStreamUrl(videoId: string, options: RequestInit = {}) {
+    const data = await apiFetch(`/stream/${videoId}`, options);
     return data ? data.url : null;
 }
 
-export async function getStreamProxyUrl(videoId: string) {
-    const data = await apiFetch(`/stream/${videoId}`);
+export async function getStreamProxyUrl(videoId: string, options: RequestInit = {}) {
+    const data = await apiFetch(`/stream/${videoId}`, options);
     if (data && data.proxy_url) {
         return data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
     }

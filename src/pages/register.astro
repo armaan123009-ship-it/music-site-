@@ -48,6 +48,8 @@ import { Music, ArrowLeft } from 'lucide-react';
 </Layout>
 
 <script>
+    import { navigate } from 'astro:transitions/client';
+
     const form = document.getElementById('register-form') as HTMLFormElement;
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -62,7 +64,7 @@ import { Music, ArrowLeft } from 'lucide-react';
             const data = await res.json();
             if (res.ok && data.success) {
                 alert('Registration successful! Redirecting...');
-                window.location.href = '/';
+                navigate('/');
             } else {
                 alert(data.error || 'Registration failed. Username or email might be taken.');
             }

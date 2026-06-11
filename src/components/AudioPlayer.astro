@@ -2,8 +2,9 @@
 import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic, Languages, ChevronUp, Sparkles } from 'lucide-react';
 ---
 
+<div id="persistent-audio-player-root" transition:persist style="display: contents;">
 <!-- Full Screen Immersive Player Overlay -->
-<div id="immersive-player" transition:persist class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-8 overflow-y-auto scrollbar-hide">
+<div id="immersive-player" class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-8 overflow-y-auto scrollbar-hide">
     <button id="close-immersive" class="absolute top-8 left-8 p-3 hover:bg-muted rounded-full transition-all z-20">
         <SkipBack className="w-6 h-6 rotate-[-90deg]" />
     </button>
@@ -95,7 +96,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 </div>
 
 <!-- Bottom Mini Player -->
-<div id="audio-player" transition:persist class="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border p-4 transition-transform duration-500 translate-y-full">
+<div id="audio-player" class="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border p-4 transition-transform duration-500 translate-y-full">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <!-- Track Info -->
         <div id="mini-info" class="flex items-center gap-3 md:gap-4 w-1/2 md:w-1/3 cursor-pointer group min-w-0">
@@ -153,32 +154,38 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     </div>
 </div>
 
-<audio id="main-audio" transition:persist preload="auto"></audio>
+<audio id="main-audio" preload="auto"></audio>
+<div id="yt-player-container" style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;"></div>
+</div>
 
 <script>
     import { apiFetch, fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData } from '../lib/api';
+    import { navigate } from 'astro:transitions/client';
 
-    let isPlaying = false;
-    let currentQueue: any[] = [];
-    let originalQueue: any[] = [];
-    let currentIndex = -1;
-    let isShuffle = false;
-    let repeatMode = 'none'; // 'none' | 'all' | 'one'
-    let isAutoplay = true;
-    let currentUser: any = null;
+    // Initialize or reuse persistent player state on the window object
+    const state = (window as any).playerState || {
+        isPlaying: false,
+        currentQueue: [],
+        originalQueue: [],
+        currentIndex: -1,
+        isShuffle: false,
+        repeatMode: 'none', // 'none' | 'all' | 'one'
+        isAutoplay: true,
+        currentUser: null,
+        activePlayer: 'audio', // 'audio' | 'youtube'
+        ytPlayer: null,
+        ytApiReady: false,
+        ytTimeUpdateInterval: null
+    };
+    (window as any).playerState = state;
 
     let audio: HTMLAudioElement;
     let miniPlayer: HTMLElement | null;
     let immersivePlayer: HTMLElement | null;
 
-    let activePlayer = 'audio'; // 'audio' | 'youtube'
-    let ytPlayer: any = null;
-    let ytApiReady = false;
-    let ytTimeUpdateInterval: any = null;
-
     function loadYoutubeApi() {
         if ((window as any).YT) {
-            ytApiReady = true;
+            state.ytApiReady = true;
             return;
         }
         const tag = document.createElement('script');
@@ -187,16 +194,16 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
         
         (window as any).onYouTubeIframeAPIReady = () => {
-            ytApiReady = true;
+            state.ytApiReady = true;
         };
     }
 
     function startYtTimeUpdate() {
         stopYtTimeUpdate();
-        ytTimeUpdateInterval = setInterval(() => {
-            if (ytPlayer && typeof ytPlayer.getCurrentTime === 'function') {
-                const currentTime = ytPlayer.getCurrentTime();
-                const duration = ytPlayer.getDuration();
+        state.ytTimeUpdateInterval = setInterval(() => {
+            if (state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') {
+                const currentTime = state.ytPlayer.getCurrentTime();
+                const duration = state.ytPlayer.getDuration();
                 
                 const progressBar = document.getElementById('progress-bar');
                 const currentTimeEl = document.getElementById('current-time');
@@ -218,55 +225,59 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function stopYtTimeUpdate() {
-        if (ytTimeUpdateInterval) {
-            clearInterval(ytTimeUpdateInterval);
-            ytTimeUpdateInterval = null;
+        if (state.ytTimeUpdateInterval) {
+            clearInterval(state.ytTimeUpdateInterval);
+            state.ytTimeUpdateInterval = null;
         }
     }
 
-    function handleYoutubeStateChange(state: number) {
+    function handleYoutubeStateChange(stateVal: number) {
         const playIcon = document.getElementById('play-icon');
         const pauseIcon = document.getElementById('pause-icon');
         const immPlayIcon = document.getElementById('immersive-play-icon');
         const immPauseIcon = document.getElementById('immersive-pause-icon');
 
-        if (state === 1) { // PLAYING
-            isPlaying = true;
+        if (stateVal === 1) { // PLAYING
+            state.isPlaying = true;
             playIcon?.classList.add('hidden');
             pauseIcon?.classList.remove('hidden');
             immPlayIcon?.classList.add('hidden');
             immPauseIcon?.classList.remove('hidden');
             document.getElementById('mini-info')?.classList.add('playing');
             startYtTimeUpdate();
-        } else if (state === 2 || state === 3) { // PAUSED or BUFFERING
-            isPlaying = false;
+        } else if (stateVal === 2 || stateVal === 3) { // PAUSED or BUFFERING
+            state.isPlaying = false;
             playIcon?.classList.remove('hidden');
             pauseIcon?.classList.add('hidden');
             immPlayIcon?.classList.remove('hidden');
             immPauseIcon?.classList.add('hidden');
             document.getElementById('mini-info')?.classList.remove('playing');
-            if (state === 2) stopYtTimeUpdate();
-        } else if (state === 0) { // ENDED
+            if (stateVal === 2) stopYtTimeUpdate();
+        } else if (stateVal === 0) { // ENDED
             stopYtTimeUpdate();
-            if (repeatMode === 'one') {
-                ytPlayer.seekTo(0, true);
-                ytPlayer.playVideo();
+            if (state.repeatMode === 'one') {
+                state.ytPlayer.seekTo(0, true);
+                state.ytPlayer.playVideo();
             } else {
                 nextTrack();
             }
         }
     }
 
+    // Attach global callback for persistent iframe state updates
+    (window as any).globalHandleYoutubeStateChange = (stateVal: number) => {
+        handleYoutubeStateChange(stateVal);
+    };
+
     function initYoutubePlayer(videoId: string, autoplay: boolean = true) {
         return new Promise<void>((resolve) => {
-            if (ytPlayer && typeof ytPlayer.loadVideoById === 'function') {
-                ytPlayer.loadVideoById(videoId);
-                if (autoplay) ytPlayer.playVideo();
+            if (state.ytPlayer && typeof state.ytPlayer.loadVideoById === 'function') {
+                state.ytPlayer.loadVideoById(videoId);
+                if (autoplay) state.ytPlayer.playVideo();
                 resolve();
                 return;
             }
 
-            // Create container
             let container = document.getElementById('yt-player-container');
             if (!container) {
                 container = document.createElement('div');
@@ -279,11 +290,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 document.body.appendChild(container);
             }
 
+            container.innerHTML = '';
             const playerDiv = document.createElement('div');
             playerDiv.id = 'yt-player-iframe';
             container.appendChild(playerDiv);
 
-            ytPlayer = new (window as any).YT.Player('yt-player-iframe', {
+            state.ytPlayer = new (window as any).YT.Player('yt-player-iframe', {
                 height: '1',
                 width: '1',
                 videoId: videoId,
@@ -301,7 +313,9 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         resolve();
                     },
                     'onStateChange': (event: any) => {
-                        handleYoutubeStateChange(event.data);
+                        if (typeof (window as any).globalHandleYoutubeStateChange === 'function') {
+                            (window as any).globalHandleYoutubeStateChange(event.data);
+                        }
                     }
                 }
             });
@@ -324,14 +338,14 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     const autoplayToggle = () => document.getElementById('autoplay-toggle') as HTMLInputElement;
 
     async function initUser() {
-        currentUser = await getUserData();
+        state.currentUser = await getUserData();
         const likeBtn = miniLikeBtn();
         const immLikeBtn = document.getElementById('immersive-like-btn');
-        if (currentUser && currentUser.logged_in) {
+        if (state.currentUser && state.currentUser.logged_in) {
             likeBtn?.classList.remove('hidden');
             immLikeBtn?.classList.remove('hidden');
-            if (currentIndex !== -1 && currentQueue[currentIndex]) {
-                updateLikeUI(currentQueue[currentIndex].id);
+            if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+                updateLikeUI(state.currentQueue[state.currentIndex].id);
             }
         } else {
             likeBtn?.classList.add('hidden');
@@ -353,22 +367,29 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             updateLikeUI(track.id);
 
             // Stop current playback
-            if (activePlayer === 'audio') {
+            if (state.activePlayer === 'audio') {
                 audio.pause();
-            } else if (activePlayer === 'youtube' && ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
-                ytPlayer.pauseVideo();
+            } else if (state.activePlayer === 'youtube' && state.ytPlayer && typeof state.ytPlayer.pauseVideo === 'function') {
+                state.ytPlayer.pauseVideo();
                 stopYtTimeUpdate();
             }
 
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
             let proxyUrl = null;
-            try {
-                proxyUrl = await getStreamProxyUrl(track.id);
-            } catch (err) {
-                console.warn("Failed to retrieve proxy URL, using YouTube Player fallback.");
+            if (isLocalhost) {
+                try {
+                    // Set timeout controller for faster fallback
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1500);
+                    proxyUrl = await getStreamProxyUrl(track.id, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                } catch (err) {
+                    console.warn("Failed to retrieve proxy URL or timed out, using YouTube Player fallback.");
+                }
             }
 
             if (proxyUrl) {
-                activePlayer = 'audio';
+                state.activePlayer = 'audio';
                 audio.src = proxyUrl;
                 
                 titleEls().forEach(el => el && (el.textContent = track.title));
@@ -379,29 +400,29 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 
                 audio.play().catch(e => {
                     console.log("Autoplay prevented. User interaction required.");
-                    isPlaying = false;
+                    state.isPlaying = false;
                     const playIcon = document.getElementById('play-icon');
                     const pauseIcon = document.getElementById('pause-icon');
                     playIcon?.classList.remove('hidden');
                     pauseIcon?.classList.add('hidden');
                 });
             } else {
-                activePlayer = 'youtube';
+                state.activePlayer = 'youtube';
                 titleEls().forEach(el => el && (el.textContent = track.title));
                 artistEls().forEach(el => el && (el.textContent = track.artist));
                 artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
                 miniPlayer?.classList.remove('translate-y-full');
 
-                if (!ytApiReady) {
+                if (!state.ytApiReady) {
                     loadYoutubeApi();
                     let attempts = 0;
-                    while (!ytApiReady && attempts < 40) {
+                    while (!state.ytApiReady && attempts < 40) {
                         await new Promise(r => setTimeout(r, 100));
                         attempts++;
                     }
                 }
 
-                if (ytApiReady) {
+                if (state.ytApiReady) {
                     await initYoutubePlayer(track.id, true);
                 } else {
                     throw new Error("YouTube Player API failed to load");
@@ -422,14 +443,14 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const likeBtn = miniLikeBtn();
         const immLikeIcon = document.getElementById('immersive-like-icon');
         const immLikeBtn = document.getElementById('immersive-like-btn');
-        if (!currentUser || !currentUser.logged_in) {
+        if (!state.currentUser || !state.currentUser.logged_in) {
             likeBtn?.classList.add('hidden');
             immLikeBtn?.classList.add('hidden');
             return;
         }
         likeBtn?.classList.remove('hidden');
         immLikeBtn?.classList.remove('hidden');
-        const isLiked = currentUser.liked_songs.some((s: any) => s.id === songId);
+        const isLiked = state.currentUser.liked_songs.some((s: any) => s.id === songId);
         if (isLiked) {
             likeIcon?.classList.add('fill-primary', 'text-primary');
             likeIcon?.setAttribute('fill', 'currentColor');
@@ -445,21 +466,21 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     async function handleLikeToggle(e: Event) {
         e.stopPropagation();
-        if (!currentUser || !currentUser.logged_in || currentIndex === -1) return;
-        const currentTrack = currentQueue[currentIndex];
-        const isLiked = currentUser.liked_songs.some((s: any) => s.id === currentTrack.id);
+        if (!state.currentUser || !state.currentUser.logged_in || state.currentIndex === -1) return;
+        const currentTrack = state.currentQueue[state.currentIndex];
+        const isLiked = state.currentUser.liked_songs.some((s: any) => s.id === currentTrack.id);
         const action = isLiked ? 'remove' : 'add';
         
         if (action === 'add') {
-            currentUser.liked_songs.push(currentTrack);
+            state.currentUser.liked_songs.push(currentTrack);
         } else {
-            currentUser.liked_songs = currentUser.liked_songs.filter((s: any) => s.id !== currentTrack.id);
+            state.currentUser.liked_songs = state.currentUser.liked_songs.filter((s: any) => s.id !== currentTrack.id);
         }
         updateLikeUI(currentTrack.id);
 
         const res = await toggleLike(currentTrack, action);
         if (res && res.success) {
-            currentUser.liked_songs = res.liked_songs;
+            state.currentUser.liked_songs = res.liked_songs;
         }
     }
 
@@ -476,8 +497,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     function updateQueueUI() {
         const qContainer = queueListContainer();
         if (!qContainer) return;
-        qContainer.innerHTML = currentQueue.map((track, idx) => `
-            <div class="flex items-center justify-between p-4 rounded-2xl ${idx === currentIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-white/5'} transition-all cursor-pointer queue-item" data-index="${idx}">
+        qContainer.innerHTML = state.currentQueue.map((track: any, idx: number) => `
+            <div class="flex items-center justify-between p-4 rounded-2xl ${idx === state.currentIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-white/5'} transition-all cursor-pointer queue-item" data-index="${idx}">
                 <div class="flex items-center gap-4 pointer-events-none min-w-0">
                     <img src="${track.image}" class="w-12 h-12 rounded-xl object-cover shrink-0" />
                     <div class="min-w-0">
@@ -485,38 +506,38 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         <p class="text-xs opacity-70 text-white/70 truncate">${track.artist}</p>
                     </div>
                 </div>
-                ${idx === currentIndex ? '<div class="w-2 h-2 rounded-full bg-white animate-ping shrink-0 ml-2"></div>' : ''}
+                ${idx === state.currentIndex ? '<div class="w-2 h-2 rounded-full bg-white animate-ping shrink-0 ml-2"></div>' : ''}
             </div>
         `).join('');
 
         qContainer.querySelectorAll('.queue-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 const index = parseInt((item as HTMLElement).dataset.index!);
-                currentIndex = index;
-                fetchStreamAndPlay(currentQueue[currentIndex]);
+                state.currentIndex = index;
+                fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
             });
         });
     }
 
     async function nextTrack() {
-        if (currentQueue.length === 0) return;
+        if (state.currentQueue.length === 0) return;
 
-        if (currentIndex < currentQueue.length - 1) {
-            currentIndex++;
-            fetchStreamAndPlay(currentQueue[currentIndex]);
+        if (state.currentIndex < state.currentQueue.length - 1) {
+            state.currentIndex++;
+            fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
         } else {
-            if (isAutoplay) {
-                const lastTrack = currentQueue[currentIndex];
+            if (state.isAutoplay) {
+                const lastTrack = state.currentQueue[state.currentIndex];
                 titleEls().forEach(el => el && (el.textContent = "Autoplay recommendations..."));
                 try {
                     const suggestions = await fetchSuggestions(lastTrack.id);
                     if (suggestions && suggestions.length > 0) {
-                        const newTracks = suggestions.filter((s: any) => !currentQueue.some((t: any) => t.id === s.id));
+                        const newTracks = suggestions.filter((s: any) => !state.currentQueue.some((t: any) => t.id === s.id));
                         if (newTracks.length > 0) {
-                            currentQueue.push(...newTracks);
-                            currentIndex++;
+                            state.currentQueue.push(...newTracks);
+                            state.currentIndex++;
                             updateQueueUI();
-                            fetchStreamAndPlay(currentQueue[currentIndex]);
+                            fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
                             return;
                         }
                     }
@@ -525,12 +546,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 }
             }
 
-            if (repeatMode === 'all') {
-                currentIndex = 0;
-                fetchStreamAndPlay(currentQueue[currentIndex]);
+            if (state.repeatMode === 'all') {
+                state.currentIndex = 0;
+                fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
             } else {
                 audio.pause();
-                isPlaying = false;
+                state.isPlaying = false;
                 const playIcon = document.getElementById('play-icon');
                 const pauseIcon = document.getElementById('pause-icon');
                 playIcon?.classList.remove('hidden');
@@ -540,25 +561,25 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function prevTrack() {
-        if (currentQueue.length === 0) return;
-        currentIndex = (currentIndex - 1 + currentQueue.length) % currentQueue.length;
-        fetchStreamAndPlay(currentQueue[currentIndex]);
+        if (state.currentQueue.length === 0) return;
+        state.currentIndex = (state.currentIndex - 1 + state.currentQueue.length) % state.currentQueue.length;
+        fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
     }
 
     function saveState() {
         localStorage.setItem('premium_music_state', JSON.stringify({
-            queue: currentQueue,
-            originalQueue: originalQueue,
-            index: currentIndex,
-            shuffle: isShuffle,
-            repeat: repeatMode
+            queue: state.currentQueue,
+            originalQueue: state.originalQueue,
+            index: state.currentIndex,
+            shuffle: state.isShuffle,
+            repeat: state.repeatMode
         }));
     }
 
     function updateControlsUI() {
         const sBtn = shuffleBtn();
         const immSBtn = document.getElementById('immersive-shuffle-btn');
-        if (isShuffle) {
+        if (state.isShuffle) {
             sBtn?.classList.add('text-primary');
             sBtn?.classList.remove('text-muted-foreground');
             immSBtn?.classList.add('text-primary');
@@ -573,18 +594,17 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const rBtn = repeatBtn();
         const immRBtn = document.getElementById('immersive-repeat-btn');
         
-        // Helper to update repeat state styling
         const applyRepeatStyle = (btn: HTMLElement | null) => {
             if (!btn) return;
-            if (repeatMode === 'none') {
+            if (state.repeatMode === 'none') {
                 btn.classList.add('text-muted-foreground');
                 btn.classList.remove('text-primary', 'text-blue-400');
                 btn.querySelector('.repeat-badge')?.remove();
-            } else if (repeatMode === 'all') {
+            } else if (state.repeatMode === 'all') {
                 btn.classList.add('text-primary');
                 btn.classList.remove('text-muted-foreground', 'text-blue-400');
                 btn.querySelector('.repeat-badge')?.remove();
-            } else if (repeatMode === 'one') {
+            } else if (state.repeatMode === 'one') {
                 btn.classList.add('text-blue-400');
                 btn.classList.remove('text-muted-foreground', 'text-primary');
                 if (!btn.querySelector('.repeat-badge')) {
@@ -601,7 +621,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
         const aBtn = autoplayBtn();
         const aTgl = autoplayToggle();
-        if (isAutoplay) {
+        if (state.isAutoplay) {
             aBtn?.classList.add('text-primary');
             aBtn?.classList.remove('text-muted-foreground');
             if (aTgl) aTgl.checked = true;
@@ -613,25 +633,25 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function handleShuffleToggle() {
-        if (currentQueue.length === 0) return;
-        isShuffle = !isShuffle;
-        if (isShuffle) {
-            originalQueue = [...currentQueue];
-            const currentTrack = currentQueue[currentIndex];
-            const remaining = currentQueue.filter((_, idx) => idx !== currentIndex);
+        if (state.currentQueue.length === 0) return;
+        state.isShuffle = !state.isShuffle;
+        if (state.isShuffle) {
+            state.originalQueue = [...state.currentQueue];
+            const currentTrack = state.currentQueue[state.currentIndex];
+            const remaining = state.currentQueue.filter((_: any, idx: number) => idx !== state.currentIndex);
             
             for (let i = remaining.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
             }
             
-            currentQueue = [currentTrack, ...remaining];
-            currentIndex = 0;
+            state.currentQueue = [currentTrack, ...remaining];
+            state.currentIndex = 0;
         } else {
-            const currentTrack = currentQueue[currentIndex];
-            if (originalQueue.length > 0) {
-                currentQueue = [...originalQueue];
-                currentIndex = currentQueue.findIndex(t => t.id === currentTrack.id);
+            const currentTrack = state.currentQueue[state.currentIndex];
+            if (state.originalQueue.length > 0) {
+                state.currentQueue = [...state.originalQueue];
+                state.currentIndex = state.currentQueue.findIndex((t: any) => t.id === currentTrack.id);
             }
         }
         updateQueueUI();
@@ -640,12 +660,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function handleRepeatToggle() {
-        if (repeatMode === 'none') {
-            repeatMode = 'all';
-        } else if (repeatMode === 'all') {
-            repeatMode = 'one';
+        if (state.repeatMode === 'none') {
+            state.repeatMode = 'all';
+        } else if (state.repeatMode === 'all') {
+            state.repeatMode = 'one';
         } else {
-            repeatMode = 'none';
+            state.repeatMode = 'none';
         }
         updateControlsUI();
         saveState();
@@ -654,11 +674,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     function handleAutoplayToggle(e: Event) {
         const aTgl = autoplayToggle();
         if (e.target === aTgl) {
-            isAutoplay = aTgl.checked;
+            state.isAutoplay = aTgl.checked;
         } else {
-            isAutoplay = !isAutoplay;
+            state.isAutoplay = !state.isAutoplay;
         }
-        localStorage.setItem('premium_music_autoplay', isAutoplay.toString());
+        localStorage.setItem('premium_music_autoplay', state.isAutoplay.toString());
         updateControlsUI();
     }
 
@@ -667,20 +687,69 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     function loadState() {
         const savedAutoplay = localStorage.getItem('premium_music_autoplay');
         if (savedAutoplay !== null) {
-            isAutoplay = savedAutoplay === 'true';
+            state.isAutoplay = savedAutoplay === 'true';
+        }
+
+        // Memory load check for seamless page transitions
+        if (state.currentQueue.length > 0 && state.currentIndex !== -1) {
+            const track = state.currentQueue[state.currentIndex];
+            titleEls().forEach(el => el && (el.textContent = track.title));
+            artistEls().forEach(el => el && (el.textContent = track.artist));
+            artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+            miniPlayer?.classList.remove('translate-y-full');
+            updateQueueUI();
+            
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const immPlayIcon = document.getElementById('immersive-play-icon');
+            const immPauseIcon = document.getElementById('immersive-pause-icon');
+            if (state.isPlaying) {
+                playIcon?.classList.add('hidden');
+                pauseIcon?.classList.remove('hidden');
+                immPlayIcon?.classList.add('hidden');
+                immPauseIcon?.classList.remove('hidden');
+                document.getElementById('mini-info')?.classList.add('playing');
+                if (state.activePlayer === 'youtube') {
+                    startYtTimeUpdate();
+                }
+            } else {
+                playIcon?.classList.remove('hidden');
+                pauseIcon?.classList.add('hidden');
+                immPlayIcon?.classList.remove('hidden');
+                immPauseIcon?.classList.add('hidden');
+                document.getElementById('mini-info')?.classList.remove('playing');
+                
+                // Pre-initialize YouTube player with the track without playing it
+                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                if (!isLocalhost && !state.ytPlayer) {
+                    if (state.ytApiReady) {
+                        initYoutubePlayer(track.id, false).catch(() => {});
+                    } else {
+                        const checkApi = setInterval(() => {
+                            if (state.ytApiReady) {
+                                clearInterval(checkApi);
+                                initYoutubePlayer(track.id, false).catch(() => {});
+                            }
+                        }, 100);
+                        setTimeout(() => clearInterval(checkApi), 5000);
+                    }
+                }
+            }
+            updateControlsUI();
+            return;
         }
 
         const saved = localStorage.getItem('premium_music_state');
         if (saved) {
             try {
-                const state = JSON.parse(saved);
-                currentQueue = state.queue || [];
-                originalQueue = state.originalQueue || [];
-                currentIndex = state.index || -1;
-                isShuffle = state.shuffle || false;
-                repeatMode = state.repeat || 'none';
-                if (currentIndex !== -1 && currentQueue[currentIndex]) {
-                    const track = currentQueue[currentIndex];
+                const loadedState = JSON.parse(saved);
+                state.currentQueue = loadedState.queue || [];
+                state.originalQueue = loadedState.originalQueue || [];
+                state.currentIndex = loadedState.index || -1;
+                state.isShuffle = loadedState.shuffle || false;
+                state.repeatMode = loadedState.repeat || 'none';
+                if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+                    const track = state.currentQueue[state.currentIndex];
                     titleEls().forEach(el => el && (el.textContent = track.title));
                     artistEls().forEach(el => el && (el.textContent = track.artist));
                     artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
@@ -702,71 +771,67 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
         if (!audio) return;
 
-        // Attach listeners on media object only once
-        if (!audio.dataset.bound) {
-            audio.dataset.bound = "true";
+        // Re-bind media element listeners on every page load to capture new DOM elements
+        audio.onended = () => {
+            if (state.repeatMode === 'one') {
+                audio.currentTime = 0;
+                audio.play();
+            } else {
+                nextTrack();
+            }
+        };
+        audio.onplay = () => {
+            state.isPlaying = true;
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const immPlayIcon = document.getElementById('immersive-play-icon');
+            const immPauseIcon = document.getElementById('immersive-pause-icon');
+            playIcon?.classList.add('hidden');
+            pauseIcon?.classList.remove('hidden');
+            immPlayIcon?.classList.add('hidden');
+            immPauseIcon?.classList.remove('hidden');
+            document.getElementById('mini-info')?.classList.add('playing');
+        };
+        audio.onpause = () => {
+            state.isPlaying = false;
+            const playIcon = document.getElementById('play-icon');
+            const pauseIcon = document.getElementById('pause-icon');
+            const immPlayIcon = document.getElementById('immersive-play-icon');
+            const immPauseIcon = document.getElementById('immersive-pause-icon');
+            playIcon?.classList.remove('hidden');
+            pauseIcon?.classList.add('hidden');
+            immPlayIcon?.classList.remove('hidden');
+            immPauseIcon?.classList.add('hidden');
+            document.getElementById('mini-info')?.classList.remove('playing');
+        };
+        audio.ontimeupdate = () => {
+            const progressBar = document.getElementById('progress-bar');
+            const currentTimeEl = document.getElementById('current-time');
+            const immProgressBar = document.getElementById('immersive-progress-bar');
+            const immCurrentTimeEl = document.getElementById('immersive-current-time');
             
-            audio.onended = () => {
-                if (repeatMode === 'one') {
-                    audio.currentTime = 0;
-                    audio.play();
-                } else {
-                    nextTrack();
-                }
-            };
-            audio.onplay = () => {
-                isPlaying = true;
-                const playIcon = document.getElementById('play-icon');
-                const pauseIcon = document.getElementById('pause-icon');
-                const immPlayIcon = document.getElementById('immersive-play-icon');
-                const immPauseIcon = document.getElementById('immersive-pause-icon');
-                playIcon?.classList.add('hidden');
-                pauseIcon?.classList.remove('hidden');
-                immPlayIcon?.classList.add('hidden');
-                immPauseIcon?.classList.remove('hidden');
-                document.getElementById('mini-info')?.classList.add('playing');
-            };
-            audio.onpause = () => {
-                isPlaying = false;
-                const playIcon = document.getElementById('play-icon');
-                const pauseIcon = document.getElementById('pause-icon');
-                const immPlayIcon = document.getElementById('immersive-play-icon');
-                const immPauseIcon = document.getElementById('immersive-pause-icon');
-                playIcon?.classList.remove('hidden');
-                pauseIcon?.classList.add('hidden');
-                immPlayIcon?.classList.remove('hidden');
-                immPauseIcon?.classList.add('hidden');
-                document.getElementById('mini-info')?.classList.remove('playing');
-            };
-            audio.ontimeupdate = () => {
-                const progressBar = document.getElementById('progress-bar');
-                const currentTimeEl = document.getElementById('current-time');
-                const immProgressBar = document.getElementById('immersive-progress-bar');
-                const immCurrentTimeEl = document.getElementById('immersive-current-time');
-                
-                const progress = (audio.currentTime / audio.duration) * 100;
-                if (progressBar) progressBar.style.width = `${progress}%`;
-                if (currentTimeEl) currentTimeEl.textContent = formatTime(audio.currentTime);
-                if (immProgressBar) immProgressBar.style.width = `${progress}%`;
-                if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(audio.currentTime);
-            };
-            audio.onloadedmetadata = () => {
-                const durationEl = document.getElementById('duration');
-                const immDurationEl = document.getElementById('immersive-duration');
-                if (durationEl) durationEl.textContent = formatTime(audio.duration);
-                if (immDurationEl) immDurationEl.textContent = formatTime(audio.duration);
-            };
-        }
+            const progress = (audio.currentTime / (audio.duration || 1)) * 100;
+            if (progressBar) progressBar.style.width = `${progress}%`;
+            if (currentTimeEl) currentTimeEl.textContent = formatTime(audio.currentTime);
+            if (immProgressBar) immProgressBar.style.width = `${progress}%`;
+            if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(audio.currentTime);
+        };
+        audio.onloadedmetadata = () => {
+            const durationEl = document.getElementById('duration');
+            const immDurationEl = document.getElementById('immersive-duration');
+            if (durationEl) durationEl.textContent = formatTime(audio.duration);
+            if (immDurationEl) immDurationEl.textContent = formatTime(audio.duration);
+        };
 
         // Attach event listeners to player controls
         const playPauseBtn = document.getElementById('play-pause-btn');
         if (playPauseBtn && !playPauseBtn.dataset.bound) {
             playPauseBtn.dataset.bound = "true";
             playPauseBtn.addEventListener('click', () => {
-                if (activePlayer === 'audio') {
-                    isPlaying ? audio.pause() : audio.play();
-                } else if (activePlayer === 'youtube' && ytPlayer) {
-                    isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+                if (state.activePlayer === 'audio') {
+                    state.isPlaying ? audio.pause() : audio.play();
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    state.isPlaying ? state.ytPlayer.pauseVideo() : state.ytPlayer.playVideo();
                 }
             });
         }
@@ -775,10 +840,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (immPlayPauseBtn && !immPlayPauseBtn.dataset.bound) {
             immPlayPauseBtn.dataset.bound = "true";
             immPlayPauseBtn.addEventListener('click', () => {
-                if (activePlayer === 'audio') {
-                    isPlaying ? audio.pause() : audio.play();
-                } else if (activePlayer === 'youtube' && ytPlayer) {
-                    isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+                if (state.activePlayer === 'audio') {
+                    state.isPlaying ? audio.pause() : audio.play();
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    state.isPlaying ? state.ytPlayer.pauseVideo() : state.ytPlayer.playVideo();
                 }
             });
         }
@@ -861,11 +926,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             progressContainer.addEventListener('click', (e) => {
                 const rect = progressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
-                if (activePlayer === 'audio') {
+                if (state.activePlayer === 'audio') {
                     audio.currentTime = pos * audio.duration;
-                } else if (activePlayer === 'youtube' && ytPlayer) {
-                    const duration = ytPlayer.getDuration();
-                    ytPlayer.seekTo(pos * duration, true);
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    const duration = state.ytPlayer.getDuration();
+                    state.ytPlayer.seekTo(pos * duration, true);
                 }
             });
         }
@@ -876,11 +941,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             immProgressContainer.addEventListener('click', (e) => {
                 const rect = immProgressContainer.getBoundingClientRect();
                 const pos = (e.clientX - rect.left) / rect.width;
-                if (activePlayer === 'audio') {
+                if (state.activePlayer === 'audio') {
                     audio.currentTime = pos * audio.duration;
-                } else if (activePlayer === 'youtube' && ytPlayer) {
-                    const duration = ytPlayer.getDuration();
-                    ytPlayer.seekTo(pos * duration, true);
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    const duration = state.ytPlayer.getDuration();
+                    state.ytPlayer.seekTo(pos * duration, true);
                 }
             });
         }
@@ -893,8 +958,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 const pos = (e.clientX - rect.left) / rect.width;
                 const volume = Math.max(0, Math.min(1, pos));
                 audio.volume = volume;
-                if (ytPlayer && typeof ytPlayer.setVolume === 'function') {
-                    ytPlayer.setVolume(volume * 100);
+                if (state.ytPlayer && typeof state.ytPlayer.setVolume === 'function') {
+                    state.ytPlayer.setVolume(volume * 100);
                 }
                 const volumeBar = document.getElementById('volume-bar');
                 if (volumeBar) volumeBar.style.width = `${pos * 100}%`;
@@ -952,43 +1017,47 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             });
         }
 
-        // Global Custom event listener for play-track (bound exactly once on window)
-        if (!(window as any).playTrackListenerBound) {
-            (window as any).playTrackListenerBound = true;
-            window.addEventListener('play-track', (async (e: CustomEvent) => {
-                const track = e.detail;
-                const existingIdx = currentQueue.findIndex(t => t.id === track.id);
-                if (existingIdx === -1) {
-                    currentQueue.push(track);
-                    currentIndex = currentQueue.length - 1;
-                } else {
-                    currentIndex = existingIdx;
-                }
-                if (isShuffle) {
-                    if (!originalQueue.some(t => t.id === track.id)) {
-                        originalQueue.push(track);
-                    }
-                }
-                fetchStreamAndPlay(currentQueue[currentIndex]);
-            }) as any);
+        // Remove old listeners to prevent multiple bindings and outdated DOM references during page reloads
+        if ((window as any).playTrackListener) {
+            window.removeEventListener('play-track', (window as any).playTrackListener);
+        }
+        if ((window as any).addToQueueListener) {
+            window.removeEventListener('add-to-queue', (window as any).addToQueueListener);
         }
 
-        // Global Custom event listener for add-to-queue (bound exactly once on window)
-        if (!(window as any).addToQueueListenerBound) {
-            (window as any).addToQueueListenerBound = true;
-            window.addEventListener('add-to-queue', ((e: CustomEvent) => {
-                const track = e.detail;
-                if (!currentQueue.find(t => t.id === track.id)) {
-                    currentQueue.push(track);
-                    if (isShuffle) {
-                        originalQueue.push(track);
-                    }
-                    updateQueueUI();
-                    miniPlayer?.classList.remove('translate-y-full');
-                    saveState();
+        // Define and bind new listeners for this page load
+        (window as any).playTrackListener = async (e: CustomEvent) => {
+            const track = e.detail;
+            const existingIdx = state.currentQueue.findIndex((t: any) => t.id === track.id);
+            if (existingIdx === -1) {
+                state.currentQueue.push(track);
+                state.currentIndex = state.currentQueue.length - 1;
+            } else {
+                state.currentIndex = existingIdx;
+            }
+            if (state.isShuffle) {
+                if (!state.originalQueue.some((t: any) => t.id === track.id)) {
+                    state.originalQueue.push(track);
                 }
-            }) as any);
-        }
+            }
+            fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
+        };
+
+        (window as any).addToQueueListener = (e: CustomEvent) => {
+            const track = e.detail;
+            if (!state.currentQueue.find((t: any) => t.id === track.id)) {
+                state.currentQueue.push(track);
+                if (state.isShuffle) {
+                    state.originalQueue.push(track);
+                }
+                updateQueueUI();
+                miniPlayer?.classList.remove('translate-y-full');
+                saveState();
+            }
+        };
+
+        window.addEventListener('play-track', (window as any).playTrackListener as any);
+        window.addEventListener('add-to-queue', (window as any).addToQueueListener as any);
 
         // Unified Document Click Delegation for all dynamically rendered song triggers and playlist routing
         if (!(document as any).clickBound) {
@@ -1000,7 +1069,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 const plTrigger = target.closest('.playlist-trigger');
                 if (plTrigger) {
                     const id = (plTrigger as HTMLElement).dataset.id;
-                    window.location.href = `/playlist?id=${id}`;
+                    navigate(`/playlist?id=${id}`);
                     return;
                 }
 

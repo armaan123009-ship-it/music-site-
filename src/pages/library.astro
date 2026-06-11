@@ -63,6 +63,7 @@ const stats = [
 
 <script>
     import { createPlaylist } from '../lib/api';
+    import { navigate } from 'astro:transitions/client';
 
     async function loadLibraryData() {
         try {
@@ -70,7 +71,7 @@ const stats = [
             const data = await res.json();
             
             if (!data.logged_in) {
-                window.location.href = '/login';
+                navigate('/login');
                 return;
             }
 

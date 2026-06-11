@@ -87,6 +87,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
 
 <script>
     import { createPlaylist } from '../lib/api';
+    import { navigate } from 'astro:transitions/client';
 
     async function loadProfile() {
         try {
@@ -94,7 +95,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
             const data = await res.json();
             
             if (!data.logged_in) {
-                window.location.href = '/login';
+                navigate('/login');
                 return;
             }
 
@@ -164,7 +165,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
         logoutBtn.dataset.bound = "true";
         logoutBtn.addEventListener('click', async () => {
             await fetch('/api/logout');
-            window.location.href = '/';
+            navigate('/');
         });
     }
 
