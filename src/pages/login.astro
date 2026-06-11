@@ -50,7 +50,7 @@ import { Music, ArrowLeft } from 'lucide-react';
         const formData = new FormData(form);
         
         try {
-            const res = await fetch('/login', {
+            const res = await fetch('/api/login', {
                 method: 'POST',
                 body: formData,
             });

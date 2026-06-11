@@ -163,7 +163,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
     if (logoutBtn && !logoutBtn.dataset.bound) {
         logoutBtn.dataset.bound = "true";
         logoutBtn.addEventListener('click', async () => {
-            await fetch('/logout');
+            await fetch('/api/logout');
             window.location.href = '/';
         });
     }

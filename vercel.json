@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index.py" },
+    { "source": "/stream/(.*)", "destination": "/api/index.py" },
+    { "source": "/proxy", "destination": "/api/index.py" }
+  ]
+}
