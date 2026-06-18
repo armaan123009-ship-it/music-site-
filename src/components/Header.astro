@@ -1,54 +1,276 @@
 ---
-import { Search, User } from 'lucide-react';
+import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-react';
 ---
 
-<header transition:persist id="global-header" class="sticky top-0 z-30 bg-background/40 backdrop-blur-2xl border-b border-white/[0.02] px-4 md:px-8 py-4 flex items-center justify-between xl:ml-64">
-    <div class="relative w-full max-w-xl group">
-        <div class="absolute inset-0 bg-primary/5 rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
-        <input id="global-search-input" type="text" placeholder="Search for songs, artists..." class="w-full bg-white/5 border border-white/5 rounded-2xl py-3 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white/[0.08] transition-all text-white placeholder:text-muted-foreground" />
-    </div>
-    
-    <div class="flex items-center gap-6 ml-3 shrink-0">
-        <div id="auth-btn" class="flex items-center gap-2 p-1.5 pl-3 sm:pl-4 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full cursor-pointer transition-all">
-            <span class="text-xs font-bold text-white hidden sm:inline">Account</span>
-            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                <User className="w-5 h-5" />
+<header transition:persist id="global-header" class="sticky top-0 z-30 bg-background/60 backdrop-blur-2xl border-b border-white/[0.02] px-4 md:px-8 py-3.5 flex flex-col gap-3 xl:ml-64">
+    <!-- Main Row -->
+    <div class="flex items-center justify-between w-full">
+        <!-- Mobile Left Logo & Menu -->
+        <div class="flex items-center gap-3 xl:hidden">
+            <button id="mobile-menu-trigger" class="p-2 text-white hover:bg-white/5 rounded-full transition-all">
+                <Menu className="w-5 h-5" />
+            </button>
+            <a href="/" class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
+                    <Play className="w-4 h-4 text-primary-foreground fill-current translate-x-[1px]" />
+                </div>
+                <span class="text-xl font-black tracking-tighter text-white flex items-center">Music</span>
+            </a>
+        </div>
+
+        <!-- Desktop Search Bar -->
+        <div class="relative w-full max-w-xl group hidden xl:block">
+            <div class="absolute inset-0 bg-primary/5 rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
+            <input id="global-search-input" type="text" placeholder="Search for songs, artists..." class="w-full bg-white/5 border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white/[0.08] transition-all text-white placeholder:text-muted-foreground" />
+        </div>
+
+        <!-- Right Side Actions -->
+        <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <!-- Mobile Search Icon Trigger -->
+            <button id="mobile-search-trigger" class="p-2 text-white hover:bg-white/5 rounded-full transition-all xl:hidden">
+                <Search className="w-5 h-5" />
+            </button>
+
+            <!-- Cast Icon -->
+            <button class="p-2 text-white hover:bg-white/5 rounded-full transition-all">
+                <Cast className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+            </button>
+
+            <!-- Theme Switcher Palette Dropdown -->
+            <div class="relative inline-block text-left" id="theme-dropdown-container">
+                <button id="theme-dropdown-trigger" class="p-2 text-white hover:bg-white/5 rounded-full transition-all flex items-center justify-center" title="Change Theme">
+                    <Palette className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+                </button>
+                
+                <!-- Dropdown Menu -->
+                <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 rounded-2xl bg-card border border-white/10 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div class="px-4 py-2 border-b border-white/5">
+                        <span class="text-xs font-bold text-muted-foreground uppercase tracking-widest">Select Theme</span>
+                    </div>
+                    <div class="p-1.5 space-y-1">
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-midnight">
+                            <span class="w-3 h-3 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
+                            Midnight Red
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-sunset">
+                            <span class="w-3 h-3 rounded-full bg-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.5)]"></span>
+                            Sunset Rose
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-cyber">
+                            <span class="w-3 h-3 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span>
+                            Cyberpunk Neon
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-forest">
+                            <span class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                            Forest Emerald
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-ocean">
+                            <span class="w-3 h-3 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]"></span>
+                            Ocean Breeze
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-vampire">
+                            <span class="w-3 h-3 rounded-full bg-red-700 shadow-[0_0_8px_rgba(185,28,28,0.5)]"></span>
+                            Vampire Goth
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-amethyst">
+                            <span class="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)]"></span>
+                            Royal Amethyst
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-monochrome">
+                            <span class="w-3 h-3 rounded-full bg-white border border-white/20 shadow-[0_0_8px_rgba(255,255,255,0.4)]"></span>
+                            Monochrome Slate
+                        </button>
+                        
+                        <!-- Custom Color Theme Options -->
+                        <div class="border-t border-white/5 mt-1 pt-1.5 px-3 flex flex-col gap-1.5">
+                            <button class="theme-option w-full text-left py-1.5 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-custom">
+                                <span id="custom-theme-indicator" class="w-3.5 h-3.5 rounded-full bg-primary border border-white/10 shadow-[0_0_8px_var(--primary)] shrink-0"></span>
+                                Custom Accent
+                            </button>
+                            <div class="flex items-center justify-between pl-6 pr-2">
+                                <span class="text-[10px] font-bold text-muted-foreground uppercase">Choose Color</span>
+                                <input type="color" id="custom-color-picker" class="w-7 h-7 rounded-md cursor-pointer bg-transparent border-0 p-0" value="#FF3D77" style="border: none; outline: none;" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <!-- More vertical icon -->
+            <button class="p-2 text-white hover:bg-white/5 rounded-full transition-all hidden sm:block">
+                <MoreVertical className="w-5 h-5 text-muted-foreground hover:text-foreground" />
+            </button>
+
+            <!-- Auth/Account button -->
+            <div id="auth-btn" class="flex items-center gap-2 p-1 pl-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full cursor-pointer transition-all">
+                <span class="text-xs font-bold text-white hidden sm:inline" id="header-auth-label">Sign In</span>
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary to-blue-500 flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                    <User className="w-4 h-4" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Search Bar Overlay (Slides/toggles) -->
+    <div id="mobile-search-container" class="hidden w-full group xl:hidden">
+        <div class="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <input id="mobile-search-input" type="text" placeholder="Search for songs, artists..." class="w-full bg-white/5 border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white/[0.08] transition-all text-white placeholder:text-muted-foreground" />
         </div>
     </div>
 </header>
 
 <script>
     import { navigate } from 'astro:transitions/client';
+    import { getUserData } from '../lib/api';
 
     function initHeader() {
         const searchInput = document.getElementById('global-search-input') as HTMLInputElement;
+        const mobileSearchInput = document.getElementById('mobile-search-input') as HTMLInputElement;
+        const mobileSearchTrigger = document.getElementById('mobile-search-trigger');
+        const mobileSearchContainer = document.getElementById('mobile-search-container');
         const authBtn = document.getElementById('auth-btn');
+        const authLabel = document.getElementById('header-auth-label');
 
-        if (searchInput && !searchInput.dataset.bound) {
-            searchInput.dataset.bound = "true";
+        // Setup theme switcher dropdown
+        const themeDropdownTrigger = document.getElementById('theme-dropdown-trigger');
+        const themeDropdownMenu = document.getElementById('theme-dropdown-menu');
 
-            searchInput.addEventListener('input', (e) => {
-                const val = (e.target as HTMLInputElement).value;
-                if (window.location.pathname !== '/') {
-                    navigate(`/?q=${encodeURIComponent(val)}`);
+        if (themeDropdownTrigger && themeDropdownMenu) {
+            themeDropdownTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                themeDropdownMenu.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                const target = e.target as HTMLElement;
+                if (!target.closest('#theme-dropdown-container')) {
+                    themeDropdownMenu.classList.add('hidden');
                 }
             });
 
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    searchInput.blur();
+            const themeOptions = themeDropdownMenu.querySelectorAll('.theme-option');
+            themeOptions.forEach(opt => {
+                opt.addEventListener('click', () => {
+                    const theme = (opt as HTMLElement).dataset.theme;
+                    if (theme) {
+                        localStorage.setItem('music-theme', theme);
+                        if (typeof (window as any).applyTheme === 'function') {
+                            (window as any).applyTheme();
+                        }
+                    }
+                    themeDropdownMenu.classList.add('hidden');
+                });
+            });
+
+            // Dynamic Custom Color Picker Events
+            const customColorPicker = document.getElementById('custom-color-picker') as HTMLInputElement;
+            const customThemeIndicator = document.getElementById('custom-theme-indicator');
+
+            // Load saved custom color
+            const savedCustomColor = localStorage.getItem('music-theme-custom-color') || '#FF3D77';
+            if (customColorPicker) {
+                customColorPicker.value = savedCustomColor;
+            }
+            if (customThemeIndicator) {
+                customThemeIndicator.style.backgroundColor = savedCustomColor;
+            }
+
+            if (customColorPicker) {
+                const updateCustomColor = (color: string) => {
+                    localStorage.setItem('music-theme-custom-color', color);
+                    if (customThemeIndicator) {
+                        customThemeIndicator.style.backgroundColor = color;
+                    }
+                    const currentTheme = localStorage.getItem('music-theme') || 'theme-midnight';
+                    if (currentTheme === 'theme-custom') {
+                        if (typeof (window as any).applyTheme === 'function') {
+                            (window as any).applyTheme();
+                        }
+                    }
+                };
+
+                customColorPicker.addEventListener('input', (e) => {
+                    updateCustomColor((e.target as HTMLInputElement).value);
+                });
+
+                customColorPicker.addEventListener('change', (e) => {
+                    localStorage.setItem('music-theme', 'theme-custom');
+                    updateCustomColor((e.target as HTMLInputElement).value);
+                    if (typeof (window as any).applyTheme === 'function') {
+                        (window as any).applyTheme();
+                    }
+                });
+            }
+        }
+
+        // Toggle mobile search input
+        if (mobileSearchTrigger && mobileSearchContainer && mobileSearchInput) {
+            mobileSearchTrigger.addEventListener('click', (e) => {
+                e.stopPropagation();
+                mobileSearchContainer.classList.toggle('hidden');
+                if (!mobileSearchContainer.classList.contains('hidden')) {
+                    mobileSearchInput.focus();
                 }
             });
         }
+
+        // Search Input listeners
+        const bindSearch = (input: HTMLInputElement) => {
+            if (!input || input.dataset.headerBound) return;
+            input.dataset.headerBound = "true";
+
+            input.addEventListener('input', (e) => {
+                const val = (e.target as HTMLInputElement).value;
+                
+                // Keep the inputs synced
+                if (input === searchInput && mobileSearchInput) {
+                    mobileSearchInput.value = val;
+                } else if (input === mobileSearchInput && searchInput) {
+                    searchInput.value = val;
+                }
+
+                if (window.location.pathname !== '/') {
+                    navigate(`/?q=${encodeURIComponent(val)}`);
+                } else {
+                    // Trigger live search on index page
+                    const homeSearchInput = document.getElementById('global-search-input') as HTMLInputElement;
+                    if (homeSearchInput && homeSearchInput !== input) {
+                        homeSearchInput.value = val;
+                    }
+                    // Dispatch input event for the index.astro script
+                    const event = new Event('input', { bubbles: true });
+                    homeSearchInput?.dispatchEvent(event);
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    input.blur();
+                }
+            });
+        };
+
+        if (searchInput) bindSearch(searchInput);
+        if (mobileSearchInput) bindSearch(mobileSearchInput);
+
+        // Auth labels
+        const updateAuth = async () => {
+            try {
+                const data = await getUserData();
+                if (authLabel) {
+                    authLabel.textContent = data.logged_in ? (data.username || 'Account') : 'Sign In';
+                }
+            } catch (err) {}
+        };
+        updateAuth();
 
         if (authBtn && !authBtn.dataset.bound) {
             authBtn.dataset.bound = "true";
             authBtn.addEventListener('click', async () => {
                 try {
-                    const res = await fetch('/api/user_data');
-                    const data = await res.json();
+                    const data = await getUserData();
                     navigate(data.logged_in ? '/profile' : '/login');
                 } catch (err) {
                     navigate('/login');

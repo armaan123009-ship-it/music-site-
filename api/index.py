@@ -8,6 +8,52 @@ import bcrypt
 import json
 import os
 import requests
+import time
+
+# Simple cache for API responses and stream URLs
+api_cache = {}
+stream_cache = {}
+
+def get_cached_api(key, duration=600):
+    now = time.time()
+    if key in api_cache:
+        data, ts = api_cache[key]
+        if now - ts < duration:
+            return data
+    return None
+
+def set_cached_api(key, data):
+    api_cache[key] = (data, time.time())
+
+def get_cached_stream_url(video_id):
+    now = time.time()
+    if video_id in stream_cache:
+        url, ts = stream_cache[video_id]
+        if now - ts < 4 * 3600:  # 4 hours cache duration
+            return url
+    return None
+
+def set_cached_stream_url(video_id, url):
+    stream_cache[video_id] = (url, time.time())
+
+def proxy_track_image(track_id, image_url):
+    if not image_url:
+        return f"https://i.ytimg.com/vi/{track_id}/hqdefault.jpg"
+    if "api/image-proxy" in image_url:
+        return image_url
+    from flask import has_request_context, request
+    if has_request_context():
+        return f"{request.host_url}api/image-proxy?url={requests.utils.quote(image_url)}&id={track_id}"
+    return image_url
+
+def proxy_db_track(track):
+    if not track or 'image' not in track or 'id' not in track:
+        return track
+    t = dict(track)
+    t['image'] = proxy_track_image(t['id'], t['image'])
+    return t
+
+
 
 # Resolve base directories safely
 base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -86,7 +132,8 @@ def get_playlist_details(playlist_id):
     playlists = current_user.get_playlists()
     for pl in playlists:
         if pl['id'] == playlist_id:
-            return jsonify({"title": pl['name'], "songs": pl['songs']})
+            songs = [proxy_db_track(s) for s in pl['songs']]
+            return jsonify({"title": pl['name'], "songs": songs})
     return jsonify({"error": "Playlist not found"}), 404
 
 # ---------- YT MUSIC SETUP ----------
@@ -114,7 +161,9 @@ def format_song(item):
             
         thumbs = item.get('thumbnails') or []
         thumb_url = thumbs[-1].get('url') if thumbs else ""
-        return {"id": video_id, "title": title, "artist": artist, "image": thumb_url, "duration": item.get('duration', '3:45')}
+        
+        image_url = proxy_track_image(video_id, thumb_url)
+        return {"id": video_id, "title": title, "artist": artist, "image": image_url, "duration": item.get('duration', '3:45')}
     except Exception: return None
 
 @app.route("/api/register", methods=["POST"])
@@ -215,6 +264,9 @@ def serve(path):
 # ---------- API ENDPOINTS ----------
 @app.route("/api/home")
 def home():
+    cached = get_cached_api("home", duration=900)  # 15 mins cache
+    if cached is not None:
+        return jsonify(cached)
     try:
         sections = []
         try:
@@ -238,12 +290,16 @@ def home():
             items = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)][:12]
             sections.append({"title": "Trending Now", "items": items})
             
+        set_cached_api("home", sections)
         return jsonify(sections)
     except Exception:
         return jsonify([])
 
 @app.route("/api/trending")
 def trending():
+    cached = get_cached_api("trending", duration=1800)  # 30 mins cache
+    if cached is not None:
+        return jsonify(cached)
     try:
         playlist_id = 'PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0'
         try:
@@ -255,6 +311,7 @@ def trending():
         
         playlist = yt.get_playlist(playlist_id)
         songs = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)]
+        set_cached_api("trending", songs)
         return jsonify(songs)
     except Exception:
         return jsonify([])
@@ -263,15 +320,28 @@ def trending():
 def search():
     q = request.args.get('q', '')
     if not q: return jsonify([])
+    cache_key = f"search_{q}"
+    cached = get_cached_api(cache_key, duration=600)  # 10 mins cache
+    if cached is not None:
+        return jsonify(cached)
     try:
         results = yt.search(q, filter="songs")[:40]
         if not results: results = yt.search(q, filter="videos")[:40]
-        return jsonify([format_song(r) for r in results if format_song(r)])
+        songs = [format_song(r) for r in results if format_song(r)]
+        set_cached_api(cache_key, songs)
+        return jsonify(songs)
     except Exception: return jsonify([])
 
 @app.route("/stream/<video_id>")
 def stream(video_id):
     try:
+        cached_url = get_cached_stream_url(video_id)
+        if cached_url:
+            return jsonify({
+                "url": cached_url, 
+                "proxy_url": f"/proxy?url={requests.utils.quote(cached_url)}"
+            })
+            
         ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
@@ -295,6 +365,7 @@ def stream(video_id):
                 info = ydl.extract_info(f"ytsearch:{video_id}", download=False)['entries'][0]
                 
             url = info['url']
+            set_cached_stream_url(video_id, url)
             return jsonify({
                 "url": url, 
                 "proxy_url": f"/proxy?url={requests.utils.quote(url)}"
@@ -307,42 +378,156 @@ def stream(video_id):
 def proxy():
     url = request.args.get('url')
     if not url: return "No URL", 400
+    
+    download = request.args.get('download') == 'true'
+    title = request.args.get('title', 'audio')
+    # Clean filename
+    safe_title = "".join([c for c in title if c.isalnum() or c in ' -_']).strip()
+    if not safe_title:
+        safe_title = "audio"
+        
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-    if request.headers.get("Range"): headers["Range"] = request.headers.get("Range")
+    if request.headers.get("Range"): 
+        headers["Range"] = request.headers.get("Range")
     try:
         r = requests.get(url, headers=headers, stream=True, timeout=15)
         def generate():
-            for chunk in r.iter_content(chunk_size=256*1024):
+            for chunk in r.iter_content(chunk_size=512*1024):  # Increased buffer to 512KB for faster loading
                 if chunk: yield chunk
-        response = Response(stream_with_context(generate()), status=r.status_code)
+        response = Response(generate(), status=r.status_code)
         for k, v in r.headers.items():
-            if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-length']:
+            if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition']:
                 response.headers[k] = v
-        response.headers["Access-Control-Allow-Origin"] = "*"
+                
+        if download:
+            response.headers["Content-Type"] = "audio/mpeg"
+            response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
+        else:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
+            
         return response
     except Exception as e:
         return str(e), 500
 
+@app.route("/api/image-proxy")
+def image_proxy():
+    url = request.args.get('url')
+    if not url: return "No URL", 400
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    try:
+        r = requests.get(url, headers=headers, timeout=10)
+        response = Response(r.content, status=r.status_code)
+        response.headers["Content-Type"] = r.headers.get("Content-Type", "image/jpeg")
+        response.headers["Cache-Control"] = "public, max-age=86400"
+        return response
+    except Exception as e:
+        video_id = request.args.get('id')
+        if video_id:
+            return redirect(f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg")
+        return str(e), 500
+
+@app.route("/api/download/<video_id>")
+def download_audio(video_id):
+    title = request.args.get('title', 'audio')
+    # Clean filename
+    safe_title = "".join([c for c in title if c.isalnum() or c in ' -_']).strip()
+    if not safe_title:
+        safe_title = "audio"
+    try:
+        url = get_cached_stream_url(video_id)
+        if not url:
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'quiet': True,
+                'no_warnings': True,
+                'nocheckcertificate': True,
+                'ignoreerrors': True,
+            }
+            
+            if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 0:
+                try:
+                    with open(cookies_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                        if '# Netscape' in content or 'domain' in content:
+                            ydl_opts['cookiefile'] = cookies_path
+                except: pass
+                
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                if not info or 'url' not in info:
+                    info = ydl.extract_info(f"ytsearch:{video_id}", download=False)['entries'][0]
+                url = info['url']
+                set_cached_stream_url(video_id, url)
+            
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        r = requests.get(url, headers=headers, stream=True, timeout=20)
+        
+        def generate():
+            for chunk in r.iter_content(chunk_size=1024*1024):  # 1MB buffer for fast downloading
+                if chunk: yield chunk
+                
+        response = Response(generate(), status=200)
+        response.headers["Content-Type"] = "audio/mpeg"
+        response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
+        
+        if 'content-length' in r.headers:
+            response.headers["Content-Length"] = r.headers['content-length']
+            
+        return response
+    except Exception as e:
+        print(f"Download failed for {video_id}: {e}")
+        return str(e), 500
+
 @app.route("/api/lyrics/<video_id>")
 def get_lyrics(video_id):
+    cache_key = f"lyrics_{video_id}"
+    cached = get_cached_api(cache_key, duration=86400)  # 24 hours cache
+    if cached is not None:
+        return jsonify(cached)
     try:
         watch = yt.get_watch_playlist(videoId=video_id)
         lyrics_id = watch.get('lyrics')
-        if not lyrics_id: return jsonify({"lyrics": "No lyrics found."})
-        return jsonify({"lyrics": yt.get_lyrics(lyrics_id).get('lyrics', 'No lyrics found.')})
-    except: return jsonify({"lyrics": "No lyrics found."})
+        if not lyrics_id:
+            res = {"lyrics": "No lyrics found."}
+        else:
+            res = {"lyrics": yt.get_lyrics(lyrics_id).get('lyrics', 'No lyrics found.')}
+        set_cached_api(cache_key, res)
+        return jsonify(res)
+    except:
+        return jsonify({"lyrics": "No lyrics found."})
 
 @app.route("/api/suggestions/<video_id>")
 def get_suggestions(video_id):
+    cache_key = f"suggestions_{video_id}"
+    cached = get_cached_api(cache_key, duration=3600)  # 1 hour cache
+    if cached is not None:
+        return jsonify(cached)
     try:
         watch = yt.get_watch_playlist(videoId=video_id, limit=10)
-        return jsonify([format_song(t) for t in watch.get('tracks', []) if format_song(t) and t.get('videoId') != video_id])
-    except: return jsonify([])
+        songs = [format_song(t) for t in watch.get('tracks', []) if format_song(t) and t.get('videoId') != video_id]
+        set_cached_api(cache_key, songs)
+        return jsonify(songs)
+    except:
+        return jsonify([])
 
 @app.route("/api/user_data")
 def user_data():
     if current_user.is_authenticated:
-        return jsonify({"logged_in": True, "username": current_user.username, "liked_songs": current_user.get_liked_songs(), "playlists": current_user.get_playlists()})
+        liked = [proxy_db_track(s) for s in current_user.get_liked_songs()]
+        playlists = current_user.get_playlists()
+        for pl in playlists:
+            pl['songs'] = [proxy_db_track(s) for s in pl['songs']]
+        return jsonify({
+            "logged_in": True, 
+            "username": current_user.username, 
+            "liked_songs": liked, 
+            "playlists": playlists
+        })
     return jsonify({"logged_in": False})
 
 if __name__ == "__main__":

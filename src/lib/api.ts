@@ -5,6 +5,16 @@ const getApiBase = () => {
     }
     
     if (typeof window !== 'undefined') {
+        // Detect if running under Capacitor (mobile app WebView)
+        const isCapacitor = (window as any).Capacitor || 
+                            window.location.protocol === 'capacitor:' || 
+                            (window.location.hostname === 'localhost' && !window.location.port);
+        
+        if (isCapacitor) {
+            // For emulator/ADB reverse proxy, point to local Flask backend
+            return 'http://127.0.0.1:5000';
+        }
+
         // If we are on the dev server (4321), point to the local backend (5000)
         if (window.location.port === '4321') {
             return 'http://127.0.0.1:5000';

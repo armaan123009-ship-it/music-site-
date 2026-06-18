@@ -87,7 +87,7 @@ const stats = [
                     <div class="track-trigger flex items-center justify-between p-3 rounded-2xl hover:bg-white/10 group transition-all cursor-pointer"
                          data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
                         <div class="flex items-center gap-4">
-                            <img src="${track.image}" class="w-12 h-12 rounded-xl object-cover" />
+                            <img src="${track.image}" referrerpolicy="no-referrer" class="w-12 h-12 rounded-xl object-cover transition-opacity duration-300 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
                             <div>
                                 <h3 class="font-bold text-sm text-white">${track.title}</h3>
                                 <p class="text-xs text-muted-foreground">${track.artist}</p>

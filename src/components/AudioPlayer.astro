@@ -1,93 +1,131 @@
 ---
-import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic, Languages, ChevronUp, Sparkles } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic, Languages, ChevronUp, Sparkles, MoreVertical, Download } from 'lucide-react';
 ---
 
 <div id="persistent-audio-player-root" transition:persist style="display: contents;">
 <!-- Full Screen Immersive Player Overlay -->
-<div id="immersive-player" class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-8 overflow-y-auto scrollbar-hide">
-    <button id="close-immersive" class="absolute top-8 left-8 p-3 hover:bg-muted rounded-full transition-all z-20">
-        <SkipBack className="w-6 h-6 rotate-[-90deg]" />
-    </button>
+<div id="immersive-player" class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-6 overflow-y-auto scrollbar-hide">
+    <!-- Top Bar -->
+    <div class="flex items-center justify-between w-full max-w-7xl mx-auto z-20">
+        <button id="close-immersive" class="p-2.5 hover:bg-white/5 rounded-full transition-all text-white cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <span class="text-xs font-black uppercase tracking-widest text-muted-foreground text-center flex-1">Now Playing</span>
+        <button class="p-2.5 hover:bg-white/5 rounded-full transition-all text-white cursor-pointer">
+            <MoreVertical className="w-5 h-5 text-muted-foreground" />
+        </button>
+    </div>
 
-    <div class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-12 max-w-7xl mx-auto w-full h-full mt-16 lg:mt-0">
-        <!-- Artwork & Info & Playback Controls -->
-        <div class="w-full lg:w-1/2 flex flex-col items-center text-center space-y-6 md:space-y-8 shrink-0">
-            <!-- Artwork -->
-            <div class="relative w-56 h-56 md:w-96 md:h-96 rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/10 group">
-                <img id="immersive-artwork" src="" alt="Artwork" class="w-full h-full object-cover" />
-                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-            </div>
-
-            <!-- Title & Artist & Like Button -->
-            <div class="flex items-center justify-between w-full max-w-md px-4 gap-4">
-                <div class="flex-1 text-left space-y-1 min-w-0">
-                    <h1 id="immersive-title" class="text-3xl md:text-5xl font-black tracking-tighter text-white truncate">Select a track</h1>
-                    <p id="immersive-artist" class="text-base md:text-lg text-primary font-bold truncate">Premium Artist</p>
+    <!-- Center Content -->
+    <div class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16 max-w-7xl mx-auto w-full h-full mt-6 lg:mt-0">
+        
+        <!-- Left Column: Artwork, Info, Slider, Controls -->
+        <div class="w-full lg:w-1/2 flex flex-col items-center justify-center text-center space-y-6 md:space-y-8 shrink-0 max-w-md mx-auto">
+            <!-- Glowing Artwork Container -->
+            <div class="relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 group mx-auto">
+                <!-- Outer Glow Layer -->
+                <div id="immersive-artwork-glow" class="absolute inset-0 opacity-60 rounded-[2.5rem] blur-[35px] pointer-events-none transition-all duration-500" style="background: linear-gradient(137deg, #FF3D77 0%, #FFB1CE 45%, #FF9D3C 100%)"></div>
+                <!-- Foreground Image -->
+                <div class="relative w-full h-full rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/10 z-10 bg-card">
+                    <img id="immersive-artwork" referrerpolicy="no-referrer" src="" alt="Artwork" class="w-full h-full object-cover transition-opacity duration-500 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; if(this.dataset.id) { this.src='https://i.ytimg.com/vi/' + this.dataset.id + '/hqdefault.jpg'; } else { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\'><path d=\'M9 18V5l12-2v13\'/><circle cx=\'6\' cy=\'18\' r=\'3\'/><circle cx=\'18\' cy=\'16\' r=\'3\'/></svg>'; this.style.padding='24%'; this.style.backgroundColor='#18181b'; }" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
                 </div>
-                <button id="immersive-like-btn" class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 hidden">
-                    <svg id="immersive-like-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                </button>
             </div>
 
-            <!-- Progress Bar -->
-            <div class="w-full max-w-md px-4 space-y-2">
+            <!-- Title, Artist, and Like/Download Button -->
+            <div class="flex items-center justify-between w-full px-2 gap-4">
+                <div class="flex-1 text-left min-w-0">
+                    <h1 id="immersive-title" class="text-2xl md:text-3xl font-black tracking-tight text-white truncate">Select a track</h1>
+                    <p id="immersive-artist" class="text-sm md:text-base text-primary font-bold truncate">Premium Artist</p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Download option -->
+                    <button id="immersive-download-btn" class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 cursor-pointer" title="Download track">
+                        <Download className="w-5 h-5 text-white" />
+                    </button>
+                    <!-- Like option -->
+                    <button id="immersive-like-btn" class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 cursor-pointer">
+                        <svg id="immersive-like-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress Bar Slider -->
+            <div class="w-full px-2 space-y-2">
                 <div class="group relative w-full h-1.5 bg-white/10 rounded-full cursor-pointer overflow-hidden" id="immersive-progress-container">
-                    <div id="immersive-progress-bar" class="absolute top-0 left-0 h-full bg-primary transition-all duration-100 ease-linear" style="width: 0%"></div>
-                    <div class="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-10 bg-primary transition-opacity"></div>
+                    <div id="immersive-progress-bar" class="absolute top-0 left-0 h-full bg-white transition-all duration-100 ease-linear" style="width: 0%"></div>
+                    <div class="absolute top-0 left-0 h-full w-full opacity-0 group-hover:opacity-10 bg-white transition-opacity"></div>
                 </div>
-                <div class="flex justify-between text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                <div class="flex justify-between text-[10px] font-bold text-muted-foreground/80 tracking-wider">
                     <span id="immersive-current-time">0:00</span>
                     <span id="immersive-duration">0:00</span>
                 </div>
             </div>
 
             <!-- Controls Row -->
-            <div class="flex items-center justify-center gap-6 w-full max-w-md pb-4 border-b border-white/5 lg:border-none lg:pb-0">
-                <button id="immersive-shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5" title="Shuffle">
+            <div class="flex items-center justify-between w-full px-4 max-w-sm mx-auto">
+                <button id="immersive-shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer" title="Shuffle">
                     <Shuffle className="w-5 h-5" />
                 </button>
-                <button id="immersive-prev-btn" class="text-foreground hover:scale-110 transition-transform p-2">
+                <button id="immersive-prev-btn" class="text-white hover:scale-110 transition-transform p-2 cursor-pointer">
                     <SkipBack className="w-6 h-6 fill-current text-white" />
                 </button>
-                <button id="immersive-play-pause-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/30 shrink-0">
-                    <Play id="immersive-play-icon" className="w-6 h-6 md:w-8 md:h-8 fill-current" />
-                    <Pause id="immersive-pause-icon" className="w-6 h-6 md:w-8 md:h-8 fill-current hidden" />
+                <!-- Play/Pause Button - White circle with dark icon -->
+                <button id="immersive-play-pause-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-white/5 shrink-0 cursor-pointer">
+                    <Play id="immersive-play-icon" className="w-6 h-6 md:w-7 md:h-7 fill-current text-black" />
+                    <Pause id="immersive-pause-icon" className="w-6 h-6 md:w-7 md:h-7 fill-current hidden text-black" />
                 </button>
-                <button id="immersive-next-btn" class="text-foreground hover:scale-110 transition-transform p-2">
+                <button id="immersive-next-btn" class="text-white hover:scale-110 transition-transform p-2 cursor-pointer">
                     <SkipForward className="w-6 h-6 fill-current text-white" />
                 </button>
-                <button id="immersive-repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5" title="Repeat">
+                <button id="immersive-repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer" title="Repeat">
                     <Repeat className="w-5 h-5" />
                 </button>
             </div>
         </div>
 
-        <!-- Tabs Section (Lyrics / Queue) -->
-        <div class="w-full lg:w-1/2 flex flex-col h-[500px] lg:h-[600px] bg-muted/20 rounded-[2rem] border border-white/5 overflow-hidden">
-            <div class="flex border-b border-white/5">
-                <button id="tab-lyrics" class="flex-1 py-4 text-sm font-bold border-b-2 border-primary bg-primary/5 transition-all flex items-center justify-center gap-2 text-white">
-                    <Languages className="w-4 h-4" /> Lyrics
+        <!-- Right Column: Tabs Section (Lyrics / Queue / Related) -->
+        <div class="w-full lg:w-1/2 flex flex-col h-[380px] lg:h-[520px] bg-muted/5 rounded-[2rem] border border-white/5 overflow-hidden">
+            <div class="flex border-b border-white/5 bg-[#121214]">
+                <button id="tab-queue" class="flex-1 py-4 text-xs font-bold border-b-2 border-primary bg-primary/5 transition-all flex items-center justify-center gap-2 text-white cursor-pointer">
+                    Up next
                 </button>
-                <button id="tab-queue" class="flex-1 py-4 text-sm font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60">
-                    <ListMusic className="w-4 h-4" /> Queue
+                <button id="tab-lyrics" class="flex-1 py-4 text-xs font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60 cursor-pointer">
+                    Lyrics
+                </button>
+                <button id="tab-related" class="flex-1 py-4 text-xs font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60 cursor-pointer">
+                    Related
                 </button>
             </div>
             
-            <div class="flex-1 overflow-y-auto p-8 relative">
-                <div id="lyrics-content" class="text-xl md:text-2xl font-medium leading-relaxed text-white/80 space-y-4">
-                    <p class="opacity-50 italic">Select a track to see lyrics...</p>
-                </div>
-                <div id="queue-content" class="hidden space-y-4">
-                    <div class="flex items-center justify-between pb-4 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10">
-                        <span class="text-sm font-bold text-white/80">Queue list</span>
+            <div class="flex-1 overflow-y-auto p-5 relative scrollbar-hide">
+                <!-- Up Next Queue Content -->
+                <div id="queue-content" class="space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10">
+                        <span class="text-xs font-bold text-white/80 uppercase tracking-widest">Queue list</span>
                         <label class="relative inline-flex items-center cursor-pointer select-none">
                             <input type="checkbox" id="autoplay-toggle" class="sr-only peer" checked>
-                            <div class="w-9 h-5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                            <div class="w-8 h-4.5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary"></div>
                             <span class="ms-2 text-xs font-bold text-white/80">Autoplay</span>
                         </label>
                     </div>
-                    <div id="queue-list-container" class="space-y-4">
+                    <div id="queue-list-container" class="space-y-1.5">
                         <!-- Queue items -->
+                    </div>
+                </div>
+
+                <!-- Lyrics Content -->
+                <div id="lyrics-content" class="hidden text-base md:text-lg font-medium leading-relaxed text-white/80 space-y-4 text-center">
+                    <p class="opacity-50 italic">Select a track to see lyrics...</p>
+                </div>
+
+                <!-- Related Content -->
+                <div id="related-content" class="hidden space-y-4">
+                    <div class="flex items-center justify-between pb-3 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10">
+                        <span class="text-xs font-bold text-white/80 uppercase tracking-widest">Recommended tracks</span>
+                    </div>
+                    <div id="related-list-container" class="space-y-1.5">
+                        <!-- Related items -->
                     </div>
                 </div>
             </div>
@@ -96,34 +134,34 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 </div>
 
 <!-- Bottom Mini Player -->
-<div id="audio-player" class="fixed bottom-0 left-0 right-0 z-40 bg-background/80 backdrop-blur-xl border-t border-border p-4 transition-transform duration-500 translate-y-full">
+<div id="audio-player" class="fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-xl border-t border-border/40 p-3.5 transition-transform duration-500 translate-y-full xl:ml-64">
     <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
         <!-- Track Info -->
-        <div id="mini-info" class="flex items-center gap-3 md:gap-4 w-1/2 md:w-1/3 cursor-pointer group min-w-0">
-            <div class="relative w-12 h-12 rounded-lg overflow-hidden border border-border shrink-0">
-                <img id="player-artwork" src="" alt="Artwork" class="w-full h-full object-cover animate-spin-slow paused group-[.playing]:running" />
+        <div id="mini-info" class="flex items-center gap-3 w-[70%] sm:w-1/3 cursor-pointer group min-w-0">
+            <div class="relative w-11 h-11 rounded-lg overflow-hidden border border-border shrink-0">
+                <img id="player-artwork" referrerpolicy="no-referrer" src="" alt="Artwork" class="w-full h-full object-cover animate-spin-slow paused group-[.playing]:running transition-opacity duration-500 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; if(this.dataset.id) { this.src='https://i.ytimg.com/vi/' + this.dataset.id + '/hqdefault.jpg'; } else { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\'><path d=\'M9 18V5l12-2v13\'/><circle cx=\'6\' cy=\'18\' r=\'3\'/><circle cx=\'18\' cy=\'16\' r=\'3\'/></svg>'; this.style.padding='20%'; this.style.backgroundColor='#18181b'; }" />
                 <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <ChevronUp className="w-4 h-4 text-white" />
                 </div>
             </div>
             <div class="flex flex-col overflow-hidden min-w-0">
-                <span id="player-title" class="text-sm font-semibold truncate text-white">Select a track</span>
+                <span id="player-title" class="text-sm font-bold truncate text-white">Select a track</span>
                 <span id="player-artist" class="text-xs text-muted-foreground truncate">Premium Music</span>
             </div>
         </div>
 
-        <!-- Controls -->
-        <div class="flex flex-col items-center gap-2 w-1/2 md:w-1/3">
-            <div class="flex items-center gap-3 sm:gap-6">
-                <button id="shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5" title="Shuffle"><Shuffle className="w-4 h-4" /></button>
-                <button id="prev-btn" class="text-foreground hover:scale-110 transition-transform p-1"><SkipBack className="w-5 h-5 fill-current text-white" /></button>
-                <button id="play-pause-btn" class="w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0">
-                    <Play id="play-icon" className="w-5 h-5 fill-current" />
-                    <Pause id="pause-icon" className="w-5 h-5 fill-current hidden" />
+        <!-- Controls (Center on Desktop) -->
+        <div class="hidden md:flex flex-col items-center gap-1.5 w-1/3">
+            <div class="flex items-center gap-5">
+                <button id="shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer" title="Shuffle"><Shuffle className="w-4 h-4" /></button>
+                <button id="prev-btn" class="text-foreground hover:scale-110 transition-transform p-1 cursor-pointer"><SkipBack className="w-4.5 h-4.5 fill-current text-white" /></button>
+                <button id="play-pause-btn" class="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0 cursor-pointer">
+                    <Play id="play-icon" className="w-4.5 h-4.5 fill-current text-primary-foreground" />
+                    <Pause id="pause-icon" className="w-4.5 h-4.5 fill-current hidden text-primary-foreground" />
                 </button>
-                <button id="next-btn" class="text-foreground hover:scale-110 transition-transform p-1"><SkipForward className="w-5 h-5 fill-current text-white" /></button>
-                <button id="repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5" title="Repeat"><Repeat className="w-4 h-4" /></button>
-                <button id="autoplay-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5" title="Autoplay recommendations"><Sparkles className="w-4 h-4" /></button>
+                <button id="next-btn" class="text-foreground hover:scale-110 transition-transform p-1 cursor-pointer"><SkipForward className="w-4.5 h-4.5 fill-current text-white" /></button>
+                <button id="repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer" title="Repeat"><Repeat className="w-4 h-4" /></button>
+                <button id="autoplay-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer" title="Autoplay recommendations"><Sparkles className="w-4 h-4" /></button>
             </div>
             
             <div class="flex items-center gap-3 w-full max-w-md">
@@ -136,21 +174,42 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             </div>
         </div>
 
-        <!-- Volume & Actions -->
-        <div class="flex items-center justify-end gap-2 md:gap-6 w-auto md:w-1/3">
-            <button id="mini-like-btn" class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group hidden">
-                <svg id="mini-like-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+        <!-- Mobile Controls (Play/Pause + Next) -->
+        <div class="flex items-center gap-3 md:hidden shrink-0">
+            <button id="mobile-mini-play-pause" class="p-2 text-white transition-all cursor-pointer">
+                <Play id="mobile-play-icon" className="w-6 h-6 fill-current text-white" />
+                <Pause id="mobile-pause-icon" className="w-6 h-6 fill-current hidden text-white" />
             </button>
-            <div class="hidden md:flex items-center gap-3">
+            <button id="mobile-mini-next" class="p-2 text-white cursor-pointer">
+                <SkipForward className="w-6 h-6 fill-current text-white" />
+            </button>
+        </div>
+
+        <!-- Volume & Actions -->
+        <div class="hidden md:flex items-center justify-end gap-5 w-1/3">
+            <!-- Download Button -->
+            <button id="mini-download-btn" class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group cursor-pointer" title="Download song">
+                <Download className="w-4.5 h-4.5 text-white" />
+            </button>
+            <!-- Like Button -->
+            <button id="mini-like-btn" class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group cursor-pointer">
+                <svg id="mini-like-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            </button>
+            <div class="flex items-center gap-2">
                 <Volume2 className="w-4 h-4 text-muted-foreground" />
-                <div id="volume-container" class="w-24 h-1 bg-muted rounded-full cursor-pointer relative overflow-hidden group">
+                <div id="volume-container" class="w-20 h-1 bg-muted rounded-full cursor-pointer relative overflow-hidden group">
                     <div id="volume-bar" class="absolute top-0 left-0 h-full bg-foreground" style="width: 80%"></div>
                 </div>
             </div>
-            <button id="toggle-immersive-btn" class="p-2 hover:bg-muted rounded-full transition-all shrink-0">
-                <ListMusic className="w-5 h-5 text-white" />
+            <button id="toggle-immersive-btn" class="p-2 hover:bg-white/5 rounded-full transition-all shrink-0 cursor-pointer">
+                <ListMusic className="w-4.5 h-4.5 text-white" />
             </button>
         </div>
+    </div>
+    
+    <!-- Mini progress line at bottom for mobile -->
+    <div class="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 md:hidden">
+        <div id="mobile-progress-bar" class="h-full bg-primary" style="width: 0%"></div>
     </div>
 </div>
 
@@ -159,8 +218,27 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 </div>
 
 <script>
-    import { apiFetch, fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData } from '../lib/api';
+    import { fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData, apiFetch } from '../lib/api';
     import { navigate } from 'astro:transitions/client';
+
+    // Premium gradients for background glows
+    const GLOW_GRADIENTS = [
+        'linear-gradient(137deg, #FF3D77 0%, #FFB1CE 45%, #FF9D3C 100%)',
+        'linear-gradient(137deg, #FFFFFF 0%, #7DD3FC 45%, #06B6D4 100%)',
+        'linear-gradient(137deg, #4361EE 0%, #E0AEFF 45%, #F72585 100%)',
+        'linear-gradient(137deg, #10B981 0%, #6EE7B7 45%, #059669 100%)',
+        'linear-gradient(137deg, #3B82F6 0%, #93C5FD 45%, #1D4ED8 100%)'
+    ];
+
+    function getGlowGradient(title: string) {
+        if (!title) return GLOW_GRADIENTS[0];
+        let hash = 0;
+        for (let i = 0; i < title.length; i++) {
+            hash = title.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        const idx = Math.abs(hash) % GLOW_GRADIENTS.length;
+        return GLOW_GRADIENTS[idx];
+    }
 
     // Initialize or reuse persistent player state on the window object
     const state = (window as any).playerState || {
@@ -175,7 +253,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         activePlayer: 'audio', // 'audio' | 'youtube'
         ytPlayer: null,
         ytApiReady: false,
-        ytTimeUpdateInterval: null
+        ytTimeUpdateInterval: null,
+        activeTab: 'queue',
+        currentStreamUrl: null,
+        currentProxyUrl: null
     };
     (window as any).playerState = state;
 
@@ -205,21 +286,9 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 const currentTime = state.ytPlayer.getCurrentTime();
                 const duration = state.ytPlayer.getDuration();
                 
-                const progressBar = document.getElementById('progress-bar');
-                const currentTimeEl = document.getElementById('current-time');
-                const immProgressBar = document.getElementById('immersive-progress-bar');
-                const immCurrentTimeEl = document.getElementById('immersive-current-time');
-                
                 const progress = (currentTime / (duration || 1)) * 100;
-                if (progressBar) progressBar.style.width = `${progress}%`;
-                if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
-                if (immProgressBar) immProgressBar.style.width = `${progress}%`;
-                if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
-                
-                const durationEl = document.getElementById('duration');
-                const immDurationEl = document.getElementById('immersive-duration');
-                if (durationEl) durationEl.textContent = formatTime(duration);
-                if (immDurationEl) immDurationEl.textContent = formatTime(duration);
+                updateProgressUI(currentTime, duration, progress);
+                updatePlaybackPosition();
             }
         }, 500);
     }
@@ -232,26 +301,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function handleYoutubeStateChange(stateVal: number) {
-        const playIcon = document.getElementById('play-icon');
-        const pauseIcon = document.getElementById('pause-icon');
-        const immPlayIcon = document.getElementById('immersive-play-icon');
-        const immPauseIcon = document.getElementById('immersive-pause-icon');
-
         if (stateVal === 1) { // PLAYING
-            state.isPlaying = true;
-            playIcon?.classList.add('hidden');
-            pauseIcon?.classList.remove('hidden');
-            immPlayIcon?.classList.add('hidden');
-            immPauseIcon?.classList.remove('hidden');
-            document.getElementById('mini-info')?.classList.add('playing');
+            syncPlayPauseUI(true);
             startYtTimeUpdate();
         } else if (stateVal === 2 || stateVal === 3) { // PAUSED or BUFFERING
-            state.isPlaying = false;
-            playIcon?.classList.remove('hidden');
-            pauseIcon?.classList.add('hidden');
-            immPlayIcon?.classList.remove('hidden');
-            immPauseIcon?.classList.add('hidden');
-            document.getElementById('mini-info')?.classList.remove('playing');
+            syncPlayPauseUI(false);
             if (stateVal === 2) stopYtTimeUpdate();
         } else if (stateVal === 0) { // ENDED
             stopYtTimeUpdate();
@@ -264,7 +318,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         }
     }
 
-    // Attach global callback for persistent iframe state updates
     (window as any).globalHandleYoutubeStateChange = (stateVal: number) => {
         handleYoutubeStateChange(stateVal);
     };
@@ -360,11 +413,123 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         return `${mins}:${secs.toString().padStart(2, '0')}`;
     }
 
+    function updateMediaSession(track: any) {
+        if ('mediaSession' in navigator && track) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: track.title,
+                artist: track.artist,
+                album: 'Premium Music',
+                artwork: [
+                    { src: track.image, sizes: '512x512', type: 'image/png' }
+                ]
+            });
+        }
+    }
+
+    function updatePlaybackPosition() {
+        if ('mediaSession' in navigator && 'positionState' in navigator.mediaSession) {
+            try {
+                if (state.activePlayer === 'audio' && audio && !isNaN(audio.duration) && isFinite(audio.duration)) {
+                    navigator.mediaSession.setPositionState({
+                        duration: audio.duration,
+                        playbackRate: audio.playbackRate || 1.0,
+                        position: audio.currentTime
+                    });
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer && typeof state.ytPlayer.getCurrentTime === 'function') {
+                    const duration = state.ytPlayer.getDuration() || 0;
+                    const currentTime = state.ytPlayer.getCurrentTime() || 0;
+                    if (duration > 0 && isFinite(duration) && isFinite(currentTime)) {
+                        navigator.mediaSession.setPositionState({
+                            duration: duration,
+                            playbackRate: 1.0,
+                            position: currentTime
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Error setting Media Session position state:", e);
+            }
+        }
+    }
+
+    function syncPlayPauseUI(playing: boolean) {
+        state.isPlaying = playing;
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+        }
+
+        const playIcon = document.getElementById('play-icon');
+        const pauseIcon = document.getElementById('pause-icon');
+        const mobPlayIcon = document.getElementById('mobile-play-icon');
+        const mobPauseIcon = document.getElementById('mobile-pause-icon');
+        const immPlayIcon = document.getElementById('immersive-play-icon');
+        const immPauseIcon = document.getElementById('immersive-pause-icon');
+
+        if (playing) {
+            playIcon?.classList.add('hidden');
+            pauseIcon?.classList.remove('hidden');
+            mobPlayIcon?.classList.add('hidden');
+            mobPauseIcon?.classList.remove('hidden');
+            immPlayIcon?.classList.add('hidden');
+            immPauseIcon?.classList.remove('hidden');
+            document.getElementById('mini-info')?.classList.add('playing');
+        } else {
+            playIcon?.classList.remove('hidden');
+            pauseIcon?.classList.add('hidden');
+            mobPlayIcon?.classList.remove('hidden');
+            mobPauseIcon?.classList.add('hidden');
+            immPlayIcon?.classList.remove('hidden');
+            immPauseIcon?.classList.add('hidden');
+            document.getElementById('mini-info')?.classList.remove('playing');
+        }
+    }
+
+    function updateProgressUI(currentTime: number, duration: number, progress: number) {
+        const progressBar = document.getElementById('progress-bar');
+        const currentTimeEl = document.getElementById('current-time');
+        const mobProgressBar = document.getElementById('mobile-progress-bar');
+        const immProgressBar = document.getElementById('immersive-progress-bar');
+        const immCurrentTimeEl = document.getElementById('immersive-current-time');
+        const durationEl = document.getElementById('duration');
+        const immDurationEl = document.getElementById('immersive-duration');
+
+        if (progressBar) progressBar.style.width = `${progress}%`;
+        if (mobProgressBar) mobProgressBar.style.width = `${progress}%`;
+        if (immProgressBar) immProgressBar.style.width = `${progress}%`;
+        
+        if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
+        if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
+        
+        if (durationEl) durationEl.textContent = formatTime(duration);
+        if (immDurationEl) immDurationEl.textContent = formatTime(duration);
+    }
+
     async function fetchStreamAndPlay(track: any) {
         if (!track) return;
         try {
-            titleEls().forEach(el => el && (el.textContent = "Connecting..."));
+            // Update UI details immediately for instant feedback
+            titleEls().forEach(el => el && (el.textContent = track.title));
+            artistEls().forEach(el => el && (el.textContent = track.artist));
+            artworkEls().forEach(el => {
+                if (el) {
+                    el.classList.add('opacity-0');
+                    el.dataset.id = track.id;
+                    (el as HTMLImageElement).src = track.image;
+                }
+            });
             updateLikeUI(track.id);
+
+            // Force browser to load the artwork image immediately (especially useful for background/autoplay)
+            if (track.image) {
+                const imgLoader = new Image();
+                imgLoader.src = track.image;
+            }
+
+            // Update artwork glow gradient dynamically
+            const glowEl = document.getElementById('immersive-artwork-glow');
+            if (glowEl) {
+                glowEl.style.background = getGlowGradient(track.title);
+            }
 
             // Stop current playback
             if (state.activePlayer === 'audio') {
@@ -374,43 +539,39 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 stopYtTimeUpdate();
             }
 
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
+
+            let streamUrl = null;
             let proxyUrl = null;
-            if (isLocalhost) {
-                try {
-                    // Set timeout controller for faster fallback
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 1500);
-                    proxyUrl = await getStreamProxyUrl(track.id, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                } catch (err) {
-                    console.warn("Failed to retrieve proxy URL or timed out, using YouTube Player fallback.");
+            try {
+                const data = await apiFetch(`/stream/${track.id}`);
+                if (data) {
+                    streamUrl = data.url;
+                    proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                    state.currentStreamUrl = streamUrl;
+                    state.currentProxyUrl = proxyUrl;
                 }
+            } catch (err) {
+                console.warn("Failed to retrieve stream details:", err);
             }
 
-            if (proxyUrl) {
-                state.activePlayer = 'audio';
-                audio.src = proxyUrl;
-                
-                titleEls().forEach(el => el && (el.textContent = track.title));
-                artistEls().forEach(el => el && (el.textContent = track.artist));
-                artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
-                
-                miniPlayer?.classList.remove('translate-y-full');
-                
-                audio.play().catch(e => {
-                    console.log("Autoplay prevented. User interaction required.");
-                    state.isPlaying = false;
-                    const playIcon = document.getElementById('play-icon');
-                    const pauseIcon = document.getElementById('pause-icon');
-                    playIcon?.classList.remove('hidden');
-                    pauseIcon?.classList.add('hidden');
-                });
-            } else {
+            const fallbackToYoutube = async () => {
+                console.log("Audio streaming failed, falling back to YouTube iframe player...");
                 state.activePlayer = 'youtube';
+                state.currentStreamUrl = null;
+                state.currentProxyUrl = null;
+                
+                // Ensure UI is updated with track details
                 titleEls().forEach(el => el && (el.textContent = track.title));
                 artistEls().forEach(el => el && (el.textContent = track.artist));
-                artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+                artworkEls().forEach(el => {
+                    if (el) {
+                        el.classList.add('opacity-0');
+                        el.dataset.id = track.id;
+                        (el as HTMLImageElement).src = track.image;
+                    }
+                });
+                updateMediaSession(track);
                 miniPlayer?.classList.remove('translate-y-full');
 
                 if (!state.ytApiReady) {
@@ -421,15 +582,69 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         attempts++;
                     }
                 }
-
                 if (state.ytApiReady) {
                     await initYoutubePlayer(track.id, true);
                 } else {
-                    throw new Error("YouTube Player API failed to load");
+                    console.error("YouTube Player API failed to load");
                 }
+            };
+
+            if (proxyUrl) {
+                state.activePlayer = 'audio';
+                audio.src = proxyUrl;
+
+                // Handle error fallback from proxy to direct stream to YouTube iframe
+                audio.onerror = () => {
+                    if (audio.src === proxyUrl && streamUrl) {
+                        console.log("Proxy stream failed, falling back to direct stream...");
+                        audio.src = streamUrl;
+                        audio.play().then(() => {
+                            syncPlayPauseUI(true);
+                        }).catch(() => fallbackToYoutube());
+                    } else {
+                        fallbackToYoutube();
+                    }
+                };
+                
+                updateMediaSession(track);
+                miniPlayer?.classList.remove('translate-y-full');
+                
+                audio.play().then(() => {
+                    syncPlayPauseUI(true);
+                }).catch(e => {
+                    // Try direct stream immediately if proxy play fails
+                    if (streamUrl && audio.src === proxyUrl) {
+                        audio.src = streamUrl;
+                        audio.play().then(() => {
+                            syncPlayPauseUI(true);
+                        }).catch(() => fallbackToYoutube());
+                    } else {
+                        fallbackToYoutube();
+                    }
+                });
+            } else if (streamUrl) {
+                state.activePlayer = 'audio';
+                audio.src = streamUrl;
+
+                audio.onerror = () => fallbackToYoutube();
+                
+                updateMediaSession(track);
+                miniPlayer?.classList.remove('translate-y-full');
+                
+                audio.play().then(() => {
+                    syncPlayPauseUI(true);
+                }).catch(() => fallbackToYoutube());
+            } else {
+                await fallbackToYoutube();
             }
 
-            updateLyrics(track.id);
+            if (state.activeTab === 'lyrics') {
+                updateLyrics(track.id);
+            } else {
+                const lyr = lyricsContent();
+                if (lyr) lyr.innerHTML = '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+            }
+            updateRelatedUI(track.id);
             updateQueueUI();
             saveState();
         } catch (err) {
@@ -486,11 +701,41 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     async function updateLyrics(id: string) {
         const lyr = lyricsContent();
-        if (lyr) lyr.innerHTML = '<p class="animate-pulse text-lg text-white/50">Fetching lyrics...</p>';
+        if (lyr) lyr.innerHTML = '<p class="animate-pulse text-sm text-white/50 text-center py-8">Fetching lyrics...</p>';
         const lyrics = await fetchLyrics(id);
         const lyrUpdate = lyricsContent();
         if (lyrUpdate) {
-            lyrUpdate.innerHTML = lyrics ? lyrics.replace(/\n/g, '<br/>') : "No lyrics found for this track.";
+            lyrUpdate.innerHTML = lyrics ? `<div class="text-center text-white/95 text-base md:text-lg leading-loose px-2 py-4">${lyrics.replace(/\n/g, '<br/>')}</div>` : '<p class="text-sm text-white/40 text-center py-8">No lyrics found for this track.</p>';
+        }
+    }
+
+    async function updateRelatedUI(id: string) {
+        const relContainer = document.getElementById('related-list-container');
+        if (!relContainer) return;
+        relContainer.innerHTML = '<p class="animate-pulse text-xs text-white/50 text-center py-8">Fetching suggestions...</p>';
+        try {
+            const tracks = await fetchSuggestions(id);
+            if (tracks && tracks.length > 0) {
+                relContainer.innerHTML = tracks.map((track: any) => `
+                    <div class="track-trigger flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer related-item"
+                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                        <div class="flex items-center gap-3 pointer-events-none min-w-0 flex-1">
+                            <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-xl object-cover shrink-0 transition-opacity duration-300 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
+                            <div class="min-w-0">
+                                <p class="font-bold text-sm text-white truncate">${track.title}</p>
+                                <p class="text-xs text-muted-foreground truncate">${track.artist}</p>
+                            </div>
+                        </div>
+                        <button class="opacity-0 group-hover:opacity-100 p-2 bg-primary text-primary-foreground rounded-xl transition-all shadow-md pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                        </button>
+                    </div>
+                `).join('');
+            } else {
+                relContainer.innerHTML = '<p class="text-xs text-white/40 text-center py-8">No suggestions found.</p>';
+            }
+        } catch (e) {
+            relContainer.innerHTML = '<p class="text-xs text-red-400 text-center py-8">Error loading suggestions.</p>';
         }
     }
 
@@ -498,9 +743,9 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const qContainer = queueListContainer();
         if (!qContainer) return;
         qContainer.innerHTML = state.currentQueue.map((track: any, idx: number) => `
-            <div class="flex items-center justify-between p-4 rounded-2xl ${idx === state.currentIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-white/5'} transition-all cursor-pointer queue-item" data-index="${idx}">
-                <div class="flex items-center gap-4 pointer-events-none min-w-0">
-                    <img src="${track.image}" class="w-12 h-12 rounded-xl object-cover shrink-0" />
+            <div class="flex items-center justify-between p-3 rounded-2xl ${idx === state.currentIndex ? 'bg-primary text-primary-foreground' : 'hover:bg-white/5'} transition-all cursor-pointer queue-item" data-index="${idx}">
+                <div class="flex items-center gap-3 pointer-events-none min-w-0">
+                    <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-xl object-cover shrink-0 transition-opacity duration-300 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
                     <div class="min-w-0">
                         <p class="font-bold text-sm text-white truncate">${track.title}</p>
                         <p class="text-xs opacity-70 text-white/70 truncate">${track.artist}</p>
@@ -533,9 +778,21 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     const suggestions = await fetchSuggestions(lastTrack.id);
                     if (suggestions && suggestions.length > 0) {
                         const newTracks = suggestions.filter((s: any) => !state.currentQueue.some((t: any) => t.id === s.id));
+                        let nextTrackToPlay = null;
                         if (newTracks.length > 0) {
                             state.currentQueue.push(...newTracks);
-                            state.currentIndex++;
+                            nextTrackToPlay = newTracks[0];
+                        } else {
+                            // If all suggested tracks are already in the queue, pick one from the suggestions that is not the current track
+                            const fallbackTrack = suggestions.find((s: any) => s.id !== lastTrack.id) || suggestions[0];
+                            if (fallbackTrack) {
+                                state.currentQueue.push(fallbackTrack);
+                                nextTrackToPlay = fallbackTrack;
+                            }
+                        }
+                        
+                        if (nextTrackToPlay) {
+                            state.currentIndex = state.currentQueue.length - 1;
                             updateQueueUI();
                             fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
                             return;
@@ -550,12 +807,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 state.currentIndex = 0;
                 fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
             } else {
-                audio.pause();
-                state.isPlaying = false;
-                const playIcon = document.getElementById('play-icon');
-                const pauseIcon = document.getElementById('pause-icon');
-                playIcon?.classList.remove('hidden');
-                pauseIcon?.classList.add('hidden');
+                if (state.activePlayer === 'audio') {
+                    audio.pause();
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    state.ytPlayer.pauseVideo();
+                }
+                syncPlayPauseUI(false);
             }
         }
     }
@@ -598,18 +855,18 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             if (!btn) return;
             if (state.repeatMode === 'none') {
                 btn.classList.add('text-muted-foreground');
-                btn.classList.remove('text-primary', 'text-blue-400');
+                btn.classList.remove('text-primary');
                 btn.querySelector('.repeat-badge')?.remove();
             } else if (state.repeatMode === 'all') {
                 btn.classList.add('text-primary');
-                btn.classList.remove('text-muted-foreground', 'text-blue-400');
+                btn.classList.remove('text-muted-foreground');
                 btn.querySelector('.repeat-badge')?.remove();
             } else if (state.repeatMode === 'one') {
-                btn.classList.add('text-blue-400');
-                btn.classList.remove('text-muted-foreground', 'text-primary');
+                btn.classList.add('text-primary');
+                btn.classList.remove('text-muted-foreground');
                 if (!btn.querySelector('.repeat-badge')) {
                     const badge = document.createElement('span');
-                    badge.className = 'repeat-badge absolute -top-1 -right-1 text-[8px] font-black bg-blue-500 text-white rounded-full w-3 h-3 flex items-center justify-center';
+                    badge.className = 'repeat-badge absolute -top-1 -right-1 text-[8px] font-black bg-primary text-primary-foreground rounded-full w-3.5 h-3.5 flex items-center justify-center';
                     badge.innerText = '1';
                     btn.appendChild(badge);
                 }
@@ -690,50 +947,28 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             state.isAutoplay = savedAutoplay === 'true';
         }
 
-        // Memory load check for seamless page transitions
         if (state.currentQueue.length > 0 && state.currentIndex !== -1) {
             const track = state.currentQueue[state.currentIndex];
             titleEls().forEach(el => el && (el.textContent = track.title));
             artistEls().forEach(el => el && (el.textContent = track.artist));
             artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+            
+            const glowEl = document.getElementById('immersive-artwork-glow');
+            if (glowEl) glowEl.style.background = getGlowGradient(track.title);
+
             miniPlayer?.classList.remove('translate-y-full');
             updateQueueUI();
-            
-            const playIcon = document.getElementById('play-icon');
-            const pauseIcon = document.getElementById('pause-icon');
-            const immPlayIcon = document.getElementById('immersive-play-icon');
-            const immPauseIcon = document.getElementById('immersive-pause-icon');
-            if (state.isPlaying) {
-                playIcon?.classList.add('hidden');
-                pauseIcon?.classList.remove('hidden');
-                immPlayIcon?.classList.add('hidden');
-                immPauseIcon?.classList.remove('hidden');
-                document.getElementById('mini-info')?.classList.add('playing');
-                if (state.activePlayer === 'youtube') {
-                    startYtTimeUpdate();
-                }
+            if (state.activeTab === 'lyrics') {
+                updateLyrics(track.id);
             } else {
-                playIcon?.classList.remove('hidden');
-                pauseIcon?.classList.add('hidden');
-                immPlayIcon?.classList.remove('hidden');
-                immPauseIcon?.classList.add('hidden');
-                document.getElementById('mini-info')?.classList.remove('playing');
-                
-                // Pre-initialize YouTube player with the track without playing it
-                const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                if (!isLocalhost && !state.ytPlayer) {
-                    if (state.ytApiReady) {
-                        initYoutubePlayer(track.id, false).catch(() => {});
-                    } else {
-                        const checkApi = setInterval(() => {
-                            if (state.ytApiReady) {
-                                clearInterval(checkApi);
-                                initYoutubePlayer(track.id, false).catch(() => {});
-                            }
-                        }, 100);
-                        setTimeout(() => clearInterval(checkApi), 5000);
-                    }
-                }
+                const lyr = lyricsContent();
+                if (lyr) lyr.innerHTML = '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+            }
+            updateRelatedUI(track.id);
+            
+            syncPlayPauseUI(state.isPlaying);
+            if (state.isPlaying && state.activePlayer === 'youtube') {
+                startYtTimeUpdate();
             }
             updateControlsUI();
             return;
@@ -753,8 +988,19 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     titleEls().forEach(el => el && (el.textContent = track.title));
                     artistEls().forEach(el => el && (el.textContent = track.artist));
                     artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
+                    
+                    const glowEl = document.getElementById('immersive-artwork-glow');
+                    if (glowEl) glowEl.style.background = getGlowGradient(track.title);
+
                     miniPlayer?.classList.remove('translate-y-full');
                     updateQueueUI();
+                    if (state.activeTab === 'lyrics') {
+                        updateLyrics(track.id);
+                    } else {
+                        const lyr = lyricsContent();
+                        if (lyr) lyr.innerHTML = '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+                    }
+                    updateRelatedUI(track.id);
                 }
             } catch (e) {}
         }
@@ -767,11 +1013,42 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         miniPlayer = document.getElementById('audio-player');
         immersivePlayer = document.getElementById('immersive-player');
 
-        loadYoutubeApi(); // Pre-load YouTube API script
+        loadYoutubeApi();
 
         if (!audio) return;
 
-        // Re-bind media element listeners on every page load to capture new DOM elements
+        // Register Media Session action handlers
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.setActionHandler('play', () => {
+                if (state.activePlayer === 'audio') {
+                    audio.play().catch(() => {});
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    state.ytPlayer.playVideo();
+                }
+            });
+            navigator.mediaSession.setActionHandler('pause', () => {
+                if (state.activePlayer === 'audio') {
+                    audio.pause();
+                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                    state.ytPlayer.pauseVideo();
+                }
+            });
+            navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
+            navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+            try {
+                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                    if (details.seekTime !== undefined) {
+                        if (state.activePlayer === 'audio') {
+                            audio.currentTime = details.seekTime;
+                        } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                            state.ytPlayer.seekTo(details.seekTime, true);
+                        }
+                    }
+                });
+            } catch (e) {}
+        }
+
+        // HTML5 Audio element listeners
         audio.onended = () => {
             if (state.repeatMode === 'one') {
                 audio.currentTime = 0;
@@ -781,126 +1058,76 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             }
         };
         audio.onplay = () => {
-            state.isPlaying = true;
-            const playIcon = document.getElementById('play-icon');
-            const pauseIcon = document.getElementById('pause-icon');
-            const immPlayIcon = document.getElementById('immersive-play-icon');
-            const immPauseIcon = document.getElementById('immersive-pause-icon');
-            playIcon?.classList.add('hidden');
-            pauseIcon?.classList.remove('hidden');
-            immPlayIcon?.classList.add('hidden');
-            immPauseIcon?.classList.remove('hidden');
-            document.getElementById('mini-info')?.classList.add('playing');
+            syncPlayPauseUI(true);
         };
         audio.onpause = () => {
-            state.isPlaying = false;
-            const playIcon = document.getElementById('play-icon');
-            const pauseIcon = document.getElementById('pause-icon');
-            const immPlayIcon = document.getElementById('immersive-play-icon');
-            const immPauseIcon = document.getElementById('immersive-pause-icon');
-            playIcon?.classList.remove('hidden');
-            pauseIcon?.classList.add('hidden');
-            immPlayIcon?.classList.remove('hidden');
-            immPauseIcon?.classList.add('hidden');
-            document.getElementById('mini-info')?.classList.remove('playing');
+            syncPlayPauseUI(false);
         };
         audio.ontimeupdate = () => {
-            const progressBar = document.getElementById('progress-bar');
-            const currentTimeEl = document.getElementById('current-time');
-            const immProgressBar = document.getElementById('immersive-progress-bar');
-            const immCurrentTimeEl = document.getElementById('immersive-current-time');
-            
             const progress = (audio.currentTime / (audio.duration || 1)) * 100;
-            if (progressBar) progressBar.style.width = `${progress}%`;
-            if (currentTimeEl) currentTimeEl.textContent = formatTime(audio.currentTime);
-            if (immProgressBar) immProgressBar.style.width = `${progress}%`;
-            if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(audio.currentTime);
+            updateProgressUI(audio.currentTime, audio.duration, progress);
+            updatePlaybackPosition();
         };
         audio.onloadedmetadata = () => {
-            const durationEl = document.getElementById('duration');
-            const immDurationEl = document.getElementById('immersive-duration');
-            if (durationEl) durationEl.textContent = formatTime(audio.duration);
-            if (immDurationEl) immDurationEl.textContent = formatTime(audio.duration);
+            const progress = (audio.currentTime / (audio.duration || 1)) * 100;
+            updateProgressUI(audio.currentTime, audio.duration, progress);
         };
 
         // Attach event listeners to player controls
+        const togglePlay = () => {
+            if (state.activePlayer === 'audio') {
+                state.isPlaying ? audio.pause() : audio.play();
+            } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                state.isPlaying ? state.ytPlayer.pauseVideo() : state.ytPlayer.playVideo();
+            }
+        };
+
+        // Bind standard and mobile play/pause
         const playPauseBtn = document.getElementById('play-pause-btn');
         if (playPauseBtn && !playPauseBtn.dataset.bound) {
             playPauseBtn.dataset.bound = "true";
-            playPauseBtn.addEventListener('click', () => {
-                if (state.activePlayer === 'audio') {
-                    state.isPlaying ? audio.pause() : audio.play();
-                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
-                    state.isPlaying ? state.ytPlayer.pauseVideo() : state.ytPlayer.playVideo();
-                }
+            playPauseBtn.addEventListener('click', togglePlay);
+        }
+
+        const mobMiniPlayPause = document.getElementById('mobile-mini-play-pause');
+        if (mobMiniPlayPause && !mobMiniPlayPause.dataset.bound) {
+            mobMiniPlayPause.dataset.bound = "true";
+            mobMiniPlayPause.addEventListener('click', (e) => {
+                e.stopPropagation();
+                togglePlay();
             });
         }
 
         const immPlayPauseBtn = document.getElementById('immersive-play-pause-btn');
         if (immPlayPauseBtn && !immPlayPauseBtn.dataset.bound) {
             immPlayPauseBtn.dataset.bound = "true";
-            immPlayPauseBtn.addEventListener('click', () => {
-                if (state.activePlayer === 'audio') {
-                    state.isPlaying ? audio.pause() : audio.play();
-                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
-                    state.isPlaying ? state.ytPlayer.pauseVideo() : state.ytPlayer.playVideo();
-                }
-            });
+            immPlayPauseBtn.addEventListener('click', togglePlay);
         }
 
-        const nextBtn = document.getElementById('next-btn');
-        if (nextBtn && !nextBtn.dataset.bound) {
-            nextBtn.dataset.bound = "true";
-            nextBtn.addEventListener('click', nextTrack);
-        }
+        // Next and Prev binding
+        const bindControl = (id: string, action: () => void, stopEvent: boolean = false) => {
+            const btn = document.getElementById(id);
+            if (btn && !btn.dataset.bound) {
+                btn.dataset.bound = "true";
+                btn.addEventListener('click', (e) => {
+                    if (stopEvent) e.stopPropagation();
+                    action();
+                });
+            }
+        };
 
-        const immNextBtn = document.getElementById('immersive-next-btn');
-        if (immNextBtn && !immNextBtn.dataset.bound) {
-            immNextBtn.dataset.bound = "true";
-            immNextBtn.addEventListener('click', nextTrack);
-        }
+        bindControl('next-btn', nextTrack);
+        bindControl('immersive-next-btn', nextTrack);
+        bindControl('mobile-mini-next', nextTrack, true);
+        bindControl('prev-btn', prevTrack);
+        bindControl('immersive-prev-btn', prevTrack);
 
-        const prevBtn = document.getElementById('prev-btn');
-        if (prevBtn && !prevBtn.dataset.bound) {
-            prevBtn.dataset.bound = "true";
-            prevBtn.addEventListener('click', prevTrack);
-        }
-
-        const immPrevBtn = document.getElementById('immersive-prev-btn');
-        if (immPrevBtn && !immPrevBtn.dataset.bound) {
-            immPrevBtn.dataset.bound = "true";
-            immPrevBtn.addEventListener('click', prevTrack);
-        }
-
-        const sBtn = shuffleBtn();
-        if (sBtn && !sBtn.dataset.bound) {
-            sBtn.dataset.bound = "true";
-            sBtn.addEventListener('click', handleShuffleToggle);
-        }
-
-        const immSBtn = document.getElementById('immersive-shuffle-btn');
-        if (immSBtn && !immSBtn.dataset.bound) {
-            immSBtn.dataset.bound = "true";
-            immSBtn.addEventListener('click', handleShuffleToggle);
-        }
-
-        const rBtn = repeatBtn();
-        if (rBtn && !rBtn.dataset.bound) {
-            rBtn.dataset.bound = "true";
-            rBtn.addEventListener('click', handleRepeatToggle);
-        }
-
-        const immRBtn = document.getElementById('immersive-repeat-btn');
-        if (immRBtn && !immRBtn.dataset.bound) {
-            immRBtn.dataset.bound = "true";
-            immRBtn.addEventListener('click', handleRepeatToggle);
-        }
-
-        const aBtn = autoplayBtn();
-        if (aBtn && !aBtn.dataset.bound) {
-            aBtn.dataset.bound = "true";
-            aBtn.addEventListener('click', handleAutoplayToggle);
-        }
+        // Shuffles & Repeats
+        bindControl('shuffle-btn', handleShuffleToggle);
+        bindControl('immersive-shuffle-btn', handleShuffleToggle);
+        bindControl('repeat-btn', handleRepeatToggle);
+        bindControl('immersive-repeat-btn', handleRepeatToggle);
+        bindControl('autoplay-btn', handleAutoplayToggle);
 
         const aTgl = autoplayToggle();
         if (aTgl && !aTgl.dataset.bound) {
@@ -908,64 +1135,168 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             aTgl.addEventListener('change', handleAutoplayToggle);
         }
 
-        const lBtn = miniLikeBtn();
-        if (lBtn && !lBtn.dataset.bound) {
-            lBtn.dataset.bound = "true";
-            lBtn.addEventListener('click', handleLikeToggle);
-        }
+        // Likes
+        bindControl('mini-like-btn', handleLikeToggle as any);
+        bindControl('immersive-like-btn', handleLikeToggle as any);
 
-        const immLikeBtn = document.getElementById('immersive-like-btn');
-        if (immLikeBtn && !immLikeBtn.dataset.bound) {
-            immLikeBtn.dataset.bound = "true";
-            immLikeBtn.addEventListener('click', handleLikeToggle);
-        }
+        // Download bindings
+        const handleDownload = () => {
+            if (state.currentIndex === -1 || !state.currentQueue[state.currentIndex]) return;
+            const track = state.currentQueue[state.currentIndex];
+            
+            // Build absolute endpoint URL based on current host
+            const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
+            
+            let url;
+            if (state.currentStreamUrl) {
+                // If streamUrl is already known, we can proxy it directly, bypassing yt_dlp metadata extraction
+                url = `${API_BASE}/proxy?url=${encodeURIComponent(state.currentStreamUrl)}&download=true&title=${encodeURIComponent(track.title)}`;
+            } else {
+                // Otherwise fallback to backend yt_dlp extraction
+                url = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+            }
+            
+            // Trigger browser download by forcing download link click
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${track.title}.mp3`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
 
-        const progressContainer = document.getElementById('progress-container');
-        if (progressContainer && !progressContainer.dataset.bound) {
-            progressContainer.dataset.bound = "true";
-            progressContainer.addEventListener('click', (e) => {
-                const rect = progressContainer.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                if (state.activePlayer === 'audio') {
-                    audio.currentTime = pos * audio.duration;
-                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
-                    const duration = state.ytPlayer.getDuration();
-                    state.ytPlayer.seekTo(pos * duration, true);
-                }
+        const miniDownloadBtn = document.getElementById('mini-download-btn');
+        if (miniDownloadBtn && !miniDownloadBtn.dataset.bound) {
+            miniDownloadBtn.dataset.bound = "true";
+            miniDownloadBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleDownload();
             });
         }
 
-        const immProgressContainer = document.getElementById('immersive-progress-container');
-        if (immProgressContainer && !immProgressContainer.dataset.bound) {
-            immProgressContainer.dataset.bound = "true";
-            immProgressContainer.addEventListener('click', (e) => {
-                const rect = immProgressContainer.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                if (state.activePlayer === 'audio') {
-                    audio.currentTime = pos * audio.duration;
-                } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
-                    const duration = state.ytPlayer.getDuration();
-                    state.ytPlayer.seekTo(pos * duration, true);
-                }
-            });
+        const immDownloadBtn = document.getElementById('immersive-download-btn');
+        if (immDownloadBtn && !immDownloadBtn.dataset.bound) {
+            immDownloadBtn.dataset.bound = "true";
+            immDownloadBtn.addEventListener('click', handleDownload);
         }
 
+        // Progress Seeking with Drag & Touch Support
+        const bindProgressContainer = (containerId: string) => {
+            const container = document.getElementById(containerId);
+            if (container && !container.dataset.bound) {
+                container.dataset.bound = "true";
+                
+                let isDragging = false;
+                
+                const seekToPos = (clientX: number) => {
+                    const rect = container.getBoundingClientRect();
+                    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                    
+                    // Update UI immediately for responsive feedback
+                    const progressBar = document.getElementById('progress-bar');
+                    const mobProgressBar = document.getElementById('mobile-progress-bar');
+                    const immProgressBar = document.getElementById('immersive-progress-bar');
+                    if (progressBar) progressBar.style.width = `${pos * 100}%`;
+                    if (mobProgressBar) mobProgressBar.style.width = `${pos * 100}%`;
+                    if (immProgressBar) immProgressBar.style.width = `${pos * 100}%`;
+                    
+                    const duration = state.activePlayer === 'audio' 
+                        ? audio.duration 
+                        : (state.ytPlayer && typeof state.ytPlayer.getDuration === 'function' ? state.ytPlayer.getDuration() : 0);
+                    
+                    if (!isNaN(duration) && isFinite(duration) && duration > 0) {
+                        const currentTime = pos * duration;
+                        const currentTimeEl = document.getElementById('current-time');
+                        const immCurrentTimeEl = document.getElementById('immersive-current-time');
+                        if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
+                        if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
+                        
+                        if (state.activePlayer === 'audio') {
+                            audio.currentTime = currentTime;
+                        } else if (state.activePlayer === 'youtube' && state.ytPlayer) {
+                            state.ytPlayer.seekTo(currentTime, true);
+                        }
+                    }
+                };
+                
+                container.addEventListener('mousedown', (e) => {
+                    isDragging = true;
+                    seekToPos(e.clientX);
+                });
+                
+                window.addEventListener('mousemove', (e) => {
+                    if (isDragging) seekToPos(e.clientX);
+                });
+                
+                window.addEventListener('mouseup', () => {
+                    isDragging = false;
+                });
+                
+                // Touch support for phones
+                container.addEventListener('touchstart', (e) => {
+                    isDragging = true;
+                    seekToPos(e.touches[0].clientX);
+                }, { passive: true });
+                
+                window.addEventListener('touchmove', (e) => {
+                    if (isDragging) seekToPos(e.touches[0].clientX);
+                }, { passive: true });
+                
+                window.addEventListener('touchend', () => {
+                    isDragging = false;
+                });
+            }
+        };
+
+        bindProgressContainer('progress-container');
+        bindProgressContainer('immersive-progress-container');
+
+        // Volume Seek with Drag & Touch Support
         const volumeContainer = document.getElementById('volume-container');
         if (volumeContainer && !volumeContainer.dataset.bound) {
             volumeContainer.dataset.bound = "true";
-            volumeContainer.addEventListener('click', (e) => {
+            
+            let isDraggingVolume = false;
+            
+            const setVolumeFromPos = (clientX: number) => {
                 const rect = volumeContainer.getBoundingClientRect();
-                const pos = (e.clientX - rect.left) / rect.width;
-                const volume = Math.max(0, Math.min(1, pos));
-                audio.volume = volume;
+                const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                audio.volume = pos;
                 if (state.ytPlayer && typeof state.ytPlayer.setVolume === 'function') {
-                    state.ytPlayer.setVolume(volume * 100);
+                    state.ytPlayer.setVolume(pos * 100);
                 }
                 const volumeBar = document.getElementById('volume-bar');
                 if (volumeBar) volumeBar.style.width = `${pos * 100}%`;
+            };
+            
+            volumeContainer.addEventListener('mousedown', (e) => {
+                isDraggingVolume = true;
+                setVolumeFromPos(e.clientX);
+            });
+            
+            window.addEventListener('mousemove', (e) => {
+                if (isDraggingVolume) setVolumeFromPos(e.clientX);
+            });
+            
+            window.addEventListener('mouseup', () => {
+                isDraggingVolume = false;
+            });
+            
+            volumeContainer.addEventListener('touchstart', (e) => {
+                isDraggingVolume = true;
+                setVolumeFromPos(e.touches[0].clientX);
+            }, { passive: true });
+            
+            window.addEventListener('touchmove', (e) => {
+                if (isDraggingVolume) setVolumeFromPos(e.touches[0].clientX);
+            }, { passive: true });
+            
+            window.addEventListener('touchend', () => {
+                isDraggingVolume = false;
             });
         }
 
+        // Overlay Toggle triggers
         const mInfo = document.getElementById('mini-info');
         if (mInfo && !mInfo.dataset.bound) {
             mInfo.dataset.bound = "true";
@@ -984,40 +1315,55 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             closeImm.addEventListener('click', toggleImmersive);
         }
 
-        const tLyrics = document.getElementById('tab-lyrics');
-        if (tLyrics && !tLyrics.dataset.bound) {
-            tLyrics.dataset.bound = "true";
-            tLyrics.addEventListener('click', () => {
-                const lyr = lyricsContent();
-                const qContent = document.getElementById('queue-content');
-                const tQueue = document.getElementById('tab-queue');
-                lyr?.classList.remove('hidden');
-                qContent?.classList.add('hidden');
-                tLyrics.classList.add('bg-primary/5', 'border-primary', 'text-white');
-                tLyrics.classList.remove('text-white/60');
-                tQueue?.classList.remove('bg-primary/5', 'border-primary', 'text-white');
-                tQueue?.classList.add('text-white/60');
-            });
-        }
-
+        // Tab selection switcher in full overlay
         const tQueue = document.getElementById('tab-queue');
+        const tLyrics = document.getElementById('tab-lyrics');
+        const tRelated = document.getElementById('tab-related');
+        const qContent = document.getElementById('queue-content');
+        const lyrContent = document.getElementById('lyrics-content');
+        const relContent = document.getElementById('related-content');
+
+        const switchTab = (activeTab: string) => {
+            state.activeTab = activeTab;
+            [tQueue, tLyrics, tRelated].forEach(t => {
+                t?.classList.remove('bg-primary/5', 'border-primary', 'text-white');
+                t?.classList.add('text-white/60', 'border-transparent');
+            });
+            [qContent, lyrContent, relContent].forEach(c => c?.classList.add('hidden'));
+
+            if (activeTab === 'queue') {
+                tQueue?.classList.add('bg-primary/5', 'border-primary', 'text-white');
+                tQueue?.classList.remove('text-white/60', 'border-transparent');
+                qContent?.classList.remove('hidden');
+                updateQueueUI();
+            } else if (activeTab === 'lyrics') {
+                tLyrics?.classList.add('bg-primary/5', 'border-primary', 'text-white');
+                tLyrics?.classList.remove('text-white/60', 'border-transparent');
+                lyrContent?.classList.remove('hidden');
+                if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+                    updateLyrics(state.currentQueue[state.currentIndex].id);
+                }
+            } else if (activeTab === 'related') {
+                tRelated?.classList.add('bg-primary/5', 'border-primary', 'text-white');
+                tRelated?.classList.remove('text-white/60', 'border-transparent');
+                relContent?.classList.remove('hidden');
+            }
+        };
+
         if (tQueue && !tQueue.dataset.bound) {
             tQueue.dataset.bound = "true";
-            tQueue.addEventListener('click', () => {
-                const lyr = lyricsContent();
-                const qContent = document.getElementById('queue-content');
-                const tLyrics = document.getElementById('tab-lyrics');
-                lyr?.classList.add('hidden');
-                qContent?.classList.remove('hidden');
-                tQueue.classList.add('bg-primary/5', 'border-primary', 'text-white');
-                tQueue.classList.remove('text-white/60');
-                tLyrics?.classList.remove('bg-primary/5', 'border-primary', 'text-white');
-                tLyrics?.classList.add('text-white/60');
-                updateQueueUI();
-            });
+            tQueue.addEventListener('click', () => switchTab('queue'));
+        }
+        if (tLyrics && !tLyrics.dataset.bound) {
+            tLyrics.dataset.bound = "true";
+            tLyrics.addEventListener('click', () => switchTab('lyrics'));
+        }
+        if (tRelated && !tRelated.dataset.bound) {
+            tRelated.dataset.bound = "true";
+            tRelated.addEventListener('click', () => switchTab('related'));
         }
 
-        // Remove old listeners to prevent multiple bindings and outdated DOM references during page reloads
+        // Remove old listeners to prevent multiple bindings during page swaps
         if ((window as any).playTrackListener) {
             window.removeEventListener('play-track', (window as any).playTrackListener);
         }

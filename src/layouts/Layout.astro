@@ -28,6 +28,46 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
+		<script is:inline>
+			const applyTheme = () => {
+				const theme = localStorage.getItem('music-theme') || 'theme-midnight';
+				const el = document.documentElement;
+				// Remove any existing theme- classes
+				Array.from(el.classList).forEach(c => {
+					if (c.startsWith('theme-')) el.classList.remove(c);
+				});
+				
+				if (theme === 'theme-custom') {
+					const customColor = localStorage.getItem('music-theme-custom-color') || '#FF3D77';
+					el.style.setProperty('--primary', customColor);
+					el.style.setProperty('--ring', customColor);
+					el.style.setProperty('--sidebar-primary', customColor);
+					
+					// Contrast text calculation for primary foreground
+					const cleanHex = customColor.replace('#', '');
+					const r = parseInt(cleanHex.substring(0, 2), 16) || 0;
+					const g = parseInt(cleanHex.substring(2, 4), 16) || 0;
+					const b = parseInt(cleanHex.substring(4, 6), 16) || 0;
+					const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+					const contrast = (yiq >= 128) ? '#000000' : '#ffffff';
+					
+					el.style.setProperty('--primary-foreground', contrast);
+					el.style.setProperty('--sidebar-primary-foreground', contrast);
+				} else {
+					el.style.removeProperty('--primary');
+					el.style.removeProperty('--primary-foreground');
+					el.style.removeProperty('--ring');
+					el.style.removeProperty('--sidebar-primary');
+					el.style.removeProperty('--sidebar-primary-foreground');
+					el.classList.add(theme);
+				}
+				el.classList.add('dark');
+			};
+			window.applyTheme = applyTheme;
+			applyTheme();
+			document.addEventListener('astro:after-swap', applyTheme);
+			document.addEventListener('astro:page-load', applyTheme);
+		</script>
 	</head>
 	<body class="bg-background text-foreground selection:bg-primary/30 antialiased">
 		<div class="relative min-h-screen flex flex-col">

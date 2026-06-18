@@ -113,7 +113,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
                     <div class="track-trigger flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 group transition-all cursor-pointer"
                          data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
                         <div class="flex items-center gap-4 pointer-events-none">
-                            <img src="${track.image}" class="w-10 h-10 rounded-lg object-cover" />
+                            <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-lg object-cover" />
                             <div>
                                 <h3 class="font-bold text-sm text-white">${track.title}</h3>
                                 <p class="text-xs text-muted-foreground">${track.artist}</p>
