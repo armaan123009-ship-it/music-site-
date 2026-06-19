@@ -353,23 +353,27 @@ def search():
         return jsonify(songs)
     except Exception: return jsonify([])
 
-@app.route("/stream/<video_id>")
-def stream(video_id):
-    try:
-        cached_url = get_cached_stream_url(video_id)
-        if cached_url:
-            return jsonify({
-                "url": cached_url, 
-                "proxy_url": f"/proxy?url={requests.utils.quote(cached_url)}"
-            })
-            
+# Helper functions for resolving stream URLs with fallbacks to bypass blocks
+def extract_stream_url(video_id):
+    clients = [
+        ['android'],
+        ['ios'],
+        ['mweb'],
+        ['tv']
+    ]
+    
+    for client in clients:
         ydl_opts = {
             'format': 'bestaudio/best',
             'quiet': True,
             'no_warnings': True,
             'nocheckcertificate': True,
             'ignoreerrors': True,
-            'logtostderr': False,
+            'extractor_args': {
+                'youtube': {
+                    'client': client
+                }
+            }
         }
         
         if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 0:
@@ -379,18 +383,90 @@ def stream(video_id):
                     if '# Netscape' in content or 'domain' in content:
                         ydl_opts['cookiefile'] = cookies_path
             except: pass
-                
+            
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+                if info and 'url' in info:
+                    return info['url']
+                    
+                search_info = ydl.extract_info(f"ytsearch:{video_id}", download=False)
+                if search_info and 'entries' in search_info and len(search_info['entries']) > 0:
+                    first_entry = search_info['entries'][0]
+                    if first_entry and 'url' in first_entry:
+                        return first_entry['url']
+        except Exception as e:
+            print(f"Extraction failed for client {client}: {e}")
+            
+    try:
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'quiet': True,
+            'no_warnings': True,
+            'nocheckcertificate': True,
+            'ignoreerrors': True,
+        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-            if not info or 'url' not in info:
-                info = ydl.extract_info(f"ytsearch:{video_id}", download=False)['entries'][0]
-                
-            url = info['url']
-            set_cached_stream_url(video_id, url)
-            return jsonify({
-                "url": url, 
-                "proxy_url": f"/proxy?url={requests.utils.quote(url)}"
-            })
+            if info and 'url' in info:
+                return info['url']
+            search_info = ydl.extract_info(f"ytsearch:{video_id}", download=False)
+            if search_info and 'entries' in search_info and len(search_info['entries']) > 0:
+                return search_info['entries'][0]['url']
+    except Exception as e:
+        print(f"Fallback extraction failed: {e}")
+        
+    return None
+
+def fetch_cobalt_stream_url(video_id):
+    try:
+        url = "https://api.cobalt.tools/api/json"
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        data = {
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+            "downloadMode": "audio",
+            "audioFormat": "mp3"
+        }
+        r = requests.post(url, headers=headers, json=data, timeout=10)
+        if r.status_code == 200:
+            res_data = r.json()
+            if "url" in res_data:
+                return res_data["url"]
+    except Exception as e:
+        print(f"Cobalt fallback failed for {video_id}: {e}")
+    return None
+
+def resolve_stream_url(video_id):
+    url = get_cached_stream_url(video_id)
+    if url:
+        return url
+        
+    url = extract_stream_url(video_id)
+    if not url:
+        print(f"[Resolver] yt-dlp failed for {video_id}, trying Cobalt fallback...")
+        url = fetch_cobalt_stream_url(video_id)
+        
+    if url:
+        set_cached_stream_url(video_id, url)
+        return url
+        
+    return None
+
+@app.route("/stream/<video_id>")
+def stream(video_id):
+    try:
+        url = resolve_stream_url(video_id)
+        if not url:
+            raise Exception("Failed to resolve stream URL from all sources")
+            
+        return jsonify({
+            "url": url, 
+            "proxy_url": f"/proxy?url={requests.utils.quote(url)}"
+        })
     except Exception as e:
         print(f"Stream error for {video_id}: {e}")
         return jsonify({"error": str(e)}), 400
@@ -461,51 +537,22 @@ def download_audio(video_id):
         safe_title = "audio"
     print(f"[Download] Request received for video_id={video_id}, title={title}")
     try:
-        print("[Download] Retrieving cached stream URL...")
-        url = get_cached_stream_url(video_id)
-        r = None
+        url = resolve_stream_url(video_id)
+        if not url:
+            raise Exception("Failed to resolve stream URL from all sources")
+            
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        r = requests.get(url, headers=headers, stream=True, timeout=20)
         
-        if url:
-            try:
-                print(f"[Download] Testing cached URL: {url[:60]}...")
-                test_r = requests.get(url, headers=headers, stream=True, timeout=10)
-                print(f"[Download] Cached URL check returned status: {test_r.status_code}")
-                if test_r.status_code in [200, 206]:
-                    r = test_r
-            except Exception as test_err:
-                print(f"[Download] Cached stream check failed for {video_id}: {test_err}")
-                
-        if r is None:
-            print("[Download] Cached URL not found or invalid. Fetching fresh URL using yt_dlp...")
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'quiet': True,
-                'no_warnings': True,
-                'nocheckcertificate': True,
-                'ignoreerrors': True,
-            }
-            
-            if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 0:
-                try:
-                    with open(cookies_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        content = f.read()
-                        if '# Netscape' in content or 'domain' in content:
-                            ydl_opts['cookiefile'] = cookies_path
-                except: pass
-                
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                print("[Download] Extracting info for watch URL...")
-                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-                if not info or 'url' not in info:
-                    print("[Download] Watch URL failed. Using search fallback...")
-                    info = ydl.extract_info(f"ytsearch:{video_id}", download=False)['entries'][0]
-                url = info['url']
-                set_cached_stream_url(video_id, url)
-            
-            print(f"[Download] Requesting fresh URL: {url[:60]}...")
+        if r.status_code not in [200, 206]:
+            # If the resolved URL is expired or forbidden (e.g. from cache), force a fresh resolution
+            print("[Download] Cached stream returned error, resolving fresh URL...")
+            if video_id in stream_cache:
+                del stream_cache[video_id]
+            url = resolve_stream_url(video_id)
+            if not url:
+                raise Exception("Failed to resolve fresh stream URL")
             r = requests.get(url, headers=headers, stream=True, timeout=20)
-            print(f"[Download] Fresh URL request returned status: {r.status_code}")
             
         if r.status_code not in [200, 206]:
             raise Exception(f"YouTube stream returned status code {r.status_code}")
