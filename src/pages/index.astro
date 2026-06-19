@@ -231,11 +231,12 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 		}
 
 		// Bind Mood Filter clicks to search in-place
-		document.querySelectorAll('.mood-filter-trigger').forEach(trigger => {
+		document.querySelectorAll('.mood-filter-trigger').forEach(triggerEl => {
+			const trigger = triggerEl as HTMLElement;
 			if (!trigger.dataset.bound) {
 				trigger.dataset.bound = "true";
 				trigger.addEventListener('click', () => {
-					const q = (trigger as HTMLElement).dataset.query;
+					const q = trigger.dataset.query;
 					if (q) {
 						if (searchInput) searchInput.value = q;
 						if (mobSearchInput) mobSearchInput.value = q;

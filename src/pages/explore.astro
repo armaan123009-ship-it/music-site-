@@ -90,11 +90,12 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
         loadExploreData();
 
         // Bind clicks on genres & explore categories to search
-        document.querySelectorAll('.explore-category-trigger, .explore-genre-trigger').forEach(trigger => {
+        document.querySelectorAll('.explore-category-trigger, .explore-genre-trigger').forEach(triggerEl => {
+            const trigger = triggerEl as HTMLElement;
             if (!trigger.dataset.bound) {
                 trigger.dataset.bound = "true";
                 trigger.addEventListener('click', () => {
-                    const query = (trigger as HTMLElement).dataset.query;
+                    const query = trigger.dataset.query;
                     if (query) {
                         navigate(`/?q=${encodeURIComponent(query)}`);
                     }

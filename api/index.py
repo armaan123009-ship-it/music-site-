@@ -26,11 +26,32 @@ def set_cached_api(key, data):
     api_cache[key] = (data, time.time())
 
 def get_cached_stream_url(video_id):
-    now = time.time()
     if video_id in stream_cache:
         url, ts = stream_cache[video_id]
-        if now - ts < 4 * 3600:  # 4 hours cache duration
+        # Check expire query parameter in URL
+        try:
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(url)
+            params = parse_qs(parsed.query)
+            expire_str = params.get('expire', [None])[0]
+            if expire_str:
+                expire_time = int(expire_str)
+                # Give a 5-minute buffer
+                if time.time() < expire_time - 300:
+                    return url
+                else:
+                    # Expired, remove from cache
+                    del stream_cache[video_id]
+                    return None
+        except Exception as e:
+            print(f"Error parsing expire param from cache URL: {e}")
+            
+        # Fallback to 1 hour cache duration if expire parsing fails
+        now = time.time()
+        if now - ts < 3600:
             return url
+        else:
+            del stream_cache[video_id]
     return None
 
 def set_cached_stream_url(video_id, url):
@@ -438,9 +459,25 @@ def download_audio(video_id):
     safe_title = "".join([c for c in title if c.isalnum() or c in ' -_']).strip()
     if not safe_title:
         safe_title = "audio"
+    print(f"[Download] Request received for video_id={video_id}, title={title}")
     try:
+        print("[Download] Retrieving cached stream URL...")
         url = get_cached_stream_url(video_id)
-        if not url:
+        r = None
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        
+        if url:
+            try:
+                print(f"[Download] Testing cached URL: {url[:60]}...")
+                test_r = requests.get(url, headers=headers, stream=True, timeout=10)
+                print(f"[Download] Cached URL check returned status: {test_r.status_code}")
+                if test_r.status_code in [200, 206]:
+                    r = test_r
+            except Exception as test_err:
+                print(f"[Download] Cached stream check failed for {video_id}: {test_err}")
+                
+        if r is None:
+            print("[Download] Cached URL not found or invalid. Fetching fresh URL using yt_dlp...")
             ydl_opts = {
                 'format': 'bestaudio/best',
                 'quiet': True,
@@ -458,30 +495,46 @@ def download_audio(video_id):
                 except: pass
                 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                print("[Download] Extracting info for watch URL...")
                 info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
                 if not info or 'url' not in info:
+                    print("[Download] Watch URL failed. Using search fallback...")
                     info = ydl.extract_info(f"ytsearch:{video_id}", download=False)['entries'][0]
                 url = info['url']
                 set_cached_stream_url(video_id, url)
             
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-        r = requests.get(url, headers=headers, stream=True, timeout=20)
-        
+            print(f"[Download] Requesting fresh URL: {url[:60]}...")
+            r = requests.get(url, headers=headers, stream=True, timeout=20)
+            print(f"[Download] Fresh URL request returned status: {r.status_code}")
+            
+        if r.status_code not in [200, 206]:
+            raise Exception(f"YouTube stream returned status code {r.status_code}")
+            
+        print("[Download] Preparing response stream...")
         def generate():
-            for chunk in r.iter_content(chunk_size=1024*1024):  # 1MB buffer for fast downloading
-                if chunk: yield chunk
+            print("[Download Stream] Starting stream generator")
+            try:
+                for chunk in r.iter_content(chunk_size=128*1024):  # 128KB buffer for streaming
+                    if chunk:
+                        yield chunk
+            except Exception as stream_err:
+                print(f"[Download Stream] Error during streaming: {stream_err}")
+            finally:
+                print("[Download Stream] Stream generator finished")
                 
-        response = Response(generate(), status=200)
+        response = Response(stream_with_context(generate()), status=200)
         response.headers["Content-Type"] = "audio/mpeg"
         response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
         
         if 'content-length' in r.headers:
             response.headers["Content-Length"] = r.headers['content-length']
+            print(f"[Download] Content-Length is {r.headers['content-length']}")
             
+        print("[Download] Response ready. Returning to client...")
         return response
     except Exception as e:
-        print(f"Download failed for {video_id}: {e}")
-        return str(e), 500
+        print(f"[Download] Failed for {video_id}: {e}")
+        return jsonify({"error": f"Download failed: {str(e)}"}), 500
 
 @app.route("/api/lyrics/<video_id>")
 def get_lyrics(video_id):

@@ -256,7 +256,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         ytTimeUpdateInterval: null,
         activeTab: 'queue',
         currentStreamUrl: null,
-        currentProxyUrl: null
+        currentProxyUrl: null,
+        streamUrlCache: {}
     };
     (window as any).playerState = state;
 
@@ -504,6 +505,65 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (immDurationEl) immDurationEl.textContent = formatTime(duration);
     }
 
+    async function preFetchNextTrack() {
+        if (state.currentIndex === -1) return;
+
+        // 1. If Autoplay is enabled and we are playing the last track of the queue, fetch suggestions in advance.
+        if (state.isAutoplay && state.currentIndex === state.currentQueue.length - 1) {
+            const lastTrack = state.currentQueue[state.currentIndex];
+            console.log(`[Autoplay Pre-fetch] Fetching recommendations in advance for: ${lastTrack.title}`);
+            try {
+                const suggestions = await fetchSuggestions(lastTrack.id);
+                if (suggestions && suggestions.length > 0) {
+                    const newTracks = suggestions.filter((s: any) => !state.currentQueue.some((t: any) => t.id === s.id));
+                    if (newTracks.length > 0) {
+                        state.currentQueue.push(...newTracks);
+                    } else {
+                        const fallbackTrack = suggestions.find((s: any) => s.id !== lastTrack.id) || suggestions[0];
+                        if (fallbackTrack) {
+                            state.currentQueue.push(fallbackTrack);
+                        }
+                    }
+                    updateQueueUI();
+                    saveState();
+                }
+            } catch (e) {
+                console.error("Autoplay pre-fetch suggestions failed:", e);
+            }
+        }
+
+        // 2. Identify index of the next track
+        let nextIndex = -1;
+        if (state.currentIndex < state.currentQueue.length - 1) {
+            nextIndex = state.currentIndex + 1;
+        } else if (state.repeatMode === 'all' && state.currentQueue.length > 0) {
+            nextIndex = 0;
+        }
+
+        // 3. Pre-fetch the next track stream details
+        if (nextIndex !== -1) {
+            const nextTrack = state.currentQueue[nextIndex];
+            state.streamUrlCache = state.streamUrlCache || {};
+            if (!state.streamUrlCache[nextTrack.id]) {
+                console.log(`[Stream Pre-fetch] Fetching stream details for: ${nextTrack.title}`);
+                try {
+                    const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
+                    const data = await apiFetch(`/stream/${nextTrack.id}`);
+                    if (data && data.url) {
+                        const proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                        state.streamUrlCache[nextTrack.id] = {
+                            streamUrl: data.url,
+                            proxyUrl: proxyUrl
+                        };
+                        console.log(`[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`);
+                    }
+                } catch (e) {
+                    console.warn(`Failed to pre-fetch stream URL for ${nextTrack.title}:`, e);
+                }
+            }
+        }
+    }
+
     async function fetchStreamAndPlay(track: any) {
         if (!track) return;
         try {
@@ -543,16 +603,28 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
             let streamUrl = null;
             let proxyUrl = null;
-            try {
-                const data = await apiFetch(`/stream/${track.id}`);
-                if (data) {
-                    streamUrl = data.url;
-                    proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
-                    state.currentStreamUrl = streamUrl;
-                    state.currentProxyUrl = proxyUrl;
+            
+            // Check client-side cache first
+            state.streamUrlCache = state.streamUrlCache || {};
+            if (state.streamUrlCache[track.id]) {
+                const cached = state.streamUrlCache[track.id];
+                streamUrl = cached.streamUrl;
+                proxyUrl = cached.proxyUrl;
+                state.currentStreamUrl = streamUrl;
+                state.currentProxyUrl = proxyUrl;
+                console.log(`[Cache Hit] Playing from pre-fetched stream cache for: ${track.title}`);
+            } else {
+                try {
+                    const data = await apiFetch(`/stream/${track.id}`);
+                    if (data) {
+                        streamUrl = data.url;
+                        proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                        state.currentStreamUrl = streamUrl;
+                        state.currentProxyUrl = proxyUrl;
+                    }
+                } catch (err) {
+                    console.warn("Failed to retrieve stream details:", err);
                 }
-            } catch (err) {
-                console.warn("Failed to retrieve stream details:", err);
             }
 
             const fallbackToYoutube = async () => {
@@ -600,6 +672,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         audio.src = streamUrl;
                         audio.play().then(() => {
                             syncPlayPauseUI(true);
+                            preFetchNextTrack();
                         }).catch(() => fallbackToYoutube());
                     } else {
                         fallbackToYoutube();
@@ -611,12 +684,14 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 
                 audio.play().then(() => {
                     syncPlayPauseUI(true);
+                    preFetchNextTrack();
                 }).catch(e => {
                     // Try direct stream immediately if proxy play fails
                     if (streamUrl && audio.src === proxyUrl) {
                         audio.src = streamUrl;
                         audio.play().then(() => {
                             syncPlayPauseUI(true);
+                            preFetchNextTrack();
                         }).catch(() => fallbackToYoutube());
                     } else {
                         fallbackToYoutube();
@@ -633,6 +708,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 
                 audio.play().then(() => {
                     syncPlayPauseUI(true);
+                    preFetchNextTrack();
                 }).catch(() => fallbackToYoutube());
             } else {
                 await fallbackToYoutube();
@@ -928,9 +1004,9 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         saveState();
     }
 
-    function handleAutoplayToggle(e: Event) {
+    function handleAutoplayToggle(e?: Event) {
         const aTgl = autoplayToggle();
-        if (e.target === aTgl) {
+        if (e && e.target === aTgl) {
             state.isAutoplay = aTgl.checked;
         } else {
             state.isAutoplay = !state.isAutoplay;
@@ -1147,14 +1223,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             // Build absolute endpoint URL based on current host
             const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
             
-            let url;
-            if (state.currentStreamUrl) {
-                // If streamUrl is already known, we can proxy it directly, bypassing yt_dlp metadata extraction
-                url = `${API_BASE}/proxy?url=${encodeURIComponent(state.currentStreamUrl)}&download=true&title=${encodeURIComponent(track.title)}`;
-            } else {
-                // Otherwise fallback to backend yt_dlp extraction
-                url = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-            }
+            // Always use backend api/download endpoint for validation and unexpired fresh streams
+            const url = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
             
             // Trigger browser download by forcing download link click
             const link = document.createElement('a');
