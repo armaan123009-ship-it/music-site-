@@ -1216,23 +1216,128 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         bindControl('immersive-like-btn', handleLikeToggle as any);
 
         // Download bindings
-        const handleDownload = () => {
+        const handleDownload = async () => {
             if (state.currentIndex === -1 || !state.currentQueue[state.currentIndex]) return;
             const track = state.currentQueue[state.currentIndex];
             
-            // Build absolute endpoint URL based on current host
-            const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
+            const downloadBtns = [
+                document.getElementById('mini-download-btn'),
+                document.getElementById('immersive-download-btn')
+            ];
             
-            // Always use backend api/download endpoint for validation and unexpired fresh streams
-            const url = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-            
-            // Trigger browser download by forcing download link click
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${track.title}.mp3`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            const updateDownloadProgress = (text: string, active: boolean) => {
+                downloadBtns.forEach(btn => {
+                    if (btn) {
+                        if (active) {
+                            btn.classList.add('animate-pulse', 'text-primary');
+                            btn.setAttribute('title', text);
+                        } else {
+                            btn.classList.remove('animate-pulse', 'text-primary');
+                            btn.setAttribute('title', 'Download song');
+                        }
+                    }
+                });
+            };
+
+            updateDownloadProgress('Preparing...', true);
+
+            try {
+                const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
+                
+                let streamUrl = state.currentStreamUrl;
+                let proxyUrl = state.currentProxyUrl;
+
+                if (!streamUrl || !proxyUrl) {
+                    const data = await apiFetch(`/stream/${track.id}`);
+                    if (data) {
+                        streamUrl = data.url;
+                        proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                    }
+                }
+
+                if (!proxyUrl) {
+                    throw new Error("Unable to resolve streaming URL");
+                }
+
+                // Range request for 0-0 to retrieve total size via Content-Range
+                const testRes = await fetch(proxyUrl, {
+                    headers: { 'Range': 'bytes=0-0' }
+                });
+
+                if (!testRes.ok) {
+                    throw new Error(`Failed to initialize stream download: ${testRes.status}`);
+                }
+
+                const contentRange = testRes.headers.get('Content-Range');
+                let totalSize = 0;
+                if (contentRange) {
+                    const parts = contentRange.split('/');
+                    if (parts.length > 1) {
+                        totalSize = parseInt(parts[1]);
+                    }
+                }
+                
+                if (!totalSize) {
+                    const cl = testRes.headers.get('Content-Length');
+                    totalSize = cl ? parseInt(cl) : 0;
+                }
+
+                if (!totalSize) {
+                    // Fallback to direct download
+                    window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                    updateDownloadProgress('Downloading...', false);
+                    return;
+                }
+
+                console.log(`[Chunk Downloader] Total size: ${totalSize} bytes`);
+
+                // 2.5 MB chunk size (staying safely below Vercel's 4.5MB limit)
+                const chunkSize = 2.5 * 1024 * 1024;
+                const blobs = [];
+                let start = 0;
+
+                while (start < totalSize) {
+                    const end = Math.min(start + chunkSize - 1, totalSize - 1);
+                    const progress = Math.round((start / totalSize) * 100);
+                    updateDownloadProgress(`Downloading: ${progress}%`, true);
+                    console.log(`[Chunk Downloader] Fetching range: ${start}-${end}`);
+
+                    const chunkRes = await fetch(proxyUrl, {
+                        headers: { 'Range': `bytes=${start}-${end}` }
+                    });
+
+                    if (!chunkRes.ok) {
+                        throw new Error(`Failed to download audio chunk: ${chunkRes.status}`);
+                    }
+
+                    const blob = await chunkRes.blob();
+                    blobs.push(blob);
+                    start += chunkSize;
+                }
+
+                updateDownloadProgress('Saving...', true);
+
+                const finalBlob = new Blob(blobs, { type: 'audio/mpeg' });
+                const downloadUrl = URL.createObjectURL(finalBlob);
+
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = `${track.title}.mp3`;
+                document.body.appendChild(link);
+                link.click();
+                
+                document.body.removeChild(link);
+                URL.revokeObjectURL(downloadUrl);
+                updateDownloadProgress('Download complete', false);
+                console.log("[Chunk Downloader] Download complete!");
+
+            } catch (err) {
+                console.error("[Chunk Downloader] Download failed:", err);
+                updateDownloadProgress('Failed', false);
+                // Fallback to direct redirect
+                const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
+                window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+            }
         };
 
         const miniDownloadBtn = document.getElementById('mini-download-btn');
