@@ -563,6 +563,61 @@ def fetch_cobalt_stream_url(video_id):
                 
     return None
 
+def fetch_piped_stream_url(video_id):
+    instances = [
+        "https://pipedapi.kavin.rocks",
+        "https://api.piped.yt",
+        "https://piped-api.lunar.icu",
+        "https://pipedapi.colt.rocks"
+    ]
+    
+    for instance in instances:
+        url = f"{instance}/streams/{video_id}"
+        try:
+            print(f"[Piped Resolver] Querying instance: {url}")
+            r = requests.get(url, timeout=6)
+            if r.status_code == 200:
+                data = r.json()
+                audio_streams = data.get("audioStreams", [])
+                if audio_streams:
+                    stream_url = audio_streams[0].get("url")
+                    if stream_url:
+                        print(f"[Piped Resolver] Success on: {instance}")
+                        return stream_url
+        except Exception as e:
+            print(f"Piped endpoint {url} failed: {e}")
+            
+    return None
+
+def fetch_invidious_stream_url(video_id):
+    instances = [
+        "https://invidious.io.lol",
+        "https://inv.tux.im",
+        "https://invidious.projectsegfaut.im",
+        "https://yewtu.be"
+    ]
+    
+    for instance in instances:
+        url = f"{instance}/api/v1/videos/{video_id}?local=true"
+        try:
+            print(f"[Invidious Resolver] Querying: {url}")
+            r = requests.get(url, timeout=6)
+            if r.status_code == 200:
+                data = r.json()
+                formats = data.get("adaptiveFormats", [])
+                audio_formats = [f for f in formats if f.get("type", "").startswith("audio/")]
+                if audio_formats:
+                    stream_url = audio_formats[0].get("url")
+                    if stream_url:
+                        if stream_url.startswith("/"):
+                            stream_url = f"{instance}{stream_url}"
+                        print(f"[Invidious Resolver] Success on: {instance}")
+                        return stream_url
+        except Exception as e:
+            print(f"Invidious endpoint {url} failed: {e}")
+            
+    return None
+
 def resolve_stream_url(video_id):
     url = get_cached_stream_url(video_id)
     if url:
@@ -572,6 +627,14 @@ def resolve_stream_url(video_id):
     if not url:
         print(f"[Resolver] yt-dlp failed for {video_id}, trying Cobalt fallback...")
         url = fetch_cobalt_stream_url(video_id)
+        
+    if not url:
+        print(f"[Resolver] Cobalt failed for {video_id}, trying Piped fallback...")
+        url = fetch_piped_stream_url(video_id)
+        
+    if not url:
+        print(f"[Resolver] Piped failed for {video_id}, trying Invidious fallback...")
+        url = fetch_invidious_stream_url(video_id)
         
     if url:
         set_cached_stream_url(video_id, url)
