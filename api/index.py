@@ -476,6 +476,7 @@ def extract_stream_url(video_id):
             'no_warnings': True,
             'nocheckcertificate': True,
             'ignoreerrors': True,
+            'cachedir': False,
             'extractor_args': {
                 'youtube': {
                     'client': client
@@ -512,6 +513,7 @@ def extract_stream_url(video_id):
             'no_warnings': True,
             'nocheckcertificate': True,
             'ignoreerrors': True,
+            'cachedir': False,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
