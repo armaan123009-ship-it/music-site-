@@ -175,8 +175,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             </div>
         </div>
 
-        <!-- Mobile Controls (Play/Pause + Next) -->
-        <div class="flex items-center gap-3 md:hidden shrink-0">
+        <!-- Mobile Controls (Download + Play/Pause + Next) -->
+        <div class="flex items-center gap-2 md:hidden shrink-0 z-10">
+            <button id="mobile-mini-download" class="p-2 text-white/70 hover:text-white cursor-pointer" title="Download song">
+                <Download className="w-5.5 h-5.5 text-white" />
+            </button>
             <button id="mobile-mini-play-pause" class="p-2 text-white transition-all cursor-pointer">
                 <Play id="mobile-play-icon" className="w-6 h-6 fill-current text-white" />
                 <Pause id="mobile-pause-icon" className="w-6 h-6 fill-current hidden text-white" />
@@ -208,9 +211,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         </div>
     </div>
     
-    <!-- Mini progress line at bottom for mobile -->
-    <div class="absolute bottom-0 left-0 right-0 h-[2px] bg-white/10 md:hidden">
-        <div id="mobile-progress-bar" class="h-full bg-primary" style="width: 0%"></div>
+    <!-- Progress Bar for Mobile (Top of Mini Player) -->
+    <div class="absolute top-0 left-0 right-0 h-1 bg-white/10 md:hidden cursor-pointer group" id="mobile-progress-container">
+        <div id="mobile-progress-bar" class="h-full bg-primary transition-all duration-100 ease-linear" style="width: 0%"></div>
+        <div class="absolute inset-0 opacity-0 group-hover:opacity-10 bg-primary transition-opacity"></div>
     </div>
 </div>
 
@@ -576,8 +580,13 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 glowEl.style.background = getGlowGradient(track.title);
             }
 
-            // Stop current playback
+            // Unregister previous error handlers and pause immediately to prevent false playback abort error toasts
+            audio.onerror = null;
             audio.pause();
+            audio.src = "";
+            try {
+                audio.load();
+            } catch (e) {}
 
             let streamUrl = null;
             let proxyUrl = null;
@@ -829,9 +838,13 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         const seekTime = parseFloat((el as HTMLElement).dataset.time!);
                         if (!isNaN(seekTime)) {
                             audio.currentTime = seekTime;
+                            updateActiveLyric(seekTime); // Highlight and scroll immediately on click!
                         }
                     });
                 });
+
+                // Highlight active line immediately when loaded!
+                updateActiveLyric(audio.currentTime);
             } else {
                 state.parsedLyrics = [];
                 state.lastActiveLyricIdx = -1;
@@ -1449,6 +1462,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             
             const downloadBtns = [
                 document.getElementById('mini-download-btn'),
+                document.getElementById('mobile-mini-download'),
                 document.getElementById('immersive-download-btn')
             ];
             
@@ -1468,6 +1482,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
             updateDownloadProgress('Preparing...', true);
 
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
             try {
                 let streamUrl = state.currentStreamUrl;
                 let proxyUrl = state.currentProxyUrl;
@@ -1479,8 +1495,24 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
                 }
 
-                if (!proxyUrl) {
+                if (!streamUrl) {
                     throw new Error("Unable to resolve streaming URL");
+                }
+
+                // If on production Vercel, bypass chunked proxy download (causes payload & timeout errors)
+                // and trigger direct browser file download from the Cobalt/Piped stream URL
+                if (!isLocalhost) {
+                    console.log("[Downloader] Bypassing proxy for production direct download...");
+                    updateDownloadProgress('Downloading...', true);
+                    const link = document.createElement('a');
+                    link.href = streamUrl;
+                    link.target = '_blank';
+                    link.download = `${track.title}.mp3`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    updateDownloadProgress('Download complete', false);
+                    return;
                 }
 
                 // Range request for 0-0 to retrieve total size via Content-Range
@@ -1571,6 +1603,15 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             });
         }
 
+        const mobDownloadBtn = document.getElementById('mobile-mini-download');
+        if (mobDownloadBtn && !mobDownloadBtn.dataset.bound) {
+            mobDownloadBtn.dataset.bound = "true";
+            mobDownloadBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleDownload();
+            });
+        }
+
         const immDownloadBtn = document.getElementById('immersive-download-btn');
         if (immDownloadBtn && !immDownloadBtn.dataset.bound) {
             immDownloadBtn.dataset.bound = "true";
@@ -1596,8 +1637,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     if (mobProgressBar) mobProgressBar.style.width = `${pos * 100}%`;
                     if (immProgressBar) immProgressBar.style.width = `${pos * 100}%`;
                     
-                    const duration = audio.duration;
-                    
                     if (!isNaN(duration) && isFinite(duration) && duration > 0) {
                         const currentTime = pos * duration;
                         const currentTimeEl = document.getElementById('current-time');
@@ -1606,6 +1645,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
                         
                         audio.currentTime = currentTime;
+                        updateActiveLyric(currentTime); // Smoothly update active lyric scrolling during drag seeking!
                     }
                 };
                 
@@ -1639,7 +1679,24 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         };
 
         bindProgressContainer('progress-container');
+        bindProgressContainer('mobile-progress-container');
         bindProgressContainer('immersive-progress-container');
+
+        // Allow clicking the bottom player anywhere (except buttons/volume) to open immersive view on mobile
+        const audioPlayerContainer = document.getElementById('audio-player');
+        if (audioPlayerContainer && !audioPlayerContainer.dataset.clickBound) {
+            audioPlayerContainer.dataset.clickBound = "true";
+            audioPlayerContainer.addEventListener('click', (e) => {
+                const target = e.target as HTMLElement;
+                if (target.closest('button') || target.closest('a') || target.closest('#volume-container') || target.closest('#mobile-progress-container') || target.closest('#progress-container')) {
+                    return;
+                }
+                const immPlayer = document.getElementById('immersive-player');
+                if (immPlayer) {
+                    immPlayer.classList.remove('translate-y-full');
+                }
+            });
+        }
 
         // Volume Seek with Drag & Touch Support
         const volumeContainer = document.getElementById('volume-container');
