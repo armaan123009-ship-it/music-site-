@@ -649,10 +649,11 @@ def extract_stream_url(video_id):
 
 def fetch_cobalt_stream_url(video_id):
     instances = [
+        "https://cobalt.canine.tools",
+        "https://cobalt.meowing.de",
+        "https://cobalt.liubquanti.click",
         "https://api.cobalt.tools",
-        "https://cobalt.foxtrot-omega.me",
-        "https://api.cobalt.best",
-        "https://cobalt.unblocker.cc"
+        "https://cobalt.foxtrot-omega.me"
     ]
     
     headers = {
@@ -671,7 +672,7 @@ def fetch_cobalt_stream_url(video_id):
         for endpoint in endpoints:
             try:
                 print(f"[Cobalt Resolver] Attempting: {endpoint} for video_id={video_id}")
-                r = requests.post(endpoint, headers=headers, json=data, timeout=8)
+                r = requests.post(endpoint, headers=headers, json=data, timeout=2.5)
                 if r.status_code == 200:
                     res_data = r.json()
                     stream_url = res_data.get("url") or res_data.get("picker")
@@ -685,17 +686,16 @@ def fetch_cobalt_stream_url(video_id):
 
 def fetch_piped_stream_url(video_id):
     instances = [
-        "https://pipedapi.kavin.rocks",
-        "https://api.piped.yt",
-        "https://piped-api.lunar.icu",
-        "https://pipedapi.colt.rocks"
+        "https://api-piped.mha.fi",
+        "https://api.piped.private.coffee",
+        "https://pipedapi.kavin.rocks"
     ]
     
     for instance in instances:
         url = f"{instance}/streams/{video_id}"
         try:
             print(f"[Piped Resolver] Querying instance: {url}")
-            r = requests.get(url, timeout=6)
+            r = requests.get(url, timeout=2.5)
             if r.status_code == 200:
                 data = r.json()
                 audio_streams = data.get("audioStreams", [])
@@ -711,17 +711,19 @@ def fetch_piped_stream_url(video_id):
 
 def fetch_invidious_stream_url(video_id):
     instances = [
-        "https://invidious.io.lol",
-        "https://inv.tux.im",
-        "https://invidious.projectsegfaut.im",
-        "https://yewtu.be"
+        "https://inv.nadeko.net",
+        "https://invidious.nerdvpn.de",
+        "https://invidious.f5.si",
+        "https://yt.chocolatemoo53.com",
+        "https://inv.zoomerville.com",
+        "https://invidious.tiekoetter.com"
     ]
     
     for instance in instances:
         url = f"{instance}/api/v1/videos/{video_id}?local=true"
         try:
             print(f"[Invidious Resolver] Querying: {url}")
-            r = requests.get(url, timeout=6)
+            r = requests.get(url, timeout=2.5)
             if r.status_code == 200:
                 data = r.json()
                 formats = data.get("adaptiveFormats", [])
@@ -743,9 +745,15 @@ def resolve_stream_url(video_id):
     if url:
         return url
         
-    url = extract_stream_url(video_id)
+    # Skip yt-dlp extraction on Vercel/Production to prevent serverless function timeouts
+    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
+    if not is_production:
+        url = extract_stream_url(video_id)
+    else:
+        print(f"[Resolver] Skipping local yt-dlp extraction on production/Vercel (prevents 10s function timeout). Trying fallbacks...")
+        
     if not url:
-        print(f"[Resolver] yt-dlp failed for {video_id}, trying Cobalt fallback...")
+        print(f"[Resolver] yt-dlp failed or skipped for {video_id}, trying Cobalt fallback...")
         url = fetch_cobalt_stream_url(video_id)
         
     if not url:
