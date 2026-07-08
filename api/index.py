@@ -790,15 +790,16 @@ def stream(video_id):
 @app.route("/proxy")
 def proxy():
     url = request.args.get('url')
-    if not url: return "No URL", 400
-    
+    if not url:
+        return "No URL", 400
+
     video_id = request.args.get('id', '')
     exp = request.args.get('exp', '')
     sig = request.args.get('sig', '')
-    
+
     if not exp or not sig:
         return "Forbidden: Missing signature", 403
-        
+
     try:
         # Allow a 5-minute (300s) clock skew grace period for serverless instances
         if time.time() > int(exp) + 300:
@@ -807,20 +808,67 @@ def proxy():
             return "Forbidden: Invalid signature", 403
     except Exception as e:
         return f"Forbidden: Verification failed: {str(e)}", 403
-        
+
     download = request.args.get('download') == 'true'
     title = request.args.get('title', 'audio')
     # Clean filename
     safe_title = "".join([c for c in title if c.isalnum() or c in ' -_']).strip()
     if not safe_title:
         safe_title = "audio"
-        
+
+    range_header = request.headers.get("Range")
+
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-    if request.headers.get("Range"): 
-        headers["Range"] = request.headers.get("Range")
+    if range_header:
+        headers["Range"] = range_header
+
+    def build_response(r):
+        def generate():
+            for chunk in r.iter_content(chunk_size=512*1024):
+                if chunk:
+                    yield chunk
+
+        status_code = r.status_code
+        # If browser asked for Range but upstream didn't honor it (200), force 206 semantics.
+        if range_header and status_code == 200:
+            status_code = 206
+
+        response = Response(generate(), status=status_code)
+
+        # Deterministic headers for media correctness (fixes duration=Infinity issues)
+        response.headers["Content-Type"] = r.headers.get("Content-Type", "audio/mpeg")
+        response.headers["Accept-Ranges"] = "bytes"
+
+        cl = r.headers.get("Content-Length")
+        if cl is not None:
+            response.headers["Content-Length"] = cl
+
+        cr = r.headers.get("Content-Range")
+        if cr is not None:
+            response.headers["Content-Range"] = cr
+
+        if download:
+            response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
+            response.headers["Content-Type"] = "audio/mpeg"
+        else:
+            response.headers["Access-Control-Allow-Origin"] = "*"
+            response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
+            response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
+
+        # Copy through additional safe headers from upstream
+        for k, v in r.headers.items():
+            lk = k.lower()
+            if lk in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition']:
+                continue
+            if lk in ['content-type', 'accept-ranges', 'content-length', 'content-range']:
+                continue
+            response.headers[k] = v
+
+        return response
+
     try:
         r = requests.get(url, headers=headers, stream=True, timeout=15)
-        
+
         # Transparently resolve fresh URL if cached or resolved URL is forbidden/expired
         if r.status_code not in [200, 206] and video_id:
             print(f"[Proxy] Upstream returned status code {r.status_code}. Resolving fresh URL for {video_id}...")
@@ -830,24 +878,8 @@ def proxy():
             if fresh_url:
                 print(f"[Proxy] Fresh URL resolved. Retrying request...")
                 r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
-                
-        def generate():
-            for chunk in r.iter_content(chunk_size=512*1024):  # Increased buffer to 512KB for faster loading
-                if chunk: yield chunk
-        response = Response(generate(), status=r.status_code)
-        for k, v in r.headers.items():
-            if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition']:
-                response.headers[k] = v
-                
-        if download:
-            response.headers["Content-Type"] = "audio/mpeg"
-            response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
-        else:
-            response.headers["Access-Control-Allow-Origin"] = "*"
-            response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
-            response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
-            
-        return response
+
+        return build_response(r)
     except Exception as e:
         # Fallback fresh resolution on request exceptions
         if video_id:
@@ -858,17 +890,7 @@ def proxy():
                 fresh_url = resolve_stream_url(video_id)
                 if fresh_url:
                     r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
-                    def generate():
-                        for chunk in r.iter_content(chunk_size=512*1024):
-                            if chunk: yield chunk
-                    response = Response(generate(), status=r.status_code)
-                    for k, v in r.headers.items():
-                        if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition']:
-                            response.headers[k] = v
-                    response.headers["Access-Control-Allow-Origin"] = "*"
-                    response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
-                    response.headers["Access-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
-                    return response
+                    return build_response(r)
             except Exception as retry_err:
                 return f"Verification retry failed: {str(retry_err)}", 500
         return str(e), 500
