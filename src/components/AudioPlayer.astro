@@ -663,13 +663,19 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 }
             }
 
-            if (proxyUrl) {
-                audio.src = proxyUrl;
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isGoogleVideo = streamUrl && streamUrl.includes('googlevideo.com');
+            const useProxy = isLocalhost && isGoogleVideo && proxyUrl;
+
+            const playUrl = useProxy ? proxyUrl : streamUrl;
+
+            if (playUrl) {
+                audio.src = playUrl;
 
                 let triedDirect = false;
                 audio.onerror = () => {
                     if (!audio.src || audio.src === window.location.href) return;
-                    if (!triedDirect && streamUrl) {
+                    if (!triedDirect && streamUrl && useProxy) {
                         console.log("Proxy stream failed, trying direct stream...");
                         triedDirect = true;
                         audio.src = streamUrl;
@@ -704,7 +710,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         syncPlayPauseUI(false);
                         return;
                     }
-                    if (streamUrl) {
+                    if (streamUrl && useProxy) {
                         audio.src = streamUrl;
                         audio.play().then(() => {
                             syncPlayPauseUI(true);
@@ -714,7 +720,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         }).catch((err) => {
                             syncPlayPauseUI(false);
                             releaseWakeLock();
+                            showToast("Playback failed.");
                         });
+                    } else {
+                        syncPlayPauseUI(false);
+                        releaseWakeLock();
+                        showToast("Playback failed.");
                     }
                 });
             } else {
