@@ -511,9 +511,39 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                             proxyUrl: proxyUrl
                         };
                         console.log(`[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`);
+                    } else {
+                        throw new Error("Invalid stream data");
                     }
                 } catch (e) {
                     console.warn(`Failed to pre-fetch stream URL for ${nextTrack.title}:`, e);
+                    // Try client-side Cobalt pre-fetch fallback
+                    try {
+                        const cobaltRes = await fetch("https://rue-cobalt.xenon.zone", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Accept": "application/json"
+                            },
+                            body: JSON.stringify({
+                                url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
+                                downloadMode: "audio",
+                                audioFormat: "mp3"
+                            })
+                        });
+                        if (cobaltRes.ok) {
+                            const cobaltData = await cobaltRes.json();
+                            const sUrl = cobaltData.url || cobaltData.picker;
+                            if (sUrl) {
+                                state.streamUrlCache[nextTrack.id] = {
+                                    streamUrl: sUrl,
+                                    proxyUrl: sUrl
+                                };
+                                console.log(`[Stream Pre-fetch] Successfully pre-fetched client-side stream for: ${nextTrack.title}`);
+                            }
+                        }
+                    } catch (prefErr) {
+                        console.warn("[Stream Pre-fetch] Client-side fallback pre-fetch failed:", prefErr);
+                    }
                 }
             }
         }
@@ -564,7 +594,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             } else {
                 try {
                     const data = await apiFetch(`/stream/${track.id}`);
-                    if (data) {
+                    if (data && data.url) {
                         streamUrl = data.url;
                         proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
                         state.currentStreamUrl = streamUrl;
@@ -572,6 +602,64 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     }
                 } catch (err) {
                     console.warn("Failed to retrieve stream details:", err);
+                }
+            }
+
+            // Fallback: If server failed to resolve streaming URLs (common on cloud/Vercel host blocks), resolve client-side
+            if (!proxyUrl) {
+                console.log(`[Client Resolver] Server failed to resolve stream for ${track.id}. Trying client-side resolution...`);
+                try {
+                    const cobaltRes = await fetch("https://rue-cobalt.xenon.zone", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Accept": "application/json"
+                        },
+                        body: JSON.stringify({
+                            url: `https://www.youtube.com/watch?v=${track.id}`,
+                            downloadMode: "audio",
+                            audioFormat: "mp3"
+                        })
+                    });
+                    if (cobaltRes.ok) {
+                        const cobaltData = await cobaltRes.json();
+                        streamUrl = cobaltData.url || cobaltData.picker;
+                        if (streamUrl) {
+                            console.log(`[Client Resolver] Successfully resolved stream via client-side Cobalt!`);
+                            proxyUrl = streamUrl;
+                            state.currentStreamUrl = streamUrl;
+                            state.currentProxyUrl = proxyUrl;
+                        }
+                    }
+                } catch (cobaltErr) {
+                    console.warn("[Client Resolver] Client-side Cobalt failed:", cobaltErr);
+                }
+                
+                if (!proxyUrl) {
+                    const pipedInstances = [
+                        "https://api-piped.mha.fi",
+                        "https://api.piped.private.coffee",
+                        "https://pipedapi.kavin.rocks"
+                    ];
+                    for (const instance of pipedInstances) {
+                        try {
+                            const pipedRes = await fetch(`${instance}/streams/${track.id}`);
+                            if (pipedRes.ok) {
+                                const pipedData = await pipedRes.json();
+                                const audioStreams = pipedData.audioStreams || [];
+                                if (audioStreams.length > 0 && audioStreams[0].url) {
+                                    streamUrl = audioStreams[0].url;
+                                    proxyUrl = streamUrl;
+                                    state.currentStreamUrl = streamUrl;
+                                    state.currentProxyUrl = proxyUrl;
+                                    console.log(`[Client Resolver] Successfully resolved stream via client-side Piped on: ${instance}`);
+                                    break;
+                                }
+                            }
+                        } catch (pipedErr) {
+                            console.warn(`[Client Resolver] Piped instance ${instance} failed:`, pipedErr);
+                        }
+                    }
                 }
             }
 
