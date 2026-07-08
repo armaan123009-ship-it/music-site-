@@ -1,6 +1,5 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Sidebar from '../components/Sidebar.astro';
 import { Compass, Zap, Headphones, Flame, Radio } from 'lucide-react';
 
 const exploreCategories = [
@@ -14,10 +13,7 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
 ---
 
 <Layout title="Explore | Premium Music" activeNav="explore">
-    <Sidebar active="explore" />
-
-    <main class="xl:ml-64 flex-1 flex flex-col min-h-screen pb-32">
-        <div class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-16">
+    <div class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-16">
             <!-- Explore Header -->
             <div>
                 <p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Discover</p>
@@ -58,7 +54,6 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
                 </div>
             </section>
         </div>
-    </main>
 </Layout>
 
 <script>
@@ -87,20 +82,22 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
     }
 
     document.addEventListener('astro:page-load', () => {
-        loadExploreData();
+        if (window.location.pathname === '/explore') {
+            loadExploreData();
 
-        // Bind clicks on genres & explore categories to search
-        document.querySelectorAll('.explore-category-trigger, .explore-genre-trigger').forEach(triggerEl => {
-            const trigger = triggerEl as HTMLElement;
-            if (!trigger.dataset.bound) {
-                trigger.dataset.bound = "true";
-                trigger.addEventListener('click', () => {
-                    const query = trigger.dataset.query;
-                    if (query) {
-                        navigate(`/?q=${encodeURIComponent(query)}`);
-                    }
-                });
-            }
-        });
+            // Bind clicks on genres & explore categories to search
+            document.querySelectorAll('.explore-category-trigger, .explore-genre-trigger').forEach(triggerEl => {
+                const trigger = triggerEl as HTMLElement;
+                if (!trigger.dataset.bound) {
+                    trigger.dataset.bound = "true";
+                    trigger.addEventListener('click', () => {
+                        const query = trigger.dataset.query;
+                        if (query) {
+                            navigate(`/?q=${encodeURIComponent(query)}`);
+                        }
+                    });
+                }
+            });
+        }
     });
 </script>

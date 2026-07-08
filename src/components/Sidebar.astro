@@ -4,7 +4,7 @@ import { Home, Compass, Library, Plus, Play } from 'lucide-react';
 const { active = 'home' } = Astro.props;
 ---
 
-<aside class="fixed left-0 top-0 h-full w-64 bg-black/40 backdrop-blur-3xl border-r border-white/5 hidden xl:flex flex-col p-6 z-40">
+<aside class="w-64 bg-sidebar/40 backdrop-blur-3xl border-r border-sidebar-border hidden xl:flex flex-col p-6 shrink-0 z-20 relative">
     <div class="flex items-center gap-3 px-2 mb-10">
         <a href="/" class="flex items-center gap-3">
             <div class="w-10 h-10 bg-primary rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]">

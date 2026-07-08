@@ -4,6 +4,7 @@ import { ClientRouter } from 'astro:transitions';
 import AudioPlayer from '../components/AudioPlayer.astro';
 import BottomNav from '../components/BottomNav.astro';
 import Header from '../components/Header.astro';
+import Sidebar from '../components/Sidebar.astro';
 
 interface Props {
 	title: string;
@@ -20,7 +21,7 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="description" content={description} />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
@@ -30,7 +31,7 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 		<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap" rel="stylesheet">
 		<script is:inline>
 			const applyTheme = () => {
-				const theme = localStorage.getItem('music-theme') || 'theme-midnight';
+				const theme = localStorage.getItem('music-theme') || 'theme-spotify-green';
 				const el = document.documentElement;
 				// Remove any existing theme- classes
 				Array.from(el.classList).forEach(c => {
@@ -38,7 +39,7 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 				});
 				
 				if (theme === 'theme-custom') {
-					const customColor = localStorage.getItem('music-theme-custom-color') || '#FF3D77';
+					const customColor = localStorage.getItem('music-theme-custom-color') || '#1ed760';
 					el.style.setProperty('--primary', customColor);
 					el.style.setProperty('--ring', customColor);
 					el.style.setProperty('--sidebar-primary', customColor);
@@ -69,20 +70,35 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 			document.addEventListener('astro:page-load', applyTheme);
 		</script>
 	</head>
-	<body class="bg-background text-foreground selection:bg-primary/30 antialiased">
-		<div class="relative min-h-screen flex flex-col">
+	<body class="bg-background text-foreground selection:bg-primary/30 antialiased overflow-hidden">
+		<!-- Main App Grid Shell -->
+		<div class="h-screen w-screen flex flex-col overflow-hidden bg-background">
 			<!-- Subtle Background Glow -->
 			<div class="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
 				<div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-[120px]"></div>
 				<div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[120px]"></div>
 			</div>
 			
-			{showNav && <Header />}
+			<!-- Top Half: Sidebar & main content container -->
+			<div class="flex-1 flex min-h-0 overflow-hidden relative">
+				{showNav && <Sidebar active={activeNav} />}
+				
+				<!-- Content Center Panel -->
+				<div class="flex-1 flex flex-col min-h-0 overflow-hidden relative">
+					{showNav && <Header />}
+					
+					<!-- Scrollable Content Area -->
+					<div id="main-content-scrollable" class="flex-1 overflow-y-auto overflow-x-hidden pb-32">
+						<slot />
+					</div>
+				</div>
+			</div>
 
-			<slot />
-
-			{showNav && <BottomNav active={activeNav} />}
+			<!-- Bottom Panel: Persistent Player -->
 			{showNav && <AudioPlayer />}
+
+			<!-- Mobile Bottom Navigation Bar -->
+			{showNav && <BottomNav active={activeNav} />}
 		</div>
 	</body>
 </html>
@@ -95,6 +111,7 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 	/* Custom Scrollbar */
 	::-webkit-scrollbar {
 		width: 8px;
+		height: 8px;
 	}
 	::-webkit-scrollbar-track {
 		background: hsl(var(--background));

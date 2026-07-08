@@ -1,13 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Sidebar from '../components/Sidebar.astro';
 import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
 ---
 
 <Layout title="Playlist | Premium Music" activeNav="library">
-    <Sidebar active="library" />
-
-    <main class="xl:ml-64 flex-1 flex flex-col min-h-screen pb-32">
         <header id="playlist-header" class="relative h-[30vh] md:h-[40vh] min-h-[300px] md:min-h-[400px] flex items-end p-4 sm:p-8 md:p-12 overflow-hidden bg-gradient-to-t from-background to-primary/20">
             <div class="absolute inset-0 z-0">
                 <img id="playlist-img" referrerpolicy="no-referrer" src="" class="w-full h-full object-cover blur-3xl opacity-30 transition-opacity duration-500 opacity-0" onload="this.classList.remove('opacity-0')" />
@@ -48,7 +44,6 @@ import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
                 <!-- Tracks -->
             </div>
         </div>
-    </main>
 </Layout>
 
 <script>
@@ -123,6 +118,8 @@ import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
     }
 
     document.addEventListener('astro:page-load', () => {
-        loadPlaylist();
+        if (window.location.pathname === '/playlist') {
+            loadPlaylist();
+        }
     });
 </script>

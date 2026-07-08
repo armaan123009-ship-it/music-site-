@@ -9,6 +9,8 @@ import json
 import os
 import requests
 import time
+import hmac
+import hashlib
 
 # Simple cache for API responses and stream URLs
 api_cache = {}
@@ -56,6 +58,19 @@ def get_cached_stream_url(video_id):
 
 def set_cached_stream_url(video_id, url):
     stream_cache[video_id] = (url, time.time())
+
+def generate_signature(video_id, url, expires_at):
+    message = f"{video_id}:{url}:{expires_at}"
+    signature = hmac.new(
+        app.secret_key.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    return signature
+
+def verify_signature(video_id, url, expires_at, signature):
+    expected = generate_signature(video_id, url, expires_at)
+    return hmac.compare_digest(expected, signature)
 
 def proxy_track_image(track_id, image_url):
     if not image_url:
@@ -165,6 +180,88 @@ try:
         yt = YTMusic()
 except Exception:
     yt = YTMusic()
+
+# Official YouTube Data API Key integration for fallbacks, search and autoplay
+YOUTUBE_API_KEY = os.environ.get('YOUTUBE_API_KEY', 'AIzaSyD4sC5H6EHd97Fl9aHvcek9F2UO1KXVIVU')
+
+def search_youtube_official(query, max_results=25):
+    url = "https://www.googleapis.com/youtube/v3/search"
+    params = {
+        "part": "snippet",
+        "q": query,
+        "type": "video",
+        "videoCategoryId": "10",  # Music category ID
+        "key": YOUTUBE_API_KEY,
+        "maxResults": max_results
+    }
+    try:
+        r = requests.get(url, params=params, timeout=5)
+        if r.status_code == 200:
+            items = r.json().get('items', [])
+            songs = []
+            for item in items:
+                video_id = item['id'].get('videoId')
+                if not video_id:
+                    continue
+                snippet = item['snippet']
+                import html
+                title = html.unescape(snippet.get('title', 'Unknown'))
+                channel_title = html.unescape(snippet.get('channelTitle', 'Various Artists'))
+                
+                thumbs = snippet.get('thumbnails', {})
+                thumb_url = ""
+                for quality in ['maxres', 'standard', 'high', 'medium', 'default']:
+                    if quality in thumbs and thumbs[quality].get('url'):
+                        thumb_url = thumbs[quality]['url']
+                        break
+                        
+                image_url = proxy_track_image(video_id, thumb_url)
+                songs.append({
+                    "id": video_id,
+                    "title": title,
+                    "artist": channel_title,
+                    "image": image_url,
+                    "duration": "3:45"
+                })
+            return songs
+    except Exception as e:
+        print(f"Official YouTube search failed: {e}")
+    return None
+
+def get_youtube_suggestions_official(video_id):
+    details_url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {
+        "part": "snippet",
+        "id": video_id,
+        "key": YOUTUBE_API_KEY
+    }
+    try:
+        r = requests.get(details_url, params=params, timeout=5)
+        if r.status_code == 200:
+            items = r.json().get('items', [])
+            if items:
+                snippet = items[0]['snippet']
+                title = snippet.get('title', '')
+                channel_title = snippet.get('channelTitle', '')
+                tags = snippet.get('tags', [])
+                
+                query_parts = []
+                if channel_title:
+                    query_parts.append(channel_title)
+                if tags:
+                    query_parts.extend(tags[:2])
+                else:
+                    query_parts.append(" ".join(title.split()[:3]))
+                
+                search_q = " ".join(query_parts)
+                print(f"[Official Autoplay] Fetching recommendations for: {search_q}")
+                official_songs = search_youtube_official(search_q, max_results=10)
+                if official_songs:
+                    return [s for s in official_songs if s['id'] != video_id]
+    except Exception as e:
+        print(f"Official YouTube suggestions failed: {e}")
+    return None
+
 
 def format_song(item):
     if not item: return None
@@ -349,9 +446,19 @@ def search():
         results = yt.search(q, filter="songs")[:40]
         if not results: results = yt.search(q, filter="videos")[:40]
         songs = [format_song(r) for r in results if format_song(r)]
+        if not songs:
+            official_songs = search_youtube_official(q)
+            if official_songs:
+                songs = official_songs
         set_cached_api(cache_key, songs)
         return jsonify(songs)
-    except Exception: return jsonify([])
+    except Exception:
+        official_songs = search_youtube_official(q)
+        if official_songs:
+            set_cached_api(cache_key, official_songs)
+            return jsonify(official_songs)
+        return jsonify([])
+
 
 # Helper functions for resolving stream URLs with fallbacks to bypass blocks
 def extract_stream_url(video_id):
@@ -463,9 +570,13 @@ def stream(video_id):
         if not url:
             raise Exception("Failed to resolve stream URL from all sources")
             
+        expires_at = int(time.time()) + 1800  # 30 minutes validity
+        sig = generate_signature(video_id, url, expires_at)
+        proxy_url = f"/proxy?url={requests.utils.quote(url)}&id={video_id}&exp={expires_at}&sig={sig}"
+        
         return jsonify({
             "url": url, 
-            "proxy_url": f"/proxy?url={requests.utils.quote(url)}"
+            "proxy_url": proxy_url
         })
     except Exception as e:
         print(f"Stream error for {video_id}: {e}")
@@ -476,6 +587,21 @@ def proxy():
     url = request.args.get('url')
     if not url: return "No URL", 400
     
+    video_id = request.args.get('id', '')
+    exp = request.args.get('exp', '')
+    sig = request.args.get('sig', '')
+    
+    if not exp or not sig:
+        return "Forbidden: Missing signature", 403
+        
+    try:
+        if time.time() > int(exp):
+            return "Forbidden: URL Expired", 403
+        if not verify_signature(video_id, url, int(exp), sig):
+            return "Forbidden: Invalid signature", 403
+    except Exception as e:
+        return f"Forbidden: Verification failed: {str(e)}", 403
+        
     download = request.args.get('download') == 'true'
     title = request.args.get('title', 'audio')
     # Clean filename
@@ -585,21 +711,56 @@ def download_audio(video_id):
 
 @app.route("/api/lyrics/<video_id>")
 def get_lyrics(video_id):
+    title = request.args.get('title', '')
+    artist = request.args.get('artist', '')
+    
     cache_key = f"lyrics_{video_id}"
     cached = get_cached_api(cache_key, duration=86400)  # 24 hours cache
     if cached is not None:
         return jsonify(cached)
-    try:
-        watch = yt.get_watch_playlist(videoId=video_id)
-        lyrics_id = watch.get('lyrics')
-        if not lyrics_id:
-            res = {"lyrics": "No lyrics found."}
-        else:
-            res = {"lyrics": yt.get_lyrics(lyrics_id).get('lyrics', 'No lyrics found.')}
-        set_cached_api(cache_key, res)
-        return jsonify(res)
-    except:
-        return jsonify({"lyrics": "No lyrics found."})
+        
+    res = None
+    
+    # Try fetching synced lyrics from Lrclib first
+    if title and artist:
+        try:
+            print(f"[Lyrics API] Fetching synced lyrics from Lrclib for '{title}' by '{artist}'")
+            lrclib_url = "https://lrclib.net/api/get"
+            params = {
+                "artist_name": artist,
+                "track_name": title
+            }
+            r = requests.get(lrclib_url, params=params, timeout=5)
+            if r.status_code == 200:
+                data = r.json()
+                synced_lyrics = data.get("syncedLyrics")
+                plain_lyrics = data.get("plainLyrics")
+                if synced_lyrics:
+                    res = {"synced": True, "lyrics": synced_lyrics}
+                elif plain_lyrics:
+                    res = {"synced": False, "lyrics": plain_lyrics}
+        except Exception as e:
+            print(f"[Lyrics API] Lrclib failed: {e}")
+            
+    # Fallback to YTMusic if Lrclib didn't yield anything
+    if not res:
+        try:
+            print(f"[Lyrics API] Falling back to YTMusic native lyrics for ID: {video_id}")
+            watch = yt.get_watch_playlist(videoId=video_id)
+            lyrics_id = watch.get('lyrics')
+            if lyrics_id:
+                lyrics_data = yt.get_lyrics(lyrics_id)
+                lyrics_text = lyrics_data.get('lyrics', '')
+                if lyrics_text and lyrics_text != 'No lyrics found.':
+                    res = {"synced": False, "lyrics": lyrics_text}
+            if not res:
+                res = {"synced": False, "lyrics": "No lyrics found."}
+        except Exception as e:
+            print(f"[Lyrics API] YTMusic fallback failed: {e}")
+            res = {"synced": False, "lyrics": "No lyrics found."}
+            
+    set_cached_api(cache_key, res)
+    return jsonify(res)
 
 @app.route("/api/suggestions/<video_id>")
 def get_suggestions(video_id):
@@ -610,10 +771,20 @@ def get_suggestions(video_id):
     try:
         watch = yt.get_watch_playlist(videoId=video_id, limit=10)
         songs = [format_song(t) for t in watch.get('tracks', []) if format_song(t) and t.get('videoId') != video_id]
+        if not songs:
+            official_songs = get_youtube_suggestions_official(video_id)
+            if official_songs:
+                songs = official_songs
         set_cached_api(cache_key, songs)
         return jsonify(songs)
-    except:
+    except Exception:
+        official_songs = get_youtube_suggestions_official(video_id)
+        if official_songs:
+            songs = [s for s in official_songs if s['id'] != video_id]
+            set_cached_api(cache_key, songs)
+            return jsonify(songs)
         return jsonify([])
+
 
 @app.route("/api/user_data")
 def user_data():

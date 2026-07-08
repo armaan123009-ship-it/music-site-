@@ -4,9 +4,8 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
 ---
 
 <Layout title="Your Profile | Premium Music" activeNav="profile">
-    <div class="min-h-screen bg-background flex flex-col">
-        <!-- Profile Header -->
-        <header class="relative h-64 bg-gradient-to-br from-primary to-blue-600">
+    <!-- Profile Header -->
+    <header class="relative h-64 bg-gradient-to-br from-primary to-blue-600">
             <div class="absolute inset-0 bg-black/20"></div>
             <div class="absolute -bottom-16 left-8 md:left-16 flex items-end gap-6">
                 <div class="w-32 h-32 rounded-3xl bg-card border-4 border-background flex items-center justify-center shadow-2xl overflow-hidden">
@@ -24,7 +23,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
             </div>
         </header>
 
-        <main class="mt-20 px-4 sm:px-8 md:px-16 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+        <div class="mt-20 px-4 sm:px-8 md:px-16 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
             <!-- Sidebar Stats -->
             <div class="space-y-8">
                 <div class="p-6 rounded-3xl bg-muted/30 border border-border space-y-6">
@@ -81,8 +80,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
                     </div>
                 </section>
             </div>
-        </main>
-    </div>
+        </div>
 </Layout>
 
 <script>
@@ -160,20 +158,24 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
         }
     }
 
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn && !logoutBtn.dataset.bound) {
-        logoutBtn.dataset.bound = "true";
-        logoutBtn.addEventListener('click', async () => {
-            await fetch('/api/logout');
-            navigate('/');
-        });
-    }
-
     document.addEventListener('astro:page-load', () => {
-        loadProfile();
+        if (window.location.pathname === '/profile') {
+            loadProfile();
+
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn && !logoutBtn.dataset.bound) {
+                logoutBtn.dataset.bound = "true";
+                logoutBtn.addEventListener('click', async () => {
+                    await fetch('/api/logout');
+                    navigate('/');
+                });
+            }
+        }
     });
 
     window.addEventListener('reload-profile-data', () => {
-        loadProfile();
+        if (window.location.pathname === '/profile') {
+            loadProfile();
+        }
     });
 </script>

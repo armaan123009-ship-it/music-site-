@@ -1,18 +1,13 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Sidebar from '../components/Sidebar.astro';
 import { Play } from 'lucide-react';
 
 const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "Focus", "Romance"];
 ---
 
 <Layout title="Home | Premium Music Experience" activeNav="home">
-	<Sidebar active="home" />
-
 	<!-- Main Content Area -->
-	<main class="xl:ml-64 flex-1 flex flex-col min-h-screen pb-32">
-
-		<div id="main-content-area" class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-12">
+	<div id="main-content-area" class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-12">
 			<!-- Mood Filter Bar -->
 			<section class="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
 				{moodFilters.map((mood) => (
@@ -34,7 +29,6 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 
 
 		</div>
-	</main>
 </Layout>
 
 <script>
@@ -183,69 +177,71 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 	}
 
 	document.addEventListener('astro:page-load', () => {
-		const urlParams = new URLSearchParams(window.location.search);
-		const query = urlParams.get('q');
-		const searchInput = document.getElementById('global-search-input') as HTMLInputElement;
-		const mobSearchInput = document.getElementById('mobile-search-input') as HTMLInputElement;
-		let searchTimeout: any;
+		if (window.location.pathname === '/') {
+			const urlParams = new URLSearchParams(window.location.search);
+			const query = urlParams.get('q');
+			const searchInput = document.getElementById('global-search-input') as HTMLInputElement;
+			const mobSearchInput = document.getElementById('mobile-search-input') as HTMLInputElement;
+			let searchTimeout: any;
 
-		const handleInput = (val: string) => {
-			clearTimeout(searchTimeout);
-			if (!val) {
-				window.history.replaceState(null, '', '/');
+			const handleInput = (val: string) => {
+				clearTimeout(searchTimeout);
+				if (!val) {
+					window.history.replaceState(null, '', '/');
+					loadHomeContent();
+					return;
+				}
+				window.history.replaceState(null, '', `/?q=${encodeURIComponent(val)}`);
+				searchTimeout = setTimeout(() => handleSearch(val), 300);
+			};
+
+			if (searchInput) {
+				if (!searchInput.dataset.homeBound) {
+					searchInput.dataset.homeBound = "true";
+					searchInput.addEventListener('input', (e) => {
+						const val = (e.target as HTMLInputElement).value;
+						handleInput(val);
+					});
+				}
+			}
+
+			if (mobSearchInput) {
+				if (!mobSearchInput.dataset.homeBound) {
+					mobSearchInput.dataset.homeBound = "true";
+					mobSearchInput.addEventListener('input', (e) => {
+						const val = (e.target as HTMLInputElement).value;
+						handleInput(val);
+					});
+				}
+			}
+
+			if (query) {
+				if (searchInput && document.activeElement !== searchInput) searchInput.value = query;
+				if (mobSearchInput && document.activeElement !== mobSearchInput) mobSearchInput.value = query;
+				handleSearch(query);
+			} else {
+				if (searchInput && document.activeElement !== searchInput) searchInput.value = "";
+				if (mobSearchInput && document.activeElement !== mobSearchInput) mobSearchInput.value = "";
 				loadHomeContent();
-				return;
 			}
-			window.history.replaceState(null, '', `/?q=${encodeURIComponent(val)}`);
-			searchTimeout = setTimeout(() => handleSearch(val), 300);
-		};
 
-		if (searchInput) {
-			if (!searchInput.dataset.homeBound) {
-				searchInput.dataset.homeBound = "true";
-				searchInput.addEventListener('input', (e) => {
-					const val = (e.target as HTMLInputElement).value;
-					handleInput(val);
-				});
-			}
+			// Bind Mood Filter clicks to search in-place
+			document.querySelectorAll('.mood-filter-trigger').forEach(triggerEl => {
+				const trigger = triggerEl as HTMLElement;
+				if (!trigger.dataset.bound) {
+					trigger.dataset.bound = "true";
+					trigger.addEventListener('click', () => {
+						const q = trigger.dataset.query;
+						if (q) {
+							if (searchInput) searchInput.value = q;
+							if (mobSearchInput) mobSearchInput.value = q;
+							window.history.replaceState(null, '', `/?q=${encodeURIComponent(q)}`);
+							handleSearch(q);
+						}
+					});
+				}
+			});
 		}
-
-		if (mobSearchInput) {
-			if (!mobSearchInput.dataset.homeBound) {
-				mobSearchInput.dataset.homeBound = "true";
-				mobSearchInput.addEventListener('input', (e) => {
-					const val = (e.target as HTMLInputElement).value;
-					handleInput(val);
-				});
-			}
-		}
-
-		if (query) {
-			if (searchInput && document.activeElement !== searchInput) searchInput.value = query;
-			if (mobSearchInput && document.activeElement !== mobSearchInput) mobSearchInput.value = query;
-			handleSearch(query);
-		} else {
-			if (searchInput && document.activeElement !== searchInput) searchInput.value = "";
-			if (mobSearchInput && document.activeElement !== mobSearchInput) mobSearchInput.value = "";
-			loadHomeContent();
-		}
-
-		// Bind Mood Filter clicks to search in-place
-		document.querySelectorAll('.mood-filter-trigger').forEach(triggerEl => {
-			const trigger = triggerEl as HTMLElement;
-			if (!trigger.dataset.bound) {
-				trigger.dataset.bound = "true";
-				trigger.addEventListener('click', () => {
-					const q = trigger.dataset.query;
-					if (q) {
-						if (searchInput) searchInput.value = q;
-						if (mobSearchInput) mobSearchInput.value = q;
-						window.history.replaceState(null, '', `/?q=${encodeURIComponent(q)}`);
-						handleSearch(q);
-					}
-				});
-			}
-		});
 	});
 </script>
 

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MusicSite</string>
+    <string name="title_activity_main">MusicSite</string>
+    <string name="package_name">com.music.site</string>
+    <string name="custom_url_scheme">com.music.site</string>
+</resources>
