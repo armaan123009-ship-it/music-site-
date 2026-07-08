@@ -649,9 +649,7 @@ def extract_stream_url(video_id):
 
 def fetch_cobalt_stream_url(video_id):
     instances = [
-        "https://cobalt.canine.tools",
-        "https://cobalt.meowing.de",
-        "https://cobalt.liubquanti.click",
+        "https://rue-cobalt.xenon.zone",
         "https://api.cobalt.tools",
         "https://cobalt.foxtrot-omega.me"
     ]
@@ -668,7 +666,7 @@ def fetch_cobalt_stream_url(video_id):
     }
 
     for instance in instances:
-        endpoints = [f"{instance}/api/json", instance, f"{instance}/"]
+        endpoints = [instance, f"{instance}/", f"{instance}/api/json"]
         for endpoint in endpoints:
             try:
                 print(f"[Cobalt Resolver] Attempting: {endpoint} for video_id={video_id}")
