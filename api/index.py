@@ -526,25 +526,39 @@ def extract_stream_url(video_id):
     return None
 
 def fetch_cobalt_stream_url(video_id):
-    try:
-        url = "https://api.cobalt.tools/api/json"
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-        }
-        data = {
-            "url": f"https://www.youtube.com/watch?v={video_id}",
-            "downloadMode": "audio",
-            "audioFormat": "mp3"
-        }
-        r = requests.post(url, headers=headers, json=data, timeout=10)
-        if r.status_code == 200:
-            res_data = r.json()
-            if "url" in res_data:
-                return res_data["url"]
-    except Exception as e:
-        print(f"Cobalt fallback failed for {video_id}: {e}")
+    instances = [
+        "https://api.cobalt.tools",
+        "https://cobalt.foxtrot-omega.me",
+        "https://api.cobalt.best",
+        "https://cobalt.unblocker.cc"
+    ]
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    data = {
+        "url": f"https://www.youtube.com/watch?v={video_id}",
+        "downloadMode": "audio",
+        "audioFormat": "mp3"
+    }
+
+    for instance in instances:
+        endpoints = [f"{instance}/api/json", instance, f"{instance}/"]
+        for endpoint in endpoints:
+            try:
+                print(f"[Cobalt Resolver] Attempting: {endpoint} for video_id={video_id}")
+                r = requests.post(endpoint, headers=headers, json=data, timeout=8)
+                if r.status_code == 200:
+                    res_data = r.json()
+                    stream_url = res_data.get("url") or res_data.get("picker")
+                    if stream_url:
+                        print(f"[Cobalt Resolver] Success on: {endpoint}")
+                        return stream_url
+            except Exception as e:
+                print(f"Cobalt endpoint {endpoint} failed: {e}")
+                
     return None
 
 def resolve_stream_url(video_id):
@@ -614,6 +628,17 @@ def proxy():
         headers["Range"] = request.headers.get("Range")
     try:
         r = requests.get(url, headers=headers, stream=True, timeout=15)
+        
+        # Transparently resolve fresh URL if cached or resolved URL is forbidden/expired
+        if r.status_code not in [200, 206] and video_id:
+            print(f"[Proxy] Upstream returned status code {r.status_code}. Resolving fresh URL for {video_id}...")
+            if video_id in stream_cache:
+                del stream_cache[video_id]
+            fresh_url = resolve_stream_url(video_id)
+            if fresh_url:
+                print(f"[Proxy] Fresh URL resolved. Retrying request...")
+                r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
+                
         def generate():
             for chunk in r.iter_content(chunk_size=512*1024):  # Increased buffer to 512KB for faster loading
                 if chunk: yield chunk
@@ -632,6 +657,28 @@ def proxy():
             
         return response
     except Exception as e:
+        # Fallback fresh resolution on request exceptions
+        if video_id:
+            try:
+                print(f"[Proxy] Exception caught during stream request: {e}. Resolving fresh URL...")
+                if video_id in stream_cache:
+                    del stream_cache[video_id]
+                fresh_url = resolve_stream_url(video_id)
+                if fresh_url:
+                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
+                    def generate():
+                        for chunk in r.iter_content(chunk_size=512*1024):
+                            if chunk: yield chunk
+                    response = Response(generate(), status=r.status_code)
+                    for k, v in r.headers.items():
+                        if k.lower() not in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition']:
+                            response.headers[k] = v
+                    response.headers["Access-Control-Allow-Origin"] = "*"
+                    response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
+                    response.headers["Access-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
+                    return response
+            except Exception as retry_err:
+                return f"Verification retry failed: {str(retry_err)}", 500
         return str(e), 500
 
 @app.route("/api/image-proxy")
