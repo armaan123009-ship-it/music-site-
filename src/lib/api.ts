@@ -1,8 +1,19 @@
 const getApiBase = () => {
-    // Priority: environment variable set at build-time
+    // Priority 1: build-time Vite environment variables
     if (import.meta.env.PUBLIC_API_URL) {
         return import.meta.env.PUBLIC_API_URL;
     }
+    if (import.meta.env.PUBLIC_SITE_URL) {
+        return import.meta.env.PUBLIC_SITE_URL;
+    }
+
+    // Priority 2: Safe process.env fallback for node/SSR contexts
+    try {
+        if (typeof process !== 'undefined' && process.env) {
+            if (process.env.PUBLIC_API_URL) return process.env.PUBLIC_API_URL;
+            if (process.env.PUBLIC_SITE_URL) return process.env.PUBLIC_SITE_URL;
+        }
+    } catch (e) {}
     
     if (typeof window !== 'undefined') {
         // Detect if running under Capacitor (mobile app WebView)

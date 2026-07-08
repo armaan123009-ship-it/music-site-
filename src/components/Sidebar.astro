@@ -48,11 +48,11 @@ const { active = 'home' } = Astro.props;
 </aside>
 
 <script>
-    import { createPlaylist } from '../lib/api';
+    import { createPlaylist, API_BASE } from '../lib/api';
 
     async function loadSidebarPlaylists() {
         try {
-            const res = await fetch('/api/playlists');
+            const res = await fetch(`${API_BASE}/api/playlists`);
             if (res.ok) {
                 const playlists = await res.json();
                 const container = document.getElementById('sidebar-playlists');

@@ -218,7 +218,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 </div>
 
 <script>
-    import { fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData, apiFetch } from '../lib/api';
+    import { fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData, apiFetch, API_BASE } from '../lib/api';
     import { navigate } from 'astro:transitions/client';
 
     // Premium gradients for background glows
@@ -503,7 +503,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             if (!state.streamUrlCache[nextTrack.id]) {
                 console.log(`[Stream Pre-fetch] Pre-fetching stream details for: ${nextTrack.title}`);
                 try {
-                    const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
                     const data = await apiFetch(`/stream/${nextTrack.id}`);
                     if (data && data.url) {
                         const proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
@@ -549,8 +548,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
             // Stop current playback
             audio.pause();
-
-            const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
 
             let streamUrl = null;
             let proxyUrl = null;
@@ -1373,8 +1370,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             updateDownloadProgress('Preparing...', true);
 
             try {
-                const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
-                
                 let streamUrl = state.currentStreamUrl;
                 let proxyUrl = state.currentProxyUrl;
 
@@ -1464,7 +1459,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             } catch (err) {
                 console.error("[Chunk Downloader] Download failed:", err);
                 updateDownloadProgress('Failed', false);
-                const API_BASE = window.location.origin === 'http://localhost:4321' || window.location.origin === 'http://127.0.0.1:4321' ? 'http://127.0.0.1:5000' : window.location.origin;
                 window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
             }
         };

@@ -59,10 +59,15 @@ def get_cached_stream_url(video_id):
 def set_cached_stream_url(video_id, url):
     stream_cache[video_id] = (url, time.time())
 
+def get_hmac_secret():
+    # Priority: HMAC_SECRET, JWT_SECRET, SECRET_KEY from environment, or static fallback
+    return os.environ.get('HMAC_SECRET') or os.environ.get('JWT_SECRET') or os.environ.get('SECRET_KEY') or 'premium-music-secret-key-12345'
+
 def generate_signature(video_id, url, expires_at):
     message = f"{video_id}:{url}:{expires_at}"
+    secret = get_hmac_secret()
     signature = hmac.new(
-        app.secret_key.encode('utf-8'),
+        secret.encode('utf-8'),
         message.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
@@ -228,6 +233,67 @@ def search_youtube_official(query, max_results=25):
         print(f"Official YouTube search failed: {e}")
     return None
 
+def get_trending_youtube_official(max_results=25):
+    url = "https://www.googleapis.com/youtube/v3/videos"
+    params = {
+        "part": "snippet,contentDetails",
+        "chart": "mostPopular",
+        "videoCategoryId": "10",  # Music category ID
+        "key": YOUTUBE_API_KEY,
+        "maxResults": max_results
+    }
+    try:
+        r = requests.get(url, params=params, timeout=5)
+        if r.status_code == 200:
+            items = r.json().get('items', [])
+            songs = []
+            for item in items:
+                video_id = item['id']
+                snippet = item['snippet']
+                import html
+                title = html.unescape(snippet.get('title', 'Unknown'))
+                channel_title = html.unescape(snippet.get('channelTitle', 'Various Artists'))
+                
+                thumbs = snippet.get('thumbnails', {})
+                thumb_url = ""
+                for quality in ['maxres', 'standard', 'high', 'medium', 'default']:
+                    if quality in thumbs and thumbs[quality].get('url'):
+                        thumb_url = thumbs[quality]['url']
+                        break
+                        
+                # Parse duration if contentDetails is available
+                duration_str = "3:45"
+                content_details = item.get('contentDetails')
+                if content_details:
+                    yt_dur = content_details.get('duration', '')
+                    # Simple ISO 8601 duration parser (e.g. PT4M13S)
+                    try:
+                        import re
+                        m = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', yt_dur)
+                        if m:
+                            hours = int(m.group(1)) if m.group(1) else 0
+                            minutes = int(m.group(2)) if m.group(2) else 0
+                            seconds = int(m.group(3)) if m.group(3) else 0
+                            if hours > 0:
+                                duration_str = f"{hours}:{minutes:02d}:{seconds:02d}"
+                            else:
+                                duration_str = f"{minutes}:{seconds:02d}"
+                    except Exception:
+                        pass
+                        
+                image_url = proxy_track_image(video_id, thumb_url)
+                songs.append({
+                    "id": video_id,
+                    "title": title,
+                    "artist": channel_title,
+                    "image": image_url,
+                    "duration": duration_str
+                })
+            return songs
+    except Exception as e:
+        print(f"Official YouTube trending fetch failed: {e}")
+    return None
+
 def get_youtube_suggestions_official(video_id):
     details_url = "https://www.googleapis.com/youtube/v3/videos"
     params = {
@@ -385,15 +451,17 @@ def home():
     cached = get_cached_api("home", duration=900)  # 15 mins cache
     if cached is not None:
         return jsonify(cached)
+    
+    sections = []
     try:
-        sections = []
         try:
             home_data = yt.get_home(limit=5)
             for section in home_data:
                 items = [format_song(i) for i in section.get('contents', []) if format_song(i)][:12]
                 if items:
                     sections.append({"title": section.get('title', 'Recommended'), "items": items})
-        except: pass
+        except Exception as e:
+            print(f"[Home API] Native home failed: {e}")
         
         if not sections:
             playlist_id = 'PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0'
@@ -402,22 +470,55 @@ def home():
                 videos = charts.get('videos', [])
                 if videos:
                     playlist_id = videos[0].get('playlistId') or playlist_id
-            except: pass
+            except Exception as e:
+                print(f"[Home API] Charts check failed: {e}")
             
-            playlist = yt.get_playlist(playlist_id)
-            items = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)][:12]
-            sections.append({"title": "Trending Now", "items": items})
-            
-        set_cached_api("home", sections)
+            try:
+                playlist = yt.get_playlist(playlist_id)
+                items = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)][:12]
+                if items:
+                    sections.append({"title": "Trending Now", "items": items})
+            except Exception as e:
+                print(f"[Home API] Native playlist fetch failed: {e}")
+                
+        if not sections:
+            print("[Home API] Native YTMusic results empty. Running official YouTube API search fallbacks...")
+            fallbacks = [
+                ("Trending Now", "music trending hits"),
+                ("Chill Vibes", "lofi chill beats study sleep"),
+                ("Gaming Arena", "gaming music synthwave"),
+                ("Classic Hits", "classic rock pop 80s 90s hits")
+            ]
+            for title, query in fallbacks:
+                items = search_youtube_official(query, max_results=12)
+                if items:
+                    sections.append({"title": title, "items": items})
+                    
+        if sections:
+            set_cached_api("home", sections)
         return jsonify(sections)
-    except Exception:
-        return jsonify([])
+    except Exception as e:
+        print(f"[Home API] Outer exception: {e}. Building official YouTube fallbacks...")
+        fallbacks = [
+            ("Trending Now", "music trending hits"),
+            ("Chill Vibes", "lofi chill beats study sleep"),
+            ("Gaming Arena", "gaming music synthwave"),
+            ("Classic Hits", "classic rock pop 80s 90s hits")
+        ]
+        sections = []
+        for title, query in fallbacks:
+            items = search_youtube_official(query, max_results=12)
+            if items:
+                sections.append({"title": title, "items": items})
+        return jsonify(sections)
 
 @app.route("/api/trending")
 def trending():
     cached = get_cached_api("trending", duration=1800)  # 30 mins cache
     if cached is not None:
         return jsonify(cached)
+    
+    songs = []
     try:
         playlist_id = 'PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0'
         try:
@@ -425,13 +526,30 @@ def trending():
             videos = charts.get('videos', [])
             if videos:
                 playlist_id = videos[0].get('playlistId') or playlist_id
-        except: pass
+        except Exception as e:
+            print(f"[Trending API] Charts fetch failed: {e}")
         
-        playlist = yt.get_playlist(playlist_id)
-        songs = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)]
-        set_cached_api("trending", songs)
+        try:
+            playlist = yt.get_playlist(playlist_id)
+            songs = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)]
+        except Exception as e:
+            print(f"[Trending API] Native playlist fetch failed: {e}")
+            
+        if not songs:
+            print("[Trending API] YTMusic trends empty. Falling back to official YouTube Data API trending...")
+            official_songs = get_trending_youtube_official()
+            if official_songs:
+                songs = official_songs
+                
+        if songs:
+            set_cached_api("trending", songs)
         return jsonify(songs)
-    except Exception:
+    except Exception as e:
+        print(f"[Trending API] Exception: {e}. Trying official YouTube Data API fallback...")
+        official_songs = get_trending_youtube_official()
+        if official_songs:
+            set_cached_api("trending", official_songs)
+            return jsonify(official_songs)
         return jsonify([])
 
 @app.route("/api/search")
@@ -477,6 +595,7 @@ def extract_stream_url(video_id):
             'nocheckcertificate': True,
             'ignoreerrors': True,
             'cachedir': False,
+            'noconfig': True,
             'extractor_args': {
                 'youtube': {
                     'client': client
@@ -514,6 +633,7 @@ def extract_stream_url(video_id):
             'nocheckcertificate': True,
             'ignoreerrors': True,
             'cachedir': False,
+            'noconfig': True,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
@@ -674,7 +794,8 @@ def proxy():
         return "Forbidden: Missing signature", 403
         
     try:
-        if time.time() > int(exp):
+        # Allow a 5-minute (300s) clock skew grace period for serverless instances
+        if time.time() > int(exp) + 300:
             return "Forbidden: URL Expired", 403
         if not verify_signature(video_id, url, int(exp), sig):
             return "Forbidden: Invalid signature", 403

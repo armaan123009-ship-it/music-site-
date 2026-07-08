@@ -57,12 +57,12 @@ const stats = [
 </Layout>
 
 <script>
-    import { createPlaylist } from '../lib/api';
+    import { createPlaylist, API_BASE } from '../lib/api';
     import { navigate } from 'astro:transitions/client';
 
     async function loadLibraryData() {
         try {
-            const res = await fetch('/api/user_data');
+            const res = await fetch(`${API_BASE}/api/user_data`);
             const data = await res.json();
             
             if (!data.logged_in) {

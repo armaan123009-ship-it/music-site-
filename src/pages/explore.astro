@@ -58,10 +58,11 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
 
 <script>
     import { navigate } from 'astro:transitions/client';
+    import { API_BASE } from '../lib/api';
 
     async function loadExploreData() {
         try {
-            const res = await fetch('/api/trending');
+            const res = await fetch(`${API_BASE}/api/trending`);
             const tracks = await res.json();
             const grid = document.getElementById('explore-grid');
             if (grid && tracks.length > 0) {

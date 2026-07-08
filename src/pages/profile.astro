@@ -84,12 +84,12 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
 </Layout>
 
 <script>
-    import { createPlaylist } from '../lib/api';
+    import { createPlaylist, API_BASE } from '../lib/api';
     import { navigate } from 'astro:transitions/client';
 
     async function loadProfile() {
         try {
-            const res = await fetch('/api/user_data');
+            const res = await fetch(`${API_BASE}/api/user_data`);
             const data = await res.json();
             
             if (!data.logged_in) {
@@ -166,7 +166,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
             if (logoutBtn && !logoutBtn.dataset.bound) {
                 logoutBtn.dataset.bound = "true";
                 logoutBtn.addEventListener('click', async () => {
-                    await fetch('/api/logout');
+                    await fetch(`${API_BASE}/api/logout`);
                     navigate('/');
                 });
             }

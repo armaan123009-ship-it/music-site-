@@ -45,6 +45,7 @@ import { Music, ArrowLeft } from 'lucide-react';
 
 <script>
     import { navigate } from 'astro:transitions/client';
+    import { API_BASE } from '../lib/api';
 
     const form = document.getElementById('login-form') as HTMLFormElement;
     form?.addEventListener('submit', async (e) => {
@@ -52,7 +53,7 @@ import { Music, ArrowLeft } from 'lucide-react';
         const formData = new FormData(form);
         
         try {
-            const res = await fetch('/api/login', {
+            const res = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 body: formData,
             });
