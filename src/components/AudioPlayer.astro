@@ -609,6 +609,20 @@ import {
         }
     }
 
+    function seekRelative(seconds: number) {
+        if (!audio) return;
+        const duration = getDuration();
+        if (duration > 0) {
+            const targetTime = Math.max(0, Math.min(duration, audio.currentTime + seconds));
+            audio.currentTime = targetTime;
+            updateActiveLyric(targetTime);
+        } else {
+            try {
+                audio.currentTime = Math.max(0, audio.currentTime + seconds);
+            } catch (e) {}
+        }
+    }
+
     // Wake Lock Variables
     let wakeLock: any = null;
 
@@ -1516,21 +1530,28 @@ import {
 
         const lineElements = linesContainer.querySelectorAll(".lyric-line");
         lineElements.forEach((el, idx) => {
+            const htmlEl = el as HTMLElement;
             if (idx === activeIdx) {
-                el.classList.remove("text-white/40");
-                el.classList.add("text-primary", "scale-105", "font-black");
-                el.style.opacity = "1";
-                el.style.textShadow = "0 0 15px var(--primary)";
+                htmlEl.classList.remove("text-white/40");
+                htmlEl.classList.add("text-primary", "font-black");
+                htmlEl.style.opacity = "1";
+                htmlEl.style.filter = "blur(0px)";
+                htmlEl.style.transform = "scale(1.08)";
+                htmlEl.style.textShadow = "0 0 20px var(--primary)";
+                htmlEl.style.transition = "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)";
 
                 if (state.lastActiveLyricIdx !== activeIdx) {
                     state.lastActiveLyricIdx = activeIdx;
-                    el.scrollIntoView({ behavior: "smooth", block: "center" });
+                    htmlEl.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
             } else {
-                el.classList.add("text-white/40");
-                el.classList.remove("text-primary", "scale-105", "font-black");
-                el.style.opacity = "0.4";
-                el.style.textShadow = "none";
+                htmlEl.classList.add("text-white/40");
+                htmlEl.classList.remove("text-primary", "font-black");
+                htmlEl.style.opacity = "0.3";
+                htmlEl.style.filter = "blur(1px)";
+                htmlEl.style.transform = "scale(0.95)";
+                htmlEl.style.textShadow = "none";
+                htmlEl.style.transition = "all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)";
             }
         });
     }
@@ -2059,6 +2080,63 @@ import {
                     }
                 });
             } catch (e) {}
+            try {
+                navigator.mediaSession.setActionHandler("seekforward", () => {
+                    seekRelative(10);
+                });
+                navigator.mediaSession.setActionHandler("seekbackward", () => {
+                    seekRelative(-10);
+                });
+            } catch (e) {}
+        }
+
+        // Global Keyboard Seek and Play Shortcuts
+        if (!(window as any).keyboardBound) {
+            (window as any).keyboardBound = true;
+            window.addEventListener("keydown", (e) => {
+                const target = e.target as HTMLElement;
+                if (
+                    target.tagName === "INPUT" ||
+                    target.tagName === "TEXTAREA" ||
+                    target.isContentEditable
+                ) {
+                    return;
+                }
+
+                if (e.key === "ArrowRight") {
+                    e.preventDefault();
+                    seekRelative(5);
+                } else if (e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    seekRelative(-5);
+                } else if (e.key === " ") {
+                    e.preventDefault();
+                    togglePlay();
+                }
+            });
+        }
+
+        // Immersive Artwork Double-Tap to Seek (iOS gesture-friendly)
+        const immersiveArtwork = document.getElementById("immersive-artwork");
+        if (immersiveArtwork && !immersiveArtwork.dataset.tapBound) {
+            immersiveArtwork.dataset.tapBound = "true";
+            let lastTap = 0;
+            immersiveArtwork.addEventListener("click", (e) => {
+                const now = Date.now();
+                const DOUBLE_PRESS_DELAY = 300;
+                if (now - lastTap < DOUBLE_PRESS_DELAY) {
+                    const rect = immersiveArtwork.getBoundingClientRect();
+                    const tapX = e.clientX - rect.left;
+                    if (tapX < rect.width / 2) {
+                        seekRelative(-10);
+                        showToast("◀◀ Skip -10s");
+                    } else {
+                        seekRelative(10);
+                        showToast("Skip +10s ▶▶");
+                    }
+                }
+                lastTap = now;
+            });
         }
 
         // HTML5 Audio element listeners
