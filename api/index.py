@@ -926,19 +926,30 @@ def proxy():
         "Range": f"bytes={start}-{end}"
     }
 
+    r = None
     try:
-        r = requests.get(url, headers=headers, stream=True, timeout=15)
+        r = requests.get(url, headers=headers, stream=True, timeout=10)
+    except Exception as e:
+        print(f"[Proxy] Upstream request exception: {e}")
 
-        # Transparently resolve fresh URL if cached or resolved URL is forbidden/expired
-        if r.status_code not in [200, 206] and video_id:
-            print(f"[Proxy] Upstream returned status code {r.status_code}. Resolving fresh URL for {video_id}...")
+    # Transparently resolve fresh URL if request failed, timed out, or returned forbidden/expired status
+    if r is None or r.status_code not in [200, 206]:
+        if video_id:
+            print(f"[Proxy] Upstream failed or returned invalid status. Resolving fresh URL for {video_id}...")
             if video_id in stream_cache:
                 del stream_cache[video_id]
             fresh_url = resolve_stream_url(video_id)
             if fresh_url:
-                print(f"[Proxy] Fresh URL resolved. Retrying request...")
-                r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
+                print(f"[Proxy] Fresh URL resolved: {fresh_url}. Retrying request...")
+                try:
+                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=10)
+                except Exception as retry_err:
+                    print(f"[Proxy] Upstream retry request exception: {retry_err}")
 
+    if r is None:
+        return "Proxy error: connection failed to all resolved stream endpoints", 500
+
+    try:
         status_code = r.status_code
         content = r.content
         total_len = len(content)
