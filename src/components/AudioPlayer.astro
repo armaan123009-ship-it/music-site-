@@ -614,8 +614,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                                         "Accept": "application/json"
                                     },
                                     body: JSON.stringify({
-                                        url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
-                                        audioFormat: "mp3"
+                                        url: `https://www.youtube.com/watch?v=${nextTrack.id}`
                                     })
                                 });
                                 if (cobaltRes.ok) {
@@ -733,8 +732,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                                 "Accept": "application/json"
                             },
                             body: JSON.stringify({
-                                url: `https://www.youtube.com/watch?v=${track.id}`,
-                                audioFormat: "mp3"
+                                url: `https://www.youtube.com/watch?v=${track.id}`
                             })
                         });
                         if (cobaltRes.ok) {
