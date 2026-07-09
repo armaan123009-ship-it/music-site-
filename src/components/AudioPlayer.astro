@@ -1278,130 +1278,75 @@ import {
             // Always use proxy when it exists to route requests through our Vercel proxy.
             const useProxy = !!proxyUrl;
 
-            const playUrl = useProxy ? proxyUrl : streamUrl;
-            console.log("[Playback Debug]", {
-                trackId: track.id,
-                useProxy,
-                streamUrl,
-                proxyUrl,
-                playUrl,
-            });
+            let playbackAttempts = 0; // 0 = proxy, 1 = direct, 2 = client fallback
+            let triedUrls = new Set<string>();
 
-            if (playUrl) {
-                audio.src = playUrl;
-
-                let triedDirect = false;
-                let triedClientFallback = false;
-
-                audio.onerror = async () => {
-                    // Swallow transient errors (cross-origin, first-byte delay, etc.) and retry direct/proxy once.
-                    try {
-                        audio.pause();
-                    } catch {}
-
-                    if (!audio.src || audio.src === window.location.href)
-                        return;
-
-                    // If using proxy and we haven't tried direct yet, fall back.
-                    if (!triedDirect && streamUrl && useProxy) {
-                        console.log("Proxy stream failed, trying direct stream...");
-                        triedDirect = true;
-                        audio.src = streamUrl;
-                        audio
-                            .play()
-                            .then(() => {
-                                syncPlayPauseUI(true);
-                                requestWakeLock();
-                                state.isPreFetching = false;
-                                preFetchNextTrack();
-                            })
-                            .catch(() => {
-                                audio.dispatchEvent(new Event("error"));
-                            });
-                        return;
-                    }
-
-                    // Try client-side backup if both proxy and direct failed
-                    if (!triedClientFallback) {
-                        triedClientFallback = true;
-                        console.log("Playback failed. Attempting client-side stream resolution fallback...");
+            const attemptPlayback = async () => {
+                try {
+                    let currentPlayUrl = "";
+                    if (playbackAttempts === 0) {
+                        currentPlayUrl = proxyUrl || "";
+                        console.log(`[Playback] Attempt 1: Playing through proxy: ${currentPlayUrl}`);
+                    } else if (playbackAttempts === 1) {
+                        currentPlayUrl = streamUrl || "";
+                        console.log(`[Playback] Attempt 2: Playing direct stream: ${currentPlayUrl}`);
+                    } else if (playbackAttempts === 2) {
+                        console.log(`[Playback] Attempt 3: Resolving and playing client-side fallback...`);
                         showToast("Resolving backup stream...");
                         const resolved = await resolveStreamClientSide(track.id);
                         if (resolved) {
                             streamUrl = resolved.streamUrl;
                             proxyUrl = resolved.proxyUrl;
-                            state.currentStreamUrl = streamUrl;
-                            state.currentProxyUrl = proxyUrl;
-                            
-                            // Cache the working stream URL
                             state.streamUrlCache[track.id] = resolved;
-
-                            audio.src = resolved.proxyUrl;
-                            audio
-                                .play()
-                                .then(() => {
-                                    syncPlayPauseUI(true);
-                                    requestWakeLock();
-                                    state.isPreFetching = false;
-                                    preFetchNextTrack();
-                                })
-                                .catch(() => {
-                                    syncPlayPauseUI(false);
-                                    releaseWakeLock();
-                                    showToast("Playback failed.");
-                                });
-                            return;
+                            currentPlayUrl = resolved.proxyUrl;
                         }
                     }
 
-                    syncPlayPauseUI(false);
-                    releaseWakeLock();
-                    showToast("Playback failed.");
-                };
-
-                updateMediaSession(track);
-                miniPlayer?.classList.remove("translate-y-full");
-
-                audio
-                    .play()
-                    .then(() => {
+                    if (currentPlayUrl && currentPlayUrl !== window.location.href && !triedUrls.has(currentPlayUrl)) {
+                        triedUrls.add(currentPlayUrl);
+                        audio.src = currentPlayUrl;
+                        await audio.play();
                         syncPlayPauseUI(true);
                         requestWakeLock();
                         state.isPreFetching = false;
                         preFetchNextTrack();
-                    })
-                    .catch((e) => {
-                        if (e && e.name === "NotAllowedError") {
-                            console.log(
-                                "Autoplay blocked by browser. Awaiting user interaction.",
-                            );
-                            syncPlayPauseUI(false);
-                            return;
-                        }
-                        if (streamUrl && useProxy) {
-                            audio.src = streamUrl;
-                            audio
-                                .play()
-                                .then(() => {
-                                    syncPlayPauseUI(true);
-                                    requestWakeLock();
-                                    state.isPreFetching = false;
-                                    preFetchNextTrack();
-                                })
-                                .catch((err) => {
-                                    syncPlayPauseUI(false);
-                                    releaseWakeLock();
-                                    showToast("Playback failed.");
-                                });
-                        } else {
-                            syncPlayPauseUI(false);
-                            releaseWakeLock();
-                            showToast("Playback failed.");
-                        }
-                    });
-            } else {
-                showToast("Failed to resolve stream URL.");
-            }
+                    } else {
+                        // Skip to next attempt if url is invalid/empty or already tried
+                        throw new Error("Invalid or duplicate URL");
+                    }
+                } catch (err: any) {
+                    if (err && err.name === "NotAllowedError") {
+                        console.log("Autoplay blocked by browser. Awaiting user interaction.");
+                        syncPlayPauseUI(false);
+                        return;
+                    }
+                    console.warn(`[Playback] Attempt ${playbackAttempts + 1} failed:`, err);
+                    playbackAttempts++;
+                    if (playbackAttempts <= 2) {
+                        await attemptPlayback();
+                    } else {
+                        syncPlayPauseUI(false);
+                        releaseWakeLock();
+                        showToast("Playback failed.");
+                    }
+                }
+            };
+
+            audio.onerror = async () => {
+                console.warn("[Playback] Browser triggered audio.onerror");
+                playbackAttempts++;
+                if (playbackAttempts <= 2) {
+                    await attemptPlayback();
+                } else {
+                    syncPlayPauseUI(false);
+                    releaseWakeLock();
+                    showToast("Playback failed.");
+                }
+            };
+
+            updateMediaSession(track);
+            miniPlayer?.classList.remove("translate-y-full");
+            await attemptPlayback();
 
             if (state.activeTab === "lyrics") {
                 updateLyrics(track.id);
