@@ -615,8 +615,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                                     },
                                     body: JSON.stringify({
                                         url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
-                                        downloadMode: "audio",
-                                        isAudioOnly: true,
                                         audioFormat: "mp3"
                                     })
                                 });
@@ -736,8 +734,6 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                             },
                             body: JSON.stringify({
                                 url: `https://www.youtube.com/watch?v=${track.id}`,
-                                downloadMode: "audio",
-                                isAudioOnly: true,
                                 audioFormat: "mp3"
                             })
                         });

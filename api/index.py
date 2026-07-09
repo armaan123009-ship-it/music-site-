@@ -722,8 +722,6 @@ def fetch_cobalt_stream_url(video_id):
     }
     data = {
         "url": f"https://www.youtube.com/watch?v={video_id}",
-        "downloadMode": "audio",
-        "isAudioOnly": True,
         "audioFormat": "mp3"
     }
 
