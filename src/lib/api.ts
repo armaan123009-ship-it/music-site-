@@ -13,26 +13,36 @@ const getApiBase = () => {
             if (process.env.PUBLIC_API_URL) return process.env.PUBLIC_API_URL;
             if (process.env.PUBLIC_SITE_URL) return process.env.PUBLIC_SITE_URL;
         }
-    } catch (e) {}
-    
+    } catch (e) { }
+
     if (typeof window !== 'undefined') {
         // Detect if running under Capacitor (mobile app WebView)
-        const isCapacitor = (window as any).Capacitor || 
-                            window.location.protocol === 'capacitor:' || 
-                            (window.location.hostname === 'localhost' && !window.location.port);
-        
+        const isCapacitor = (window as any).Capacitor ||
+            window.location.protocol === 'capacitor:' ||
+            (window.location.hostname === 'localhost' && !window.location.port);
+
         if (isCapacitor) {
             // For emulator/ADB reverse proxy, point to local Flask backend
             return 'http://127.0.0.1:5000';
         }
 
-        // If we are on the dev server (4321), point to the local backend (5000)
-        if (window.location.port === '4321') {
+        // Frontend dev server ports commonly used in this project
+        // (Astro default in some setups is often 4321, but allow others safely)
+        const devFrontPorts = new Set(['4321', '4320', '3000', '5173']);
+        if (devFrontPorts.has(window.location.port)) {
             return 'http://127.0.0.1:5000';
         }
-        // Otherwise use the current origin
+
+        // If we are running the backend (Flask) itself, keep same origin
+        // Otherwise prefer local backend when frontend isn't clearly on production.
+        if (window.location.port === '5000') {
+            return window.location.origin;
+        }
+
+        // Production default: use current origin (can be overridden by PUBLIC_API_URL)
         return window.location.origin;
     }
+
     return 'http://127.0.0.1:5000'; // Fallback for SSR
 };
 

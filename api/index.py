@@ -686,7 +686,30 @@ def fetch_dynamic_cobalt_instances():
         
     return dynamic_cobalt_cache["instances"]
 
+def check_cobalt_instance(instance, headers, json_data):
+    try:
+        r = requests.post(instance, headers=headers, json=json_data, timeout=2.0)
+        if r.status_code == 200:
+            res_data = r.json()
+            stream_url = res_data.get("url") or res_data.get("picker")
+            if stream_url:
+                return instance, stream_url
+    except Exception:
+        pass
+    
+    try:
+        r = requests.post(f"{instance}/", headers=headers, json=json_data, timeout=2.0)
+        if r.status_code == 200:
+            res_data = r.json()
+            stream_url = res_data.get("url") or res_data.get("picker")
+            if stream_url:
+                return instance, stream_url
+    except Exception:
+        pass
+    return None
+
 def fetch_cobalt_stream_url(video_id):
+    import concurrent.futures
     global last_working_cobalt
     instances = []
     
@@ -720,29 +743,42 @@ def fetch_cobalt_stream_url(video_id):
         "Accept": "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    data = {
+    json_data = {
         "url": f"https://www.youtube.com/watch?v={video_id}"
     }
 
-    for instance in instances:
-        endpoints = [instance, f"{instance}/", f"{instance}/api/json"]
-        for endpoint in endpoints:
-            try:
-                print(f"[Cobalt Resolver] Attempting: {endpoint} for video_id={video_id}")
-                r = requests.post(endpoint, headers=headers, json=data, timeout=1.5)
-                if r.status_code == 200:
-                    res_data = r.json()
-                    stream_url = res_data.get("url") or res_data.get("picker")
-                    if stream_url:
-                        print(f"[Cobalt Resolver] Success on: {endpoint}")
-                        last_working_cobalt = instance
-                        return stream_url
-            except Exception as e:
-                pass
+    candidates = instances[:8]
+    print(f"[Cobalt Resolver] Checking {len(candidates)} candidates concurrently...")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(candidates)) as executor:
+        futures = {executor.submit(check_cobalt_instance, inst, headers, json_data): inst for inst in candidates}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                inst, stream_url = result
+                print(f"[Cobalt Resolver] Success on concurrent: {inst}")
+                last_working_cobalt = inst
+                return stream_url
                 
     return None
 
+def check_piped_instance(instance, video_id):
+    url = f"{instance}/streams/{video_id}"
+    try:
+        r = requests.get(url, timeout=2.0)
+        if r.status_code == 200:
+            data = r.json()
+            audio_streams = data.get("audioStreams", [])
+            if audio_streams:
+                stream_url = audio_streams[0].get("url")
+                if stream_url:
+                    return instance, stream_url
+    except Exception:
+        pass
+    return None
+
 def fetch_piped_stream_url(video_id):
+    import concurrent.futures
     global last_working_piped
     instances = [
         "https://api-piped.mha.fi",
@@ -759,26 +795,41 @@ def fetch_piped_stream_url(video_id):
         instances.remove(last_working_piped)
         instances.insert(0, last_working_piped)
 
-    for instance in instances:
-        url = f"{instance}/streams/{video_id}"
-        try:
-            print(f"[Piped Resolver] Querying instance: {url}")
-            r = requests.get(url, timeout=1.5)
-            if r.status_code == 200:
-                data = r.json()
-                audio_streams = data.get("audioStreams", [])
-                if audio_streams:
-                    stream_url = audio_streams[0].get("url")
-                    if stream_url:
-                        print(f"[Piped Resolver] Success on: {instance}")
-                        last_working_piped = instance
-                        return stream_url
-        except Exception as e:
-            pass
-            
+    candidates = instances[:8]
+    print(f"[Piped Resolver] Checking {len(candidates)} candidates concurrently...")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(candidates)) as executor:
+        futures = {executor.submit(check_piped_instance, inst, video_id): inst for inst in candidates}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                inst, stream_url = result
+                print(f"[Piped Resolver] Success on concurrent: {inst}")
+                last_working_piped = inst
+                return stream_url
+                
+    return None
+
+def check_invidious_instance(instance, video_id):
+    url = f"{instance}/api/v1/videos/{video_id}?local=true"
+    try:
+        r = requests.get(url, timeout=2.0)
+        if r.status_code == 200:
+            data = r.json()
+            formats = data.get("adaptiveFormats", [])
+            audio_formats = [f for f in formats if f.get("type", "").startswith("audio/")]
+            if audio_formats:
+                stream_url = audio_formats[0].get("url")
+                if stream_url:
+                    if stream_url.startswith("/"):
+                        stream_url = f"{instance}{stream_url}"
+                    return instance, stream_url
+    except Exception:
+        pass
     return None
 
 def fetch_invidious_stream_url(video_id):
+    import concurrent.futures
     global last_working_invidious
     instances = [
         "https://inv.nadeko.net",
@@ -795,26 +846,19 @@ def fetch_invidious_stream_url(video_id):
         instances.remove(last_working_invidious)
         instances.insert(0, last_working_invidious)
 
-    for instance in instances:
-        url = f"{instance}/api/v1/videos/{video_id}?local=true"
-        try:
-            print(f"[Invidious Resolver] Querying: {url}")
-            r = requests.get(url, timeout=1.5)
-            if r.status_code == 200:
-                data = r.json()
-                formats = data.get("adaptiveFormats", [])
-                audio_formats = [f for f in formats if f.get("type", "").startswith("audio/")]
-                if audio_formats:
-                    stream_url = audio_formats[0].get("url")
-                    if stream_url:
-                        if stream_url.startswith("/"):
-                            stream_url = f"{instance}{stream_url}"
-                        print(f"[Invidious Resolver] Success on: {instance}")
-                        last_working_invidious = instance
-                        return stream_url
-        except Exception as e:
-            pass
-            
+    candidates = instances[:8]
+    print(f"[Invidious Resolver] Checking {len(candidates)} candidates concurrently...")
+    
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(candidates)) as executor:
+        futures = {executor.submit(check_invidious_instance, inst, video_id): inst for inst in candidates}
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            if result:
+                inst, stream_url = result
+                print(f"[Invidious Resolver] Success on concurrent: {inst}")
+                last_working_invidious = inst
+                return stream_url
+                
     return None
 
 def resolve_stream_url(video_id):

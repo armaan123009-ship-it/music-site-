@@ -1,235 +1,567 @@
 ---
-import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic, ChevronUp, Sparkles, MoreVertical, Download } from 'lucide-react';
+import {
+    Play,
+    Pause,
+    SkipBack,
+    SkipForward,
+    Volume2,
+    Repeat,
+    Shuffle,
+    ListMusic,
+    ChevronUp,
+    Sparkles,
+    MoreVertical,
+    Download,
+} from "lucide-react";
 ---
 
-<div id="persistent-audio-player-root" transition:persist style="display: contents;">
-<!-- Full Screen Immersive Player Overlay -->
-<div id="immersive-player" class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-6 overflow-y-auto scrollbar-hide">
-    <!-- Top Bar -->
-    <div class="flex items-center justify-between w-full max-w-7xl mx-auto z-20">
-        <button id="close-immersive" class="p-2.5 hover:bg-white/5 rounded-full transition-all text-white cursor-pointer">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="m6 9 6 6 6-6"/></svg>
-        </button>
-        <span class="text-xs font-black uppercase tracking-widest text-muted-foreground text-center flex-1">Now Playing</span>
-        <button class="p-2.5 hover:bg-white/5 rounded-full transition-all text-white cursor-pointer">
-            <MoreVertical className="w-5 h-5 text-muted-foreground" />
-        </button>
+<div
+    id="persistent-audio-player-root"
+    transition:persist
+    style="display: contents;"
+>
+    <!-- Full Screen Immersive Player Overlay -->
+    <div
+        id="immersive-player"
+        class="fixed inset-0 z-[60] bg-background/95 backdrop-blur-3xl transition-all duration-700 translate-y-full flex flex-col p-6 overflow-y-auto scrollbar-hide"
+    >
+        <!-- Top Bar -->
+        <div
+            class="flex items-center justify-between w-full max-w-7xl mx-auto z-20"
+        >
+            <button
+                id="close-immersive"
+                class="p-2.5 hover:bg-white/5 rounded-full transition-all text-white cursor-pointer"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    class="w-6 h-6"><path d="m6 9 6 6 6-6"></path></svg
+                >
+            </button>
+            <span
+                class="text-xs font-black uppercase tracking-widest text-muted-foreground text-center flex-1"
+                >Now Playing</span
+            >
+            <button
+                class="p-2.5 hover:bg-white/5 rounded-full transition-all text-white cursor-pointer"
+            >
+                <MoreVertical className="w-5 h-5 text-muted-foreground" />
+            </button>
+        </div>
+
+        <!-- Center Content -->
+        <div
+            id="immersive-center-content"
+            class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16 max-w-7xl mx-auto w-full h-full mt-6 lg:mt-0"
+        >
+            <!-- Left Column: Artwork, Info, Slider, Controls -->
+            <div
+                id="immersive-left-column"
+                class="w-full lg:w-1/2 flex flex-col items-center justify-center text-center space-y-6 md:space-y-8 shrink-0 max-w-md mx-auto"
+            >
+                <!-- Glowing Artwork Container -->
+                <div
+                    class="relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 group mx-auto"
+                >
+                    <!-- Outer Glow Layer -->
+                    <div
+                        id="immersive-artwork-glow"
+                        class="absolute inset-0 opacity-60 rounded-[2.5rem] blur-[35px] pointer-events-none transition-all duration-500"
+                        style="background: linear-gradient(137deg, var(--primary) 0%, #7c7c7c 100%)"
+                    >
+                    </div>
+                    <!-- Foreground Image -->
+                    <div
+                        class="relative w-full h-full rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/10 z-10 bg-card"
+                    >
+                        <img
+                            id="immersive-artwork"
+                            referrerpolicy="no-referrer"
+                            src=""
+                            alt="Artwork"
+                            class="w-full h-full object-cover transition-opacity duration-500 opacity-0"
+                            onload="this.classList.remove('opacity-0')"
+                            onerror="this.onerror=null; if(this.dataset.id) { this.src='https://i.ytimg.com/vi/' + this.dataset.id + '/hqdefault.jpg'; } else { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\'><path d=\'M9 18V5l12-2v13\'/><circle cx=\'6\' cy=\'18\' r=\'3\'/><circle cx=\'18\' cy=\'16\' r=\'3\'/></svg>'; this.style.padding='24%'; this.style.backgroundColor='#18181b'; }"
+                        />
+                        <div
+                            class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-10"
+                        >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Title, Artist, and Like/Download Button -->
+                <div
+                    class="flex items-center justify-between w-full px-2 gap-4"
+                >
+                    <div class="flex-1 text-left min-w-0">
+                        <h1
+                            id="immersive-title"
+                            class="text-2xl md:text-3xl font-black tracking-tight text-white truncate"
+                        >
+                            Select a track
+                        </h1>
+                        <p
+                            id="immersive-artist"
+                            class="text-sm md:text-base text-primary font-bold truncate"
+                        >
+                            Premium Artist
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <!-- Download option -->
+                        <button
+                            id="immersive-download-btn"
+                            class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 cursor-pointer"
+                            title="Download track"
+                        >
+                            <Download className="w-5 h-5 text-white" />
+                        </button>
+                        <!-- Like option -->
+                        <button
+                            id="immersive-like-btn"
+                            class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 cursor-pointer"
+                        >
+                            <svg
+                                id="immersive-like-icon"
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="20"
+                                height="20"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                class="transition-all group-active:scale-125"
+                                ><path
+                                    d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+                                ></path></svg
+                            >
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Progress Bar Slider -->
+                <div class="w-full px-2 space-y-2">
+                    <div
+                        class="group relative w-full h-1.5 bg-white/10 rounded-full cursor-pointer"
+                        id="immersive-progress-container"
+                    >
+                        <div
+                            id="immersive-progress-bar"
+                            class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-100 ease-linear"
+                            style="width: 0%"
+                        >
+                        </div>
+                        <div
+                            id="immersive-progress-handle"
+                            class="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3.5 h-3.5 bg-white border border-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none"
+                            style="left: 0%"
+                        >
+                        </div>
+                    </div>
+                    <div
+                        class="flex justify-between text-[10px] font-bold text-muted-foreground/80 tracking-wider"
+                    >
+                        <span id="immersive-current-time">0:00</span>
+                        <span id="immersive-duration">0:00</span>
+                    </div>
+                </div>
+
+                <!-- Controls Row -->
+                <div
+                    class="flex items-center justify-between w-full px-4 max-w-sm mx-auto"
+                >
+                    <button
+                        id="immersive-shuffle-btn"
+                        class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer"
+                        title="Shuffle"
+                    >
+                        <Shuffle className="w-5 h-5" />
+                    </button>
+                    <button
+                        id="immersive-prev-btn"
+                        class="text-white hover:scale-110 transition-transform p-2 cursor-pointer"
+                    >
+                        <SkipBack className="w-6 h-6 fill-current text-white" />
+                    </button>
+                    <!-- Play/Pause Button -->
+                    <button
+                        id="immersive-play-pause-btn"
+                        class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 shrink-0 cursor-pointer"
+                    >
+                        <Play
+                            id="immersive-play-icon"
+                            className="w-6 h-6 md:w-7 md:h-7 fill-current text-primary-foreground"
+                        />
+                        <Pause
+                            id="immersive-pause-icon"
+                            className="w-6 h-6 md:w-7 md:h-7 fill-current hidden text-primary-foreground"
+                        />
+                    </button>
+                    <button
+                        id="immersive-next-btn"
+                        class="text-white hover:scale-110 transition-transform p-2 cursor-pointer"
+                    >
+                        <SkipForward
+                            className="w-6 h-6 fill-current text-white"
+                        />
+                    </button>
+                    <button
+                        id="immersive-repeat-btn"
+                        class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer"
+                        title="Repeat"
+                    >
+                        <Repeat className="w-5 h-5" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Column: Tabs Section (Lyrics / Queue / Related) -->
+            <div
+                id="immersive-right-column"
+                class="w-full lg:w-1/2 flex flex-col h-[380px] lg:h-[520px] bg-muted/5 rounded-[2rem] border border-white/5 overflow-hidden"
+            >
+                <div class="flex border-b border-white/5 bg-[#121214]">
+                    <button
+                        id="tab-queue"
+                        class="flex-1 py-4 text-xs font-bold border-b-2 border-primary bg-primary/5 transition-all flex items-center justify-center gap-2 text-white cursor-pointer"
+                    >
+                        Up next
+                    </button>
+                    <button
+                        id="tab-lyrics"
+                        class="flex-1 py-4 text-xs font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60 cursor-pointer"
+                    >
+                        Lyrics
+                    </button>
+                    <button
+                        id="tab-related"
+                        class="flex-1 py-4 text-xs font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60 cursor-pointer"
+                    >
+                        Related
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-5 relative scrollbar-hide">
+                    <!-- Up Next Queue Content -->
+                    <div id="queue-content" class="space-y-4">
+                        <div
+                            class="flex items-center justify-between pb-3 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10"
+                        >
+                            <span
+                                class="text-xs font-bold text-white/80 uppercase tracking-widest"
+                                >Queue list</span
+                            >
+                            <label
+                                class="relative inline-flex items-center cursor-pointer select-none"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="autoplay-toggle"
+                                    class="sr-only peer"
+                                    checked
+                                />
+                                <div
+                                    class="w-8 h-4.5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary"
+                                >
+                                </div>
+                                <span
+                                    class="ms-2 text-xs font-bold text-white/80"
+                                    >Autoplay</span
+                                >
+                            </label>
+                        </div>
+                        <div id="queue-list-container" class="space-y-1.5">
+                            <!-- Queue items -->
+                        </div>
+                    </div>
+
+                    <!-- Lyrics Content -->
+                    <div
+                        id="lyrics-content"
+                        class="hidden text-base md:text-lg font-medium leading-relaxed text-white/80 space-y-4 text-center"
+                    >
+                        <p class="opacity-50 italic">
+                            Select a track to see lyrics...
+                        </p>
+                    </div>
+
+                    <!-- Related Content -->
+                    <div id="related-content" class="hidden space-y-4">
+                        <div
+                            class="flex items-center justify-between pb-3 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10"
+                        >
+                            <span
+                                class="text-xs font-bold text-white/80 uppercase tracking-widest"
+                                >Recommended tracks</span
+                            >
+                        </div>
+                        <div id="related-list-container" class="space-y-1.5">
+                            <!-- Related items -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- Center Content -->
-    <div id="immersive-center-content" class="flex-1 flex flex-col lg:flex-row items-center justify-center gap-8 lg:gap-16 max-w-7xl mx-auto w-full h-full mt-6 lg:mt-0">
-        
-        <!-- Left Column: Artwork, Info, Slider, Controls -->
-        <div id="immersive-left-column" class="w-full lg:w-1/2 flex flex-col items-center justify-center text-center space-y-6 md:space-y-8 shrink-0 max-w-md mx-auto">
-            
-            <!-- Glowing Artwork Container -->
-            <div class="relative w-64 h-64 sm:w-72 sm:h-72 md:w-80 md:h-80 lg:w-96 lg:h-96 group mx-auto">
-                <!-- Outer Glow Layer -->
-                <div id="immersive-artwork-glow" class="absolute inset-0 opacity-60 rounded-[2.5rem] blur-[35px] pointer-events-none transition-all duration-500" style="background: linear-gradient(137deg, var(--primary) 0%, #7c7c7c 100%)"></div>
-                <!-- Foreground Image -->
-                <div class="relative w-full h-full rounded-[2.5rem] overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.5)] border border-white/10 z-10 bg-card">
-                    <img id="immersive-artwork" referrerpolicy="no-referrer" src="" alt="Artwork" class="w-full h-full object-cover transition-opacity duration-500 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; if(this.dataset.id) { this.src='https://i.ytimg.com/vi/' + this.dataset.id + '/hqdefault.jpg'; } else { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\'><path d=\'M9 18V5l12-2v13\'/><circle cx=\'6\' cy=\'18\' r=\'3\'/><circle cx=\'18\' cy=\'16\' r=\'3\'/></svg>'; this.style.padding='24%'; this.style.backgroundColor='#18181b'; }" />
-                    <div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none z-10"></div>
+    <!-- Bottom Mini Player -->
+    <div
+        id="audio-player"
+        class="fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-xl border-t border-border/40 p-3.5 transition-transform duration-500 translate-y-full"
+    >
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <!-- Track Info -->
+            <div
+                id="mini-info"
+                class="flex items-center gap-3 w-[70%] sm:w-1/3 cursor-pointer group min-w-0"
+            >
+                <div
+                    class="relative w-11 h-11 rounded-lg overflow-hidden border border-border shrink-0"
+                >
+                    <img
+                        id="player-artwork"
+                        referrerpolicy="no-referrer"
+                        src=""
+                        alt="Artwork"
+                        class="w-full h-full object-cover animate-spin-slow paused group-[.playing]:running transition-opacity duration-500 opacity-0"
+                        onload="this.classList.remove('opacity-0')"
+                        onerror="this.onerror=null; if(this.dataset.id) { this.src='https://i.ytimg.com/vi/' + this.dataset.id + '/hqdefault.jpg'; } else { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\'><path d=\'M9 18V5l12-2v13\'/><circle cx=\'6\' cy=\'18\' r=\'3\'/><circle cx=\'18\' cy=\'16\' r=\'3\'/></svg>'; this.style.padding='20%'; this.style.backgroundColor='#18181b'; }"
+                    />
+                    <div
+                        class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                        <ChevronUp className="w-4 h-4 text-white" />
+                    </div>
+                </div>
+                <div class="flex flex-col overflow-hidden min-w-0">
+                    <span
+                        id="player-title"
+                        class="text-sm font-bold truncate text-white"
+                        >Select a track</span
+                    >
+                    <span
+                        id="player-artist"
+                        class="text-xs text-muted-foreground truncate"
+                        >Premium Music</span
+                    >
                 </div>
             </div>
 
-            <!-- Title, Artist, and Like/Download Button -->
-            <div class="flex items-center justify-between w-full px-2 gap-4">
-                <div class="flex-1 text-left min-w-0">
-                    <h1 id="immersive-title" class="text-2xl md:text-3xl font-black tracking-tight text-white truncate">Select a track</h1>
-                    <p id="immersive-artist" class="text-sm md:text-base text-primary font-bold truncate">Premium Artist</p>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <!-- Download option -->
-                    <button id="immersive-download-btn" class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 cursor-pointer" title="Download track">
-                        <Download className="w-5 h-5 text-white" />
+            <!-- Controls (Center on Desktop) -->
+            <div class="hidden md:flex flex-col items-center gap-1.5 w-1/3">
+                <div class="flex items-center gap-5">
+                    <button
+                        id="shuffle-btn"
+                        class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer"
+                        title="Shuffle"><Shuffle className="w-4 h-4" /></button
+                    >
+                    <button
+                        id="prev-btn"
+                        class="text-foreground hover:scale-110 transition-transform p-1 cursor-pointer"
+                        ><SkipBack
+                            className="w-4.5 h-4.5 fill-current text-white"
+                        /></button
+                    >
+                    <button
+                        id="play-pause-btn"
+                        class="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0 cursor-pointer"
+                    >
+                        <Play
+                            id="play-icon"
+                            className="w-4.5 h-4.5 fill-current text-primary-foreground"
+                        />
+                        <Pause
+                            id="pause-icon"
+                            className="w-4.5 h-4.5 fill-current hidden text-primary-foreground"
+                        />
                     </button>
-                    <!-- Like option -->
-                    <button id="immersive-like-btn" class="p-3 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all text-muted-foreground group shrink-0 cursor-pointer">
-                        <svg id="immersive-like-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-                    </button>
+                    <button
+                        id="next-btn"
+                        class="text-foreground hover:scale-110 transition-transform p-1 cursor-pointer"
+                        ><SkipForward
+                            className="w-4.5 h-4.5 fill-current text-white"
+                        /></button
+                    >
+                    <button
+                        id="repeat-btn"
+                        class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer"
+                        title="Repeat"><Repeat className="w-4 h-4" /></button
+                    >
+                    <button
+                        id="autoplay-btn"
+                        class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer"
+                        title="Autoplay recommendations"
+                        ><Sparkles className="w-4 h-4" /></button
+                    >
+                </div>
+
+                <div class="flex items-center gap-3 w-full max-w-md">
+                    <span
+                        id="current-time"
+                        class="text-[10px] tabular-nums text-muted-foreground w-10 text-right"
+                        >0:00</span
+                    >
+                    <div
+                        class="group relative flex-1 h-1 bg-white/10 rounded-full cursor-pointer"
+                        id="progress-container"
+                    >
+                        <div
+                            id="progress-bar"
+                            class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-100 ease-linear"
+                            style="width: 0%"
+                        >
+                        </div>
+                        <div
+                            id="progress-handle"
+                            class="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3 h-3 bg-white border border-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none"
+                            style="left: 0%"
+                        >
+                        </div>
+                    </div>
+                    <span
+                        id="duration"
+                        class="text-[10px] tabular-nums text-muted-foreground w-10"
+                        >0:00</span
+                    >
                 </div>
             </div>
 
-            <!-- Progress Bar Slider -->
-            <div class="w-full px-2 space-y-2">
-                <div class="group relative w-full h-1.5 bg-white/10 rounded-full cursor-pointer" id="immersive-progress-container">
-                    <div id="immersive-progress-bar" class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-100 ease-linear" style="width: 0%"></div>
-                    <div id="immersive-progress-handle" class="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3.5 h-3.5 bg-white border border-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none" style="left: 0%"></div>
-                </div>
-                <div class="flex justify-between text-[10px] font-bold text-muted-foreground/80 tracking-wider">
-                    <span id="immersive-current-time">0:00</span>
-                    <span id="immersive-duration">0:00</span>
-                </div>
-            </div>
-
-            <!-- Controls Row -->
-            <div class="flex items-center justify-between w-full px-4 max-w-sm mx-auto">
-                <button id="immersive-shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer" title="Shuffle">
-                    <Shuffle className="w-5 h-5" />
+            <!-- Mobile Controls (Download + Play/Pause + Next) -->
+            <div class="flex items-center gap-2 md:hidden shrink-0 z-10">
+                <button
+                    id="mobile-mini-download"
+                    class="p-2 text-white/70 hover:text-white cursor-pointer"
+                    title="Download song"
+                >
+                    <Download className="w-5.5 h-5.5 text-white" />
                 </button>
-                <button id="immersive-prev-btn" class="text-white hover:scale-110 transition-transform p-2 cursor-pointer">
-                    <SkipBack className="w-6 h-6 fill-current text-white" />
+                <button
+                    id="mobile-mini-play-pause"
+                    class="p-2 text-white transition-all cursor-pointer"
+                >
+                    <Play
+                        id="mobile-play-icon"
+                        className="w-6 h-6 fill-current text-white"
+                    />
+                    <Pause
+                        id="mobile-pause-icon"
+                        className="w-6 h-6 fill-current hidden text-white"
+                    />
                 </button>
-                <!-- Play/Pause Button -->
-                <button id="immersive-play-pause-btn" class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 shrink-0 cursor-pointer">
-                    <Play id="immersive-play-icon" className="w-6 h-6 md:w-7 md:h-7 fill-current text-primary-foreground" />
-                    <Pause id="immersive-pause-icon" className="w-6 h-6 md:w-7 md:h-7 fill-current hidden text-primary-foreground" />
-                </button>
-                <button id="immersive-next-btn" class="text-white hover:scale-110 transition-transform p-2 cursor-pointer">
+                <button
+                    id="mobile-mini-next"
+                    class="p-2 text-white cursor-pointer"
+                >
                     <SkipForward className="w-6 h-6 fill-current text-white" />
                 </button>
-                <button id="immersive-repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-white/5 cursor-pointer" title="Repeat">
-                    <Repeat className="w-5 h-5" />
+            </div>
+
+            <!-- Volume & Actions -->
+            <div class="hidden md:flex items-center justify-end gap-5 w-1/3">
+                <!-- Download Button -->
+                <button
+                    id="mini-download-btn"
+                    class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group cursor-pointer"
+                    title="Download song"
+                >
+                    <Download className="w-4.5 h-4.5 text-white" />
+                </button>
+                <!-- Like Button -->
+                <button
+                    id="mini-like-btn"
+                    class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group cursor-pointer"
+                >
+                    <svg
+                        id="mini-like-icon"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="transition-all group-active:scale-125"
+                        ><path
+                            d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+                        ></path></svg
+                    >
+                </button>
+                <div class="flex items-center gap-2">
+                    <Volume2 className="w-4 h-4 text-muted-foreground" />
+                    <div
+                        id="volume-container"
+                        class="w-20 h-1 bg-muted rounded-full cursor-pointer relative overflow-hidden group"
+                    >
+                        <div
+                            id="volume-bar"
+                            class="absolute top-0 left-0 h-full bg-foreground"
+                            style="width: 80%"
+                        >
+                        </div>
+                    </div>
+                </div>
+                <button
+                    id="toggle-immersive-btn"
+                    class="p-2 hover:bg-white/5 rounded-full transition-all shrink-0 cursor-pointer"
+                >
+                    <ListMusic className="w-4.5 h-4.5 text-white" />
                 </button>
             </div>
         </div>
 
-        <!-- Right Column: Tabs Section (Lyrics / Queue / Related) -->
-        <div id="immersive-right-column" class="w-full lg:w-1/2 flex flex-col h-[380px] lg:h-[520px] bg-muted/5 rounded-[2rem] border border-white/5 overflow-hidden">
-            <div class="flex border-b border-white/5 bg-[#121214]">
-                <button id="tab-queue" class="flex-1 py-4 text-xs font-bold border-b-2 border-primary bg-primary/5 transition-all flex items-center justify-center gap-2 text-white cursor-pointer">
-                    Up next
-                </button>
-                <button id="tab-lyrics" class="flex-1 py-4 text-xs font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60 cursor-pointer">
-                    Lyrics
-                </button>
-                <button id="tab-related" class="flex-1 py-4 text-xs font-bold border-b-2 border-transparent hover:bg-white/5 transition-all flex items-center justify-center gap-2 text-white/60 cursor-pointer">
-                    Related
-                </button>
+        <!-- Progress Bar for Mobile (Top of Mini Player) -->
+        <div
+            class="absolute top-0 left-0 right-0 h-1 bg-white/10 md:hidden cursor-pointer group"
+            id="mobile-progress-container"
+        >
+            <div
+                id="mobile-progress-bar"
+                class="h-full bg-primary rounded-full transition-all duration-100 ease-linear"
+                style="width: 0%"
+            >
             </div>
-            
-            <div class="flex-1 overflow-y-auto p-5 relative scrollbar-hide">
-                <!-- Up Next Queue Content -->
-                <div id="queue-content" class="space-y-4">
-                    <div class="flex items-center justify-between pb-3 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10">
-                        <span class="text-xs font-bold text-white/80 uppercase tracking-widest">Queue list</span>
-                        <label class="relative inline-flex items-center cursor-pointer select-none">
-                            <input type="checkbox" id="autoplay-toggle" class="sr-only peer" checked>
-                            <div class="w-8 h-4.5 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary"></div>
-                            <span class="ms-2 text-xs font-bold text-white/80">Autoplay</span>
-                        </label>
-                    </div>
-                    <div id="queue-list-container" class="space-y-1.5">
-                        <!-- Queue items -->
-                    </div>
-                </div>
-
-                <!-- Lyrics Content -->
-                <div id="lyrics-content" class="hidden text-base md:text-lg font-medium leading-relaxed text-white/80 space-y-4 text-center">
-                    <p class="opacity-50 italic">Select a track to see lyrics...</p>
-                </div>
-
-                <!-- Related Content -->
-                <div id="related-content" class="hidden space-y-4">
-                    <div class="flex items-center justify-between pb-3 border-b border-white/5 mb-2 sticky top-0 bg-background/95 backdrop-blur-md z-10">
-                        <span class="text-xs font-bold text-white/80 uppercase tracking-widest">Recommended tracks</span>
-                    </div>
-                    <div id="related-list-container" class="space-y-1.5">
-                        <!-- Related items -->
-                    </div>
-                </div>
+            <div
+                id="mobile-progress-handle"
+                class="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3 h-3 bg-white border border-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none"
+                style="left: 0%"
+            >
             </div>
         </div>
     </div>
-</div>
 
-<!-- Bottom Mini Player -->
-<div id="audio-player" class="fixed bottom-0 left-0 right-0 z-40 bg-background/90 backdrop-blur-xl border-t border-border/40 p-3.5 transition-transform duration-500 translate-y-full">
-    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        <!-- Track Info -->
-        <div id="mini-info" class="flex items-center gap-3 w-[70%] sm:w-1/3 cursor-pointer group min-w-0">
-            <div class="relative w-11 h-11 rounded-lg overflow-hidden border border-border shrink-0">
-                <img id="player-artwork" referrerpolicy="no-referrer" src="" alt="Artwork" class="w-full h-full object-cover animate-spin-slow paused group-[.playing]:running transition-opacity duration-500 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; if(this.dataset.id) { this.src='https://i.ytimg.com/vi/' + this.dataset.id + '/hqdefault.jpg'; } else { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'24\' height=\'24\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23888\' stroke-width=\'2\'><path d=\'M9 18V5l12-2v13\'/><circle cx=\'6\' cy=\'18\' r=\'3\'/><circle cx=\'18\' cy=\'16\' r=\'3\'/></svg>'; this.style.padding='20%'; this.style.backgroundColor='#18181b'; }" />
-                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ChevronUp className="w-4 h-4 text-white" />
-                </div>
-            </div>
-            <div class="flex flex-col overflow-hidden min-w-0">
-                <span id="player-title" class="text-sm font-bold truncate text-white">Select a track</span>
-                <span id="player-artist" class="text-xs text-muted-foreground truncate">Premium Music</span>
-            </div>
-        </div>
-
-        <!-- Controls (Center on Desktop) -->
-        <div class="hidden md:flex flex-col items-center gap-1.5 w-1/3">
-            <div class="flex items-center gap-5">
-                <button id="shuffle-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer" title="Shuffle"><Shuffle className="w-4 h-4" /></button>
-                <button id="prev-btn" class="text-foreground hover:scale-110 transition-transform p-1 cursor-pointer"><SkipBack className="w-4.5 h-4.5 fill-current text-white" /></button>
-                <button id="play-pause-btn" class="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 shrink-0 cursor-pointer">
-                    <Play id="play-icon" className="w-4.5 h-4.5 fill-current text-primary-foreground" />
-                    <Pause id="pause-icon" className="w-4.5 h-4.5 fill-current hidden text-primary-foreground" />
-                </button>
-                <button id="next-btn" class="text-foreground hover:scale-110 transition-transform p-1 cursor-pointer"><SkipForward className="w-4.5 h-4.5 fill-current text-white" /></button>
-                <button id="repeat-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer" title="Repeat"><Repeat className="w-4 h-4" /></button>
-                <button id="autoplay-btn" class="text-muted-foreground hover:text-foreground transition-colors relative p-1.5 rounded-full hover:bg-white/5 cursor-pointer" title="Autoplay recommendations"><Sparkles className="w-4 h-4" /></button>
-            </div>
-            
-            <div class="flex items-center gap-3 w-full max-w-md">
-                <span id="current-time" class="text-[10px] tabular-nums text-muted-foreground w-10 text-right">0:00</span>
-                <div class="group relative flex-1 h-1 bg-white/10 rounded-full cursor-pointer" id="progress-container">
-                    <div id="progress-bar" class="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-100 ease-linear" style="width: 0%"></div>
-                    <div id="progress-handle" class="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3 h-3 bg-white border border-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none" style="left: 0%"></div>
-                </div>
-                <span id="duration" class="text-[10px] tabular-nums text-muted-foreground w-10">0:00</span>
-            </div>
-        </div>
-
-        <!-- Mobile Controls (Download + Play/Pause + Next) -->
-        <div class="flex items-center gap-2 md:hidden shrink-0 z-10">
-            <button id="mobile-mini-download" class="p-2 text-white/70 hover:text-white cursor-pointer" title="Download song">
-                <Download className="w-5.5 h-5.5 text-white" />
-            </button>
-            <button id="mobile-mini-play-pause" class="p-2 text-white transition-all cursor-pointer">
-                <Play id="mobile-play-icon" className="w-6 h-6 fill-current text-white" />
-                <Pause id="mobile-pause-icon" className="w-6 h-6 fill-current hidden text-white" />
-            </button>
-            <button id="mobile-mini-next" class="p-2 text-white cursor-pointer">
-                <SkipForward className="w-6 h-6 fill-current text-white" />
-            </button>
-        </div>
-
-        <!-- Volume & Actions -->
-        <div class="hidden md:flex items-center justify-end gap-5 w-1/3">
-            <!-- Download Button -->
-            <button id="mini-download-btn" class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group cursor-pointer" title="Download song">
-                <Download className="w-4.5 h-4.5 text-white" />
-            </button>
-            <!-- Like Button -->
-            <button id="mini-like-btn" class="p-2 hover:bg-white/10 rounded-full transition-all text-muted-foreground group cursor-pointer">
-                <svg id="mini-like-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-all group-active:scale-125"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-            </button>
-            <div class="flex items-center gap-2">
-                <Volume2 className="w-4 h-4 text-muted-foreground" />
-                <div id="volume-container" class="w-20 h-1 bg-muted rounded-full cursor-pointer relative overflow-hidden group">
-                    <div id="volume-bar" class="absolute top-0 left-0 h-full bg-foreground" style="width: 80%"></div>
-                </div>
-            </div>
-            <button id="toggle-immersive-btn" class="p-2 hover:bg-white/5 rounded-full transition-all shrink-0 cursor-pointer">
-                <ListMusic className="w-4.5 h-4.5 text-white" />
-            </button>
-        </div>
-    </div>
-    
-    <!-- Progress Bar for Mobile (Top of Mini Player) -->
-    <div class="absolute top-0 left-0 right-0 h-1 bg-white/10 md:hidden cursor-pointer group" id="mobile-progress-container">
-        <div id="mobile-progress-bar" class="h-full bg-primary rounded-full transition-all duration-100 ease-linear" style="width: 0%"></div>
-        <div id="mobile-progress-handle" class="absolute top-1/2 -translate-y-1/2 -ml-1.5 w-3 h-3 bg-white border border-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md pointer-events-none" style="left: 0%"></div>
-    </div>
-</div>
-
-<audio id="main-audio" preload="auto"></audio>
+    <audio id="main-audio" preload="auto"></audio>
 </div>
 
 <script>
-    import { fetchLyrics, fetchSuggestions, getStreamProxyUrl, toggleLike, getUserData, apiFetch, API_BASE } from '../lib/api';
-    import { navigate } from 'astro:transitions/client';
+    import {
+        fetchLyrics,
+        fetchSuggestions,
+        getStreamProxyUrl,
+        toggleLike,
+        getUserData,
+        apiFetch,
+        API_BASE,
+    } from "../lib/api";
+    import { navigate } from "astro:transitions/client";
 
     // Premium gradients for background glows
     const GLOW_GRADIENTS = [
-        'linear-gradient(137deg, var(--primary) 0%, #7c7c7c 100%)',
-        'linear-gradient(137deg, var(--primary) 0%, #1e1e1e 100%)',
-        'linear-gradient(137deg, var(--primary) 0%, #000000 100%)'
+        "linear-gradient(137deg, var(--primary) 0%, #7c7c7c 100%)",
+        "linear-gradient(137deg, var(--primary) 0%, #1e1e1e 100%)",
+        "linear-gradient(137deg, var(--primary) 0%, #000000 100%)",
     ];
 
     function getGlowGradient(title: string) {
@@ -249,17 +581,17 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         originalQueue: [],
         currentIndex: -1,
         isShuffle: false,
-        repeatMode: 'none', // 'none' | 'all' | 'one'
+        repeatMode: "none", // 'none' | 'all' | 'one'
         isAutoplay: true,
         currentUser: null,
-        activeTab: 'queue',
+        activeTab: "queue",
         currentStreamUrl: null,
         currentProxyUrl: null,
         streamUrlCache: {},
         parsedLyrics: [],
         lastActiveLyricIdx: -1,
         isPreFetching: false,
-        preFetchedTrackId: null
+        preFetchedTrackId: null,
     };
     (window as any).playerState = state;
 
@@ -271,14 +603,18 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     let wakeLock: any = null;
 
     async function requestWakeLock() {
-        if ('wakeLock' in navigator) {
+        if ("wakeLock" in navigator) {
             try {
                 if (!wakeLock) {
-                    wakeLock = await (navigator as any).wakeLock.request('screen');
+                    wakeLock = await (navigator as any).wakeLock.request(
+                        "screen",
+                    );
                     console.log("[Wake Lock] Screen Wake Lock acquired");
                 }
             } catch (err: any) {
-                console.warn(`[Wake Lock] Failed to acquire screen wake lock: ${err.name}, ${err.message}`);
+                console.warn(
+                    `[Wake Lock] Failed to acquire screen wake lock: ${err.name}, ${err.message}`,
+                );
             }
         }
     }
@@ -296,10 +632,96 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         }
     }
 
+    async function resolveStreamClientSide(trackId: string): Promise<{ streamUrl: string; proxyUrl: string } | null> {
+        console.log(`[Client Resolver] Resolving stream for ${trackId}...`);
+
+        // 1. Try client-side Cobalt fallback across multiple instances
+        const cobaltInstances = [
+            "https://rue-cobalt.xenon.zone",
+            "https://api.cobalt.tools",
+            "https://cobalt.foxtrot-omega.me",
+            "https://cobalt.willy.lol",
+            "https://cobalt.k6.dev",
+            "https://cobalt-api.lunar.icu",
+            "https://cobalt.col1g3.de",
+            "https://cobalt.projectsegfau.lt",
+        ];
+        for (const instance of cobaltInstances) {
+            try {
+                const cobaltRes = await fetch(
+                    instance.endsWith("/") ? instance : `${instance}/`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                        body: JSON.stringify({
+                            url: `https://www.youtube.com/watch?v=${trackId}`,
+                        }),
+                    },
+                );
+                if (cobaltRes.ok) {
+                    const cobaltData = await cobaltRes.json();
+                    const sUrl = cobaltData.url || cobaltData.picker;
+                    if (sUrl) {
+                        console.log(
+                            `[Client Resolver] Successfully resolved stream via Cobalt on: ${instance}`,
+                        );
+                        return { streamUrl: sUrl, proxyUrl: sUrl };
+                    }
+                }
+            } catch (cobaltErr) {
+                console.warn(
+                    `[Client Resolver] Cobalt instance ${instance} failed:`,
+                    cobaltErr,
+                );
+            }
+        }
+
+        // 2. Try client-side Piped fallback across multiple instances
+        const pipedInstances = [
+            "https://api-piped.mha.fi",
+            "https://api.piped.private.coffee",
+            "https://pipedapi.kavin.rocks",
+            "https://pipedapi.col1g3.de",
+            "https://piped-api.garudalinux.org",
+            "https://pipedapi.us.to",
+            "https://api.piped.projectsegfau.lt",
+            "https://pipedapi.privacydev.net",
+            "https://pipedapi.lunar.icu",
+        ];
+        for (const instance of pipedInstances) {
+            try {
+                const pipedRes = await fetch(
+                    `${instance}/streams/${trackId}`,
+                );
+                if (pipedRes.ok) {
+                    const pipedData = await pipedRes.json();
+                    const audioStreams = pipedData.audioStreams || [];
+                    if (audioStreams.length > 0 && audioStreams[0].url) {
+                        const sUrl = audioStreams[0].url;
+                        console.log(
+                            `[Client Resolver] Successfully resolved stream via Piped on: ${instance}`,
+                        );
+                        return { streamUrl: sUrl, proxyUrl: sUrl };
+                    }
+                }
+            } catch (pipedErr) {
+                console.warn(
+                    `[Client Resolver] Piped instance ${instance} failed:`,
+                    pipedErr,
+                );
+            }
+        }
+
+        return null;
+    }
+
     // Parse duration strings like "3:45", "1:02:15", or seconds "225"
     function parseDurationStringToSeconds(durationStr: string): number {
         if (!durationStr) return 0;
-        const parts = durationStr.split(':').map(Number);
+        const parts = durationStr.split(":").map(Number);
         if (parts.some(isNaN)) return 0;
         if (parts.length === 3) {
             // hh:mm:ss
@@ -314,10 +736,18 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function getDuration(): number {
-        if (audio && isFinite(audio.duration) && !isNaN(audio.duration) && audio.duration > 0) {
+        if (
+            audio &&
+            isFinite(audio.duration) &&
+            !isNaN(audio.duration) &&
+            audio.duration > 0
+        ) {
             return audio.duration;
         }
-        if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+        if (
+            state.currentIndex !== -1 &&
+            state.currentQueue[state.currentIndex]
+        ) {
             const track = state.currentQueue[state.currentIndex];
             if (track.duration) {
                 const secs = parseDurationStringToSeconds(track.duration);
@@ -338,73 +768,96 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const lines = lrcText.split(/\r?\n/);
         const lyrics: LyricLine[] = [];
         const timeRegex = /\[(\d+):(\d+)(?:[\.:](\d+))?\](.*)/;
-        
+
         for (const line of lines) {
             const trimmed = line.trim();
             const match = timeRegex.exec(trimmed);
             if (match) {
                 const minutes = parseInt(match[1], 10);
                 const seconds = parseInt(match[2], 10);
-                const msStr = match[3] || '0';
+                const msStr = match[3] || "0";
                 const msVal = parseInt(msStr, 10);
                 const fractionalSeconds = msVal / Math.pow(10, msStr.length);
-                
+
                 const time = minutes * 60 + seconds + fractionalSeconds;
                 const text = match[4].trim();
-                
+
                 lyrics.push({ time, text });
             }
         }
-        
+
         return lyrics.sort((a, b) => a.time - b.time);
     }
 
     function showToast(message: string) {
-        let toast = document.getElementById('player-toast');
+        let toast = document.getElementById("player-toast");
         if (!toast) {
-            toast = document.createElement('div');
-            toast.id = 'player-toast';
-            toast.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] bg-zinc-900 border border-white/10 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-2 pointer-events-none flex items-center gap-2';
+            toast = document.createElement("div");
+            toast.id = "player-toast";
+            toast.className =
+                "fixed bottom-24 left-1/2 -translate-x-1/2 z-[100] bg-zinc-900 border border-white/10 text-white text-xs font-bold px-4 py-2.5 rounded-full shadow-2xl transition-all duration-300 opacity-0 translate-y-2 pointer-events-none flex items-center gap-2";
             document.body.appendChild(toast);
         }
         toast.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-primary animate-ping"></span><span>${message}</span>`;
-        toast.classList.remove('opacity-0', 'translate-y-2', 'pointer-events-none');
-        toast.classList.add('opacity-100', 'translate-y-0');
-        
+        toast.classList.remove(
+            "opacity-0",
+            "translate-y-2",
+            "pointer-events-none",
+        );
+        toast.classList.add("opacity-100", "translate-y-0");
+
         setTimeout(() => {
-            toast?.classList.remove('opacity-100', 'translate-y-0');
-            toast?.classList.add('opacity-0', 'translate-y-2', 'pointer-events-none');
+            toast?.classList.remove("opacity-100", "translate-y-0");
+            toast?.classList.add(
+                "opacity-0",
+                "translate-y-2",
+                "pointer-events-none",
+            );
         }, 4000);
     }
 
-    const titleEls = () => [document.getElementById('player-title'), document.getElementById('immersive-title')];
-    const artistEls = () => [document.getElementById('player-artist'), document.getElementById('immersive-artist')];
-    const artworkEls = () => [document.getElementById('player-artwork'), document.getElementById('immersive-artwork')];
-    
-    const miniLikeBtn = () => document.getElementById('mini-like-btn');
-    const miniLikeIcon = () => document.getElementById('mini-like-icon');
+    const titleEls = () => [
+        document.getElementById("player-title"),
+        document.getElementById("immersive-title"),
+    ];
+    const artistEls = () => [
+        document.getElementById("player-artist"),
+        document.getElementById("immersive-artist"),
+    ];
+    const artworkEls = () => [
+        document.getElementById("player-artwork"),
+        document.getElementById("immersive-artwork"),
+    ];
 
-    const lyricsContent = () => document.getElementById('lyrics-content');
-    const queueListContainer = () => document.getElementById('queue-list-container');
+    const miniLikeBtn = () => document.getElementById("mini-like-btn");
+    const miniLikeIcon = () => document.getElementById("mini-like-icon");
 
-    const shuffleBtn = () => document.getElementById('shuffle-btn');
-    const repeatBtn = () => document.getElementById('repeat-btn');
-    const autoplayBtn = () => document.getElementById('autoplay-btn');
-    const autoplayToggle = () => document.getElementById('autoplay-toggle') as HTMLInputElement;
+    const lyricsContent = () => document.getElementById("lyrics-content");
+    const queueListContainer = () =>
+        document.getElementById("queue-list-container");
+
+    const shuffleBtn = () => document.getElementById("shuffle-btn");
+    const repeatBtn = () => document.getElementById("repeat-btn");
+    const autoplayBtn = () => document.getElementById("autoplay-btn");
+    const autoplayToggle = () =>
+        document.getElementById("autoplay-toggle") as HTMLInputElement;
 
     async function initUser() {
         state.currentUser = await getUserData();
         const likeBtn = miniLikeBtn();
-        const immLikeBtn = document.getElementById('immersive-like-btn');
+        const immLikeBtn = document.getElementById("immersive-like-btn");
         if (state.currentUser && state.currentUser.logged_in) {
-            likeBtn?.classList.remove('hidden');
-            immLikeBtn?.classList.remove('hidden');
-            if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+            likeBtn?.classList.remove("hidden");
+            immLikeBtn?.classList.remove("hidden");
+            if (
+                state.currentIndex !== -1 &&
+                state.currentQueue[state.currentIndex]
+            ) {
                 updateLikeUI(state.currentQueue[state.currentIndex].id);
             }
         } else {
-            likeBtn?.classList.add('hidden');
-            immLikeBtn?.classList.add('hidden');
+            likeBtn?.classList.add("hidden");
+            immLikeBtn?.classList.add("hidden");
         }
     }
 
@@ -412,31 +865,34 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (isNaN(seconds)) return "0:00";
         const mins = Math.floor(seconds / 60);
         const secs = Math.floor(seconds % 60);
-        return `${mins}:${secs.toString().padStart(2, '0')}`;
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
     }
 
     function updateMediaSession(track: any) {
-        if ('mediaSession' in navigator && track) {
+        if ("mediaSession" in navigator && track) {
             navigator.mediaSession.metadata = new MediaMetadata({
                 title: track.title,
                 artist: track.artist,
-                album: 'Premium Music',
+                album: "Premium Music",
                 artwork: [
-                    { src: track.image, sizes: '512x512', type: 'image/png' }
-                ]
+                    { src: track.image, sizes: "512x512", type: "image/png" },
+                ],
             });
         }
     }
 
     function updatePlaybackPosition() {
-        if ('mediaSession' in navigator && 'positionState' in navigator.mediaSession) {
+        if (
+            "mediaSession" in navigator &&
+            "positionState" in navigator.mediaSession
+        ) {
             try {
                 const duration = getDuration();
                 if (duration > 0) {
                     navigator.mediaSession.setPositionState({
                         duration: duration,
                         playbackRate: audio.playbackRate || 1.0,
-                        position: audio.currentTime
+                        position: audio.currentTime,
                     });
                 }
             } catch (e) {
@@ -447,50 +903,67 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     function syncPlayPauseUI(playing: boolean) {
         state.isPlaying = playing;
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.playbackState = playing ? 'playing' : 'paused';
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.playbackState = playing
+                ? "playing"
+                : "paused";
         }
 
-        const playIcon = document.getElementById('play-icon');
-        const pauseIcon = document.getElementById('pause-icon');
-        const mobPlayIcon = document.getElementById('mobile-play-icon');
-        const mobPauseIcon = document.getElementById('mobile-pause-icon');
-        const immPlayIcon = document.getElementById('immersive-play-icon');
-        const immPauseIcon = document.getElementById('immersive-pause-icon');
+        const playIcon = document.getElementById("play-icon");
+        const pauseIcon = document.getElementById("pause-icon");
+        const mobPlayIcon = document.getElementById("mobile-play-icon");
+        const mobPauseIcon = document.getElementById("mobile-pause-icon");
+        const immPlayIcon = document.getElementById("immersive-play-icon");
+        const immPauseIcon = document.getElementById("immersive-pause-icon");
 
         if (playing) {
-            playIcon?.classList.add('hidden');
-            pauseIcon?.classList.remove('hidden');
-            mobPlayIcon?.classList.add('hidden');
-            mobPauseIcon?.classList.remove('hidden');
-            immPlayIcon?.classList.add('hidden');
-            immPauseIcon?.classList.remove('hidden');
-            document.getElementById('mini-info')?.classList.add('playing');
+            playIcon?.classList.add("hidden");
+            pauseIcon?.classList.remove("hidden");
+            mobPlayIcon?.classList.add("hidden");
+            mobPauseIcon?.classList.remove("hidden");
+            immPlayIcon?.classList.add("hidden");
+            immPauseIcon?.classList.remove("hidden");
+            document.getElementById("mini-info")?.classList.add("playing");
         } else {
-            playIcon?.classList.remove('hidden');
-            pauseIcon?.classList.add('hidden');
-            mobPlayIcon?.classList.remove('hidden');
-            mobPauseIcon?.classList.add('hidden');
-            immPlayIcon?.classList.remove('hidden');
-            immPauseIcon?.classList.add('hidden');
-            document.getElementById('mini-info')?.classList.remove('playing');
+            playIcon?.classList.remove("hidden");
+            pauseIcon?.classList.add("hidden");
+            mobPlayIcon?.classList.remove("hidden");
+            mobPauseIcon?.classList.add("hidden");
+            immPlayIcon?.classList.remove("hidden");
+            immPauseIcon?.classList.add("hidden");
+            document.getElementById("mini-info")?.classList.remove("playing");
         }
     }
 
-    function updateProgressUI(currentTime: number, duration: number, progress: number) {
-        const progressBar = document.getElementById('progress-bar');
-        const progressHandle = document.getElementById('progress-handle');
-        const currentTimeEl = document.getElementById('current-time');
-        const mobProgressBar = document.getElementById('mobile-progress-bar');
-        const mobProgressHandle = document.getElementById('mobile-progress-handle');
-        const immProgressBar = document.getElementById('immersive-progress-bar');
-        const immProgressHandle = document.getElementById('immersive-progress-handle');
-        const immCurrentTimeEl = document.getElementById('immersive-current-time');
-        const durationEl = document.getElementById('duration');
-        const immDurationEl = document.getElementById('immersive-duration');
+    function updateProgressUI(
+        currentTime: number,
+        duration: number,
+        progress: number,
+    ) {
+        const progressBar = document.getElementById("progress-bar");
+        const progressHandle = document.getElementById("progress-handle");
+        const currentTimeEl = document.getElementById("current-time");
+        const mobProgressBar = document.getElementById("mobile-progress-bar");
+        const mobProgressHandle = document.getElementById(
+            "mobile-progress-handle",
+        );
+        const immProgressBar = document.getElementById(
+            "immersive-progress-bar",
+        );
+        const immProgressHandle = document.getElementById(
+            "immersive-progress-handle",
+        );
+        const immCurrentTimeEl = document.getElementById(
+            "immersive-current-time",
+        );
+        const durationEl = document.getElementById("duration");
+        const immDurationEl = document.getElementById("immersive-duration");
 
         // Bounding the progress between 0 and 100 to prevent layout blowouts
-        const boundedProgress = Math.max(0, Math.min(100, isNaN(progress) ? 0 : progress));
+        const boundedProgress = Math.max(
+            0,
+            Math.min(100, isNaN(progress) ? 0 : progress),
+        );
         const progressPercent = `${boundedProgress}%`;
 
         if (progressBar) progressBar.style.width = progressPercent;
@@ -499,28 +972,48 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (mobProgressHandle) mobProgressHandle.style.left = progressPercent;
         if (immProgressBar) immProgressBar.style.width = progressPercent;
         if (immProgressHandle) immProgressHandle.style.left = progressPercent;
-        
+
         // Active binding of custom CSS variables driving timeline track backgrounds
-        const progressContainer = document.getElementById('progress-container');
-        const mobProgressContainer = document.getElementById('mobile-progress-container');
-        const immProgressContainer = document.getElementById('immersive-progress-container');
+        const progressContainer = document.getElementById("progress-container");
+        const mobProgressContainer = document.getElementById(
+            "mobile-progress-container",
+        );
+        const immProgressContainer = document.getElementById(
+            "immersive-progress-container",
+        );
 
         if (progressContainer) {
-            progressContainer.style.setProperty('--progress', progressPercent);
-            progressContainer.style.setProperty('--theme-accent', 'var(--primary)');
+            progressContainer.style.setProperty("--progress", progressPercent);
+            progressContainer.style.setProperty(
+                "--theme-accent",
+                "var(--primary)",
+            );
         }
         if (mobProgressContainer) {
-            mobProgressContainer.style.setProperty('--progress', progressPercent);
-            mobProgressContainer.style.setProperty('--theme-accent', 'var(--primary)');
+            mobProgressContainer.style.setProperty(
+                "--progress",
+                progressPercent,
+            );
+            mobProgressContainer.style.setProperty(
+                "--theme-accent",
+                "var(--primary)",
+            );
         }
         if (immProgressContainer) {
-            immProgressContainer.style.setProperty('--progress', progressPercent);
-            immProgressContainer.style.setProperty('--theme-accent', 'var(--primary)');
+            immProgressContainer.style.setProperty(
+                "--progress",
+                progressPercent,
+            );
+            immProgressContainer.style.setProperty(
+                "--theme-accent",
+                "var(--primary)",
+            );
         }
 
         if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
-        if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
-        
+        if (immCurrentTimeEl)
+            immCurrentTimeEl.textContent = formatTime(currentTime);
+
         if (durationEl) durationEl.textContent = formatTime(duration);
         if (immDurationEl) immDurationEl.textContent = formatTime(duration);
     }
@@ -529,34 +1022,50 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (state.currentIndex === -1) return;
         const currentTrack = state.currentQueue[state.currentIndex];
         if (!currentTrack) return;
-        
+
         // If already successfully pre-fetched for this track, skip
         if (state.preFetchedTrackId === currentTrack.id) return;
-        
+
         // If currently pre-fetching, skip
         if (state.isPreFetching) return;
 
         // Rate limit: wait at least 10 seconds between attempts
         const now = Date.now();
-        if (state.lastPreFetchAttemptTime && now - state.lastPreFetchAttemptTime < 10000) {
+        if (
+            state.lastPreFetchAttemptTime &&
+            now - state.lastPreFetchAttemptTime < 10000
+        ) {
             return;
         }
         state.lastPreFetchAttemptTime = now;
 
         state.isPreFetching = true;
-        console.log(`[Pre-fetch] Starting pre-fetch sequence for active track: ${currentTrack.title}`);
+        console.log(
+            `[Pre-fetch] Starting pre-fetch sequence for active track: ${currentTrack.title}`,
+        );
 
         try {
             // 1. If Autoplay is enabled and we are playing the last track of the queue, fetch suggestions in advance.
-            if (state.isAutoplay && state.currentIndex === state.currentQueue.length - 1) {
-                console.log(`[Autoplay Pre-fetch] Fetching recommendations in advance for: ${currentTrack.title}`);
+            if (
+                state.isAutoplay &&
+                state.currentIndex === state.currentQueue.length - 1
+            ) {
+                console.log(
+                    `[Autoplay Pre-fetch] Fetching recommendations in advance for: ${currentTrack.title}`,
+                );
                 const suggestions = await fetchSuggestions(currentTrack.id);
                 if (suggestions && suggestions.length > 0) {
-                    const newTracks = suggestions.filter((s: any) => !state.currentQueue.some((t: any) => t.id === s.id));
+                    const newTracks = suggestions.filter(
+                        (s: any) =>
+                            !state.currentQueue.some((t: any) => t.id === s.id),
+                    );
                     if (newTracks.length > 0) {
                         state.currentQueue.push(...newTracks);
                     } else {
-                        const fallbackTrack = suggestions.find((s: any) => s.id !== currentTrack.id) || suggestions[0];
+                        const fallbackTrack =
+                            suggestions.find(
+                                (s: any) => s.id !== currentTrack.id,
+                            ) || suggestions[0];
                         if (fallbackTrack) {
                             state.currentQueue.push(fallbackTrack);
                         }
@@ -570,7 +1079,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             let nextIndex = -1;
             if (state.currentIndex < state.currentQueue.length - 1) {
                 nextIndex = state.currentIndex + 1;
-            } else if (state.repeatMode === 'all' && state.currentQueue.length > 0) {
+            } else if (
+                state.repeatMode === "all" &&
+                state.currentQueue.length > 0
+            ) {
                 nextIndex = 0;
             }
 
@@ -579,21 +1091,30 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 const nextTrack = state.currentQueue[nextIndex];
                 state.streamUrlCache = state.streamUrlCache || {};
                 if (!state.streamUrlCache[nextTrack.id]) {
-                    console.log(`[Stream Pre-fetch] Pre-fetching stream details for: ${nextTrack.title}`);
+                    console.log(
+                        `[Stream Pre-fetch] Pre-fetching stream details for: ${nextTrack.title}`,
+                    );
                     try {
                         const data = await apiFetch(`/stream/${nextTrack.id}`);
                         if (data && data.url) {
-                            const proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                            const proxyUrl = data.proxy_url.startsWith("http")
+                                ? data.proxy_url
+                                : `${API_BASE}${data.proxy_url}`;
                             state.streamUrlCache[nextTrack.id] = {
                                 streamUrl: data.url,
-                                proxyUrl: proxyUrl
+                                proxyUrl: proxyUrl,
                             };
-                            console.log(`[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`);
+                            console.log(
+                                `[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`,
+                            );
                         } else {
                             throw new Error("Invalid stream data");
                         }
                     } catch (e) {
-                        console.warn(`Failed to pre-fetch stream URL for ${nextTrack.title}:`, e);
+                        console.warn(
+                            `Failed to pre-fetch stream URL for ${nextTrack.title}:`,
+                            e,
+                        );
                         // Try client-side Cobalt pre-fetch fallback across multiple instances
                         const cobaltInstances = [
                             "https://rue-cobalt.xenon.zone",
@@ -603,29 +1124,37 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                             "https://cobalt.k6.dev",
                             "https://cobalt-api.lunar.icu",
                             "https://cobalt.col1g3.de",
-                            "https://cobalt.projectsegfau.lt"
+                            "https://cobalt.projectsegfau.lt",
                         ];
                         for (const instance of cobaltInstances) {
                             try {
-                                const cobaltRes = await fetch(instance.endsWith('/') ? instance : `${instance}/`, {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                        "Accept": "application/json"
+                                const cobaltRes = await fetch(
+                                    instance.endsWith("/")
+                                        ? instance
+                                        : `${instance}/`,
+                                    {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            Accept: "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                            url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
+                                        }),
                                     },
-                                    body: JSON.stringify({
-                                        url: `https://www.youtube.com/watch?v=${nextTrack.id}`
-                                    })
-                                });
+                                );
                                 if (cobaltRes.ok) {
                                     const cobaltData = await cobaltRes.json();
-                                    const sUrl = cobaltData.url || cobaltData.picker;
+                                    const sUrl =
+                                        cobaltData.url || cobaltData.picker;
                                     if (sUrl) {
                                         state.streamUrlCache[nextTrack.id] = {
                                             streamUrl: sUrl,
-                                            proxyUrl: sUrl
+                                            proxyUrl: sUrl,
                                         };
-                                        console.log(`[Stream Pre-fetch] Successfully pre-fetched client-side stream via ${instance} for: ${nextTrack.title}`);
+                                        console.log(
+                                            `[Stream Pre-fetch] Successfully pre-fetched client-side stream via ${instance} for: ${nextTrack.title}`,
+                                        );
                                         break;
                                     }
                                 }
@@ -640,7 +1169,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             // Mark pre-fetch sequence as successful for this track
             state.preFetchedTrackId = currentTrack.id;
         } catch (e) {
-            console.warn(`[Pre-fetch] Pre-fetch attempt failed for ${currentTrack.title}:`, e);
+            console.warn(
+                `[Pre-fetch] Pre-fetch attempt failed for ${currentTrack.title}:`,
+                e,
+            );
             // Do not set preFetchedTrackId, allowing retry on next trigger window
         } finally {
             state.isPreFetching = false;
@@ -651,11 +1183,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (!track) return;
         try {
             // Update UI details immediately for instant feedback
-            titleEls().forEach(el => el && (el.textContent = track.title));
-            artistEls().forEach(el => el && (el.textContent = track.artist));
-            artworkEls().forEach(el => {
+            titleEls().forEach((el) => el && (el.textContent = track.title));
+            artistEls().forEach((el) => el && (el.textContent = track.artist));
+            artworkEls().forEach((el) => {
                 if (el) {
-                    el.classList.add('opacity-0');
+                    el.classList.add("opacity-0");
                     el.dataset.id = track.id;
                     (el as HTMLImageElement).src = track.image;
                 }
@@ -669,7 +1201,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             }
 
             // Update artwork glow gradient dynamically
-            const glowEl = document.getElementById('immersive-artwork-glow');
+            const glowEl = document.getElementById("immersive-artwork-glow");
             if (glowEl) {
                 glowEl.style.background = getGlowGradient(track.title);
             }
@@ -684,7 +1216,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
             let streamUrl = null;
             let proxyUrl = null;
-            
+
             // Check client-side cache first
             state.streamUrlCache = state.streamUrlCache || {};
             if (state.streamUrlCache[track.id]) {
@@ -693,221 +1225,243 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 proxyUrl = cached.proxyUrl;
                 state.currentStreamUrl = streamUrl;
                 state.currentProxyUrl = proxyUrl;
-                console.log(`[Cache Hit] Playing from pre-fetched stream cache for: ${track.title}`);
+                console.log(
+                    `[Cache Hit] Playing from pre-fetched stream cache for: ${track.title}`,
+                );
             } else {
                 try {
                     const data = await apiFetch(`/stream/${track.id}`);
                     if (data && data.url) {
                         streamUrl = data.url;
-                        proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                        // proxy_url is expected to be a relative path like /proxy?... on the Flask backend.
+                        // Only prefix API_BASE when needed.
+                        if (data.proxy_url) {
+                            proxyUrl = data.proxy_url.startsWith("http")
+                                ? data.proxy_url
+                                : `${API_BASE}${data.proxy_url}`;
+                        }
                         state.currentStreamUrl = streamUrl;
                         state.currentProxyUrl = proxyUrl;
                     }
+                    console.log("[Stream Debug]", {
+                        trackId: track.id,
+                        resolved: data,
+                        computedStreamUrl: streamUrl,
+                        computedProxyUrl: proxyUrl,
+                        API_BASE,
+                    });
                 } catch (err) {
                     console.warn("Failed to retrieve stream details:", err);
                 }
             }
 
-            // Fallback: If server failed to resolve streaming URLs (common on cloud/Vercel host blocks), resolve client-side
+            // Fallback: If server failed to resolve streaming URLs, resolve client-side
             if (!proxyUrl) {
-                console.log(`[Client Resolver] Server failed to resolve stream for ${track.id}. Trying client-side resolution...`);
-                
-                // 1. Try client-side Cobalt fallback across multiple instances
-                const cobaltInstances = [
-                    "https://rue-cobalt.xenon.zone",
-                    "https://api.cobalt.tools",
-                    "https://cobalt.foxtrot-omega.me",
-                    "https://cobalt.willy.lol",
-                    "https://cobalt.k6.dev",
-                    "https://cobalt-api.lunar.icu",
-                    "https://cobalt.col1g3.de",
-                    "https://cobalt.projectsegfau.lt"
-                ];
-                for (const instance of cobaltInstances) {
-                    try {
-                        const cobaltRes = await fetch(instance.endsWith('/') ? instance : `${instance}/`, {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Accept": "application/json"
-                            },
-                            body: JSON.stringify({
-                                url: `https://www.youtube.com/watch?v=${track.id}`
-                            })
-                        });
-                        if (cobaltRes.ok) {
-                            const cobaltData = await cobaltRes.json();
-                            streamUrl = cobaltData.url || cobaltData.picker;
-                            if (streamUrl) {
-                                console.log(`[Client Resolver] Successfully resolved stream via client-side Cobalt on: ${instance}`);
-                                proxyUrl = streamUrl;
-                                state.currentStreamUrl = streamUrl;
-                                state.currentProxyUrl = proxyUrl;
-                                break;
-                            }
-                        }
-                    } catch (cobaltErr) {
-                        console.warn(`[Client Resolver] Cobalt instance ${instance} failed:`, cobaltErr);
-                    }
-                }
-                
-                // 2. Try client-side Piped fallback across multiple instances
-                if (!proxyUrl) {
-                    const pipedInstances = [
-                        "https://api-piped.mha.fi",
-                        "https://api.piped.private.coffee",
-                        "https://pipedapi.kavin.rocks",
-                        "https://pipedapi.col1g3.de",
-                        "https://piped-api.garudalinux.org",
-                        "https://pipedapi.us.to",
-                        "https://api.piped.projectsegfau.lt",
-                        "https://pipedapi.privacydev.net",
-                        "https://pipedapi.lunar.icu"
-                    ];
-                    for (const instance of pipedInstances) {
-                        try {
-                            const pipedRes = await fetch(`${instance}/streams/${track.id}`);
-                            if (pipedRes.ok) {
-                                const pipedData = await pipedRes.json();
-                                const audioStreams = pipedData.audioStreams || [];
-                                if (audioStreams.length > 0 && audioStreams[0].url) {
-                                    streamUrl = audioStreams[0].url;
-                                    proxyUrl = streamUrl;
-                                    state.currentStreamUrl = streamUrl;
-                                    state.currentProxyUrl = proxyUrl;
-                                    console.log(`[Client Resolver] Successfully resolved stream via client-side Piped on: ${instance}`);
-                                    break;
-                                }
-                            }
-                        } catch (pipedErr) {
-                            console.warn(`[Client Resolver] Piped instance ${instance} failed:`, pipedErr);
-                        }
-                    }
+                const resolved = await resolveStreamClientSide(track.id);
+                if (resolved) {
+                    streamUrl = resolved.streamUrl;
+                    proxyUrl = resolved.proxyUrl;
+                    state.currentStreamUrl = streamUrl;
+                    state.currentProxyUrl = proxyUrl;
                 }
             }
 
             // Always use proxy when it exists to route requests through our Vercel proxy.
-            // Our proxy now handles Range requests dynamically (requesting 2.5MB chunks from upstream),
-            // resolving Vercel server timeouts and CORS streaming errors perfectly.
             const useProxy = !!proxyUrl;
 
             const playUrl = useProxy ? proxyUrl : streamUrl;
+            console.log("[Playback Debug]", {
+                trackId: track.id,
+                useProxy,
+                streamUrl,
+                proxyUrl,
+                playUrl,
+            });
 
             if (playUrl) {
                 audio.src = playUrl;
 
                 let triedDirect = false;
-                audio.onerror = () => {
-                    if (!audio.src || audio.src === window.location.href) return;
+                let triedClientFallback = false;
+
+                audio.onerror = async () => {
+                    // Swallow transient errors (cross-origin, first-byte delay, etc.) and retry direct/proxy once.
+                    try {
+                        audio.pause();
+                    } catch {}
+
+                    if (!audio.src || audio.src === window.location.href)
+                        return;
+
+                    // If using proxy and we haven't tried direct yet, fall back.
                     if (!triedDirect && streamUrl && useProxy) {
                         console.log("Proxy stream failed, trying direct stream...");
                         triedDirect = true;
                         audio.src = streamUrl;
-                        audio.play().then(() => {
-                            syncPlayPauseUI(true);
-                            requestWakeLock();
-                            state.isPreFetching = false;
-                            preFetchNextTrack();
-                        }).catch((err) => {
-                            syncPlayPauseUI(false);
-                            releaseWakeLock();
-                            showToast("Playback failed.");
-                        });
-                    } else {
-                        syncPlayPauseUI(false);
-                        releaseWakeLock();
-                        showToast("Playback failed.");
-                    }
-                };
-                
-                updateMediaSession(track);
-                miniPlayer?.classList.remove('translate-y-full');
-                
-                audio.play().then(() => {
-                    syncPlayPauseUI(true);
-                    requestWakeLock();
-                    state.isPreFetching = false;
-                    preFetchNextTrack();
-                }).catch(e => {
-                    if (e && e.name === 'NotAllowedError') {
-                        console.log("Autoplay blocked by browser. Awaiting user interaction.");
-                        syncPlayPauseUI(false);
+                        audio
+                            .play()
+                            .then(() => {
+                                syncPlayPauseUI(true);
+                                requestWakeLock();
+                                state.isPreFetching = false;
+                                preFetchNextTrack();
+                            })
+                            .catch(() => {
+                                audio.dispatchEvent(new Event("error"));
+                            });
                         return;
                     }
-                    if (streamUrl && useProxy) {
-                        audio.src = streamUrl;
-                        audio.play().then(() => {
-                            syncPlayPauseUI(true);
-                            requestWakeLock();
-                            state.isPreFetching = false;
-                            preFetchNextTrack();
-                        }).catch((err) => {
+
+                    // Try client-side backup if both proxy and direct failed
+                    if (!triedClientFallback) {
+                        triedClientFallback = true;
+                        console.log("Playback failed. Attempting client-side stream resolution fallback...");
+                        showToast("Resolving backup stream...");
+                        const resolved = await resolveStreamClientSide(track.id);
+                        if (resolved) {
+                            streamUrl = resolved.streamUrl;
+                            proxyUrl = resolved.proxyUrl;
+                            state.currentStreamUrl = streamUrl;
+                            state.currentProxyUrl = proxyUrl;
+                            
+                            // Cache the working stream URL
+                            state.streamUrlCache[track.id] = resolved;
+
+                            audio.src = resolved.proxyUrl;
+                            audio
+                                .play()
+                                .then(() => {
+                                    syncPlayPauseUI(true);
+                                    requestWakeLock();
+                                    state.isPreFetching = false;
+                                    preFetchNextTrack();
+                                })
+                                .catch(() => {
+                                    syncPlayPauseUI(false);
+                                    releaseWakeLock();
+                                    showToast("Playback failed.");
+                                });
+                            return;
+                        }
+                    }
+
+                    syncPlayPauseUI(false);
+                    releaseWakeLock();
+                    showToast("Playback failed.");
+                };
+
+                updateMediaSession(track);
+                miniPlayer?.classList.remove("translate-y-full");
+
+                audio
+                    .play()
+                    .then(() => {
+                        syncPlayPauseUI(true);
+                        requestWakeLock();
+                        state.isPreFetching = false;
+                        preFetchNextTrack();
+                    })
+                    .catch((e) => {
+                        if (e && e.name === "NotAllowedError") {
+                            console.log(
+                                "Autoplay blocked by browser. Awaiting user interaction.",
+                            );
+                            syncPlayPauseUI(false);
+                            return;
+                        }
+                        if (streamUrl && useProxy) {
+                            audio.src = streamUrl;
+                            audio
+                                .play()
+                                .then(() => {
+                                    syncPlayPauseUI(true);
+                                    requestWakeLock();
+                                    state.isPreFetching = false;
+                                    preFetchNextTrack();
+                                })
+                                .catch((err) => {
+                                    syncPlayPauseUI(false);
+                                    releaseWakeLock();
+                                    showToast("Playback failed.");
+                                });
+                        } else {
                             syncPlayPauseUI(false);
                             releaseWakeLock();
                             showToast("Playback failed.");
-                        });
-                    } else {
-                        syncPlayPauseUI(false);
-                        releaseWakeLock();
-                        showToast("Playback failed.");
-                    }
-                });
+                        }
+                    });
             } else {
                 showToast("Failed to resolve stream URL.");
             }
 
-            if (state.activeTab === 'lyrics') {
+            if (state.activeTab === "lyrics") {
                 updateLyrics(track.id);
             } else {
                 const lyr = lyricsContent();
-                if (lyr) lyr.innerHTML = '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+                if (lyr)
+                    lyr.innerHTML =
+                        '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
             }
             updateRelatedUI(track.id);
             updateQueueUI();
             saveState();
         } catch (err) {
             console.error("Playback failed:", err);
-            titleEls().forEach(el => el && (el.textContent = "Playback Error"));
+            titleEls().forEach(
+                (el) => el && (el.textContent = "Playback Error"),
+            );
         }
     }
 
     function updateLikeUI(songId: string) {
         const likeIcon = miniLikeIcon();
         const likeBtn = miniLikeBtn();
-        const immLikeIcon = document.getElementById('immersive-like-icon');
-        const immLikeBtn = document.getElementById('immersive-like-btn');
+        const immLikeIcon = document.getElementById("immersive-like-icon");
+        const immLikeBtn = document.getElementById("immersive-like-btn");
         if (!state.currentUser || !state.currentUser.logged_in) {
-            likeBtn?.classList.add('hidden');
-            immLikeBtn?.classList.add('hidden');
+            likeBtn?.classList.add("hidden");
+            immLikeBtn?.classList.add("hidden");
             return;
         }
-        likeBtn?.classList.remove('hidden');
-        immLikeBtn?.classList.remove('hidden');
-        const isLiked = state.currentUser.liked_songs.some((s: any) => s.id === songId);
+        likeBtn?.classList.remove("hidden");
+        immLikeBtn?.classList.remove("hidden");
+        const isLiked = state.currentUser.liked_songs.some(
+            (s: any) => s.id === songId,
+        );
         if (isLiked) {
-            likeIcon?.classList.add('fill-primary', 'text-primary');
-            likeIcon?.setAttribute('fill', 'currentColor');
-            immLikeIcon?.classList.add('fill-primary', 'text-primary');
-            immLikeIcon?.setAttribute('fill', 'currentColor');
+            likeIcon?.classList.add("fill-primary", "text-primary");
+            likeIcon?.setAttribute("fill", "currentColor");
+            immLikeIcon?.classList.add("fill-primary", "text-primary");
+            immLikeIcon?.setAttribute("fill", "currentColor");
         } else {
-            likeIcon?.classList.remove('fill-primary', 'text-primary');
-            likeIcon?.setAttribute('fill', 'none');
-            immLikeIcon?.classList.remove('fill-primary', 'text-primary');
-            immLikeIcon?.setAttribute('fill', 'none');
+            likeIcon?.classList.remove("fill-primary", "text-primary");
+            likeIcon?.setAttribute("fill", "none");
+            immLikeIcon?.classList.remove("fill-primary", "text-primary");
+            immLikeIcon?.setAttribute("fill", "none");
         }
     }
 
     async function handleLikeToggle(e: Event) {
         e.stopPropagation();
-        if (!state.currentUser || !state.currentUser.logged_in || state.currentIndex === -1) return;
+        if (
+            !state.currentUser ||
+            !state.currentUser.logged_in ||
+            state.currentIndex === -1
+        )
+            return;
         const currentTrack = state.currentQueue[state.currentIndex];
-        const isLiked = state.currentUser.liked_songs.some((s: any) => s.id === currentTrack.id);
-        const action = isLiked ? 'remove' : 'add';
-        
-        if (action === 'add') {
+        const isLiked = state.currentUser.liked_songs.some(
+            (s: any) => s.id === currentTrack.id,
+        );
+        const action = isLiked ? "remove" : "add";
+
+        if (action === "add") {
             state.currentUser.liked_songs.push(currentTrack);
         } else {
-            state.currentUser.liked_songs = state.currentUser.liked_songs.filter((s: any) => s.id !== currentTrack.id);
+            state.currentUser.liked_songs =
+                state.currentUser.liked_songs.filter(
+                    (s: any) => s.id !== currentTrack.id,
+                );
         }
         updateLikeUI(currentTrack.id);
 
@@ -919,38 +1473,46 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     async function updateLyrics(id: string) {
         const lyr = lyricsContent();
-        if (lyr) lyr.innerHTML = '<p class="animate-pulse text-sm text-white/50 text-center py-8">Fetching lyrics...</p>';
-        
+        if (lyr)
+            lyr.innerHTML =
+                '<p class="animate-pulse text-sm text-white/50 text-center py-8">Fetching lyrics...</p>';
+
         let track = state.currentQueue[state.currentIndex];
         let queryParams = "";
         if (track) {
             queryParams = `?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`;
         }
-        
+
         const data = await apiFetch(`/api/lyrics/${id}${queryParams}`);
         const lyrUpdate = lyricsContent();
         if (lyrUpdate && data) {
             const isSynced = data.synced;
             const lyrics = data.lyrics;
-            
-            if (isSynced && lyrics && lyrics !== 'No lyrics found.') {
+
+            if (isSynced && lyrics && lyrics !== "No lyrics found.") {
                 state.parsedLyrics = parseLRC(lyrics);
                 state.lastActiveLyricIdx = -1;
-                
+
                 lyrUpdate.innerHTML = `
                     <div id="lyrics-lines-container" class="space-y-6 text-center py-10 px-4 transition-all duration-300">
-                        ${state.parsedLyrics.map((line: any, idx: number) => `
+                        ${state.parsedLyrics
+                            .map(
+                                (line: any, idx: number) => `
                             <p class="lyric-line text-lg sm:text-2xl font-black text-white/40 transition-all duration-500 cursor-pointer select-none leading-relaxed px-2 py-1 hover:text-white" 
                                data-time="${line.time}" data-index="${idx}">
                                 ${line.text}
                             </p>
-                        `).join('')}
+                        `,
+                            )
+                            .join("")}
                     </div>
                 `;
-                
-                lyrUpdate.querySelectorAll('.lyric-line').forEach(el => {
-                    el.addEventListener('click', () => {
-                        const seekTime = parseFloat((el as HTMLElement).dataset.time!);
+
+                lyrUpdate.querySelectorAll(".lyric-line").forEach((el) => {
+                    el.addEventListener("click", () => {
+                        const seekTime = parseFloat(
+                            (el as HTMLElement).dataset.time!,
+                        );
                         if (!isNaN(seekTime)) {
                             audio.currentTime = seekTime;
                             updateActiveLyric(seekTime); // Highlight and scroll immediately on click!
@@ -963,19 +1525,28 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             } else {
                 state.parsedLyrics = [];
                 state.lastActiveLyricIdx = -1;
-                lyrUpdate.innerHTML = lyrics && lyrics !== 'No lyrics found.' 
-                    ? `<div class="text-center text-white/95 text-base md:text-lg leading-loose px-2 py-4">${lyrics.replace(/\n/g, '<br/>')}</div>` 
-                    : '<p class="text-sm text-white/40 text-center py-8">No lyrics found for this track.</p>';
+                lyrUpdate.innerHTML =
+                    lyrics && lyrics !== "No lyrics found."
+                        ? `<div class="text-center text-white/95 text-base md:text-lg leading-loose px-2 py-4">${lyrics.replace(/\n/g, "<br/>")}</div>`
+                        : '<p class="text-sm text-white/40 text-center py-8">No lyrics found for this track.</p>';
             }
         } else if (lyrUpdate) {
-            lyrUpdate.innerHTML = '<p class="text-sm text-white/40 text-center py-8">No lyrics found for this track.</p>';
+            lyrUpdate.innerHTML =
+                '<p class="text-sm text-white/40 text-center py-8">No lyrics found for this track.</p>';
         }
     }
 
     function updateActiveLyric(currentTime: number) {
-        const linesContainer = document.getElementById('lyrics-lines-container');
-        if (!linesContainer || !state.parsedLyrics || state.parsedLyrics.length === 0) return;
-        
+        const linesContainer = document.getElementById(
+            "lyrics-lines-container",
+        );
+        if (
+            !linesContainer ||
+            !state.parsedLyrics ||
+            state.parsedLyrics.length === 0
+        )
+            return;
+
         let activeIdx = -1;
         for (let i = 0; i < state.parsedLyrics.length; i++) {
             if (currentTime >= state.parsedLyrics[i].time) {
@@ -984,36 +1555,39 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 break;
             }
         }
-        
-        const lineElements = linesContainer.querySelectorAll('.lyric-line');
+
+        const lineElements = linesContainer.querySelectorAll(".lyric-line");
         lineElements.forEach((el, idx) => {
             if (idx === activeIdx) {
-                el.classList.remove('text-white/40');
-                el.classList.add('text-primary', 'scale-105', 'font-black');
-                el.style.opacity = '1';
-                el.style.textShadow = '0 0 15px var(--primary)';
-                
+                el.classList.remove("text-white/40");
+                el.classList.add("text-primary", "scale-105", "font-black");
+                el.style.opacity = "1";
+                el.style.textShadow = "0 0 15px var(--primary)";
+
                 if (state.lastActiveLyricIdx !== activeIdx) {
                     state.lastActiveLyricIdx = activeIdx;
-                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.scrollIntoView({ behavior: "smooth", block: "center" });
                 }
             } else {
-                el.classList.add('text-white/40');
-                el.classList.remove('text-primary', 'scale-105', 'font-black');
-                el.style.opacity = '0.4';
-                el.style.textShadow = 'none';
+                el.classList.add("text-white/40");
+                el.classList.remove("text-primary", "scale-105", "font-black");
+                el.style.opacity = "0.4";
+                el.style.textShadow = "none";
             }
         });
     }
 
     async function updateRelatedUI(id: string) {
-        const relContainer = document.getElementById('related-list-container');
+        const relContainer = document.getElementById("related-list-container");
         if (!relContainer) return;
-        relContainer.innerHTML = '<p class="animate-pulse text-xs text-white/50 text-center py-8">Fetching suggestions...</p>';
+        relContainer.innerHTML =
+            '<p class="animate-pulse text-xs text-white/50 text-center py-8">Fetching suggestions...</p>';
         try {
             const tracks = await fetchSuggestions(id);
             if (tracks && tracks.length > 0) {
-                relContainer.innerHTML = tracks.map((track: any) => `
+                relContainer.innerHTML = tracks
+                    .map(
+                        (track: any) => `
                     <div class="track-trigger flex items-center justify-between p-3 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer related-item"
                          data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
                         <div class="flex items-center gap-3 pointer-events-none min-w-0 flex-1">
@@ -1027,18 +1601,22 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                         </button>
                     </div>
-                `).join('');
+                `,
+                    )
+                    .join("");
             } else {
-                relContainer.innerHTML = '<p class="text-xs text-white/40 text-center py-8">No suggestions found.</p>';
+                relContainer.innerHTML =
+                    '<p class="text-xs text-white/40 text-center py-8">No suggestions found.</p>';
             }
         } catch (e) {
-            relContainer.innerHTML = '<p class="text-xs text-red-400 text-center py-8">Error loading suggestions.</p>';
+            relContainer.innerHTML =
+                '<p class="text-xs text-red-400 text-center py-8">Error loading suggestions.</p>';
         }
     }
 
     function removeFromQueue(index: number) {
         if (index < 0 || index >= state.currentQueue.length) return;
-        
+
         state.currentQueue.splice(index, 1);
         if (state.currentIndex === index) {
             if (state.currentQueue.length === 0) {
@@ -1047,31 +1625,34 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 syncPlayPauseUI(false);
                 releaseWakeLock();
             } else {
-                state.currentIndex = Math.min(index, state.currentQueue.length - 1);
+                state.currentIndex = Math.min(
+                    index,
+                    state.currentQueue.length - 1,
+                );
                 fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
             }
         } else if (state.currentIndex > index) {
             state.currentIndex--;
         }
-        
+
         updateQueueUI();
         saveState();
     }
 
-    function moveQueueItem(index: number, direction: 'up' | 'down') {
-        const newIndex = direction === 'up' ? index - 1 : index + 1;
+    function moveQueueItem(index: number, direction: "up" | "down") {
+        const newIndex = direction === "up" ? index - 1 : index + 1;
         if (newIndex < 0 || newIndex >= state.currentQueue.length) return;
-        
+
         const temp = state.currentQueue[index];
         state.currentQueue[index] = state.currentQueue[newIndex];
         state.currentQueue[newIndex] = temp;
-        
+
         if (state.currentIndex === index) {
             state.currentIndex = newIndex;
         } else if (state.currentIndex === newIndex) {
             state.currentIndex = index;
         }
-        
+
         updateQueueUI();
         saveState();
     }
@@ -1079,65 +1660,77 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     function updateQueueUI() {
         const qContainer = queueListContainer();
         if (!qContainer) return;
-        qContainer.innerHTML = state.currentQueue.map((track: any, idx: number) => `
-            <div class="flex items-center justify-between p-3 rounded-2xl ${idx === state.currentIndex ? 'bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/10' : 'hover:bg-white/5'} transition-all cursor-pointer queue-item group/item" data-index="${idx}">
+        qContainer.innerHTML = state.currentQueue
+            .map(
+                (track: any, idx: number) => `
+            <div class="flex items-center justify-between p-3 rounded-2xl ${idx === state.currentIndex ? "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/10" : "hover:bg-white/5"} transition-all cursor-pointer queue-item group/item" data-index="${idx}">
                 <div class="flex items-center gap-3 pointer-events-none min-w-0 flex-1">
                     <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-xl object-cover shrink-0 transition-opacity duration-300 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
                     <div class="min-w-0">
-                        <p class="font-bold text-sm ${idx === state.currentIndex ? 'text-primary-foreground' : 'text-white'} truncate">${track.title}</p>
-                        <p class="text-xs opacity-70 ${idx === state.currentIndex ? 'text-primary-foreground/85' : 'text-white/70'} truncate">${track.artist}</p>
+                        <p class="font-bold text-sm ${idx === state.currentIndex ? "text-primary-foreground" : "text-white"} truncate">${track.title}</p>
+                        <p class="text-xs opacity-70 ${idx === state.currentIndex ? "text-primary-foreground/85" : "text-white/70"} truncate">${track.artist}</p>
                     </div>
                 </div>
                 
                 <div class="flex items-center gap-1 shrink-0 ml-2">
-                    ${idx > 0 ? `
-                        <button class="queue-move-up-btn p-1.5 hover:bg-white/10 rounded-lg ${idx === state.currentIndex ? 'text-primary-foreground/70 hover:text-primary-foreground' : 'text-white/60 hover:text-white'} transition-all cursor-pointer" data-index="${idx}" title="Move track up">
+                    ${
+                        idx > 0
+                            ? `
+                        <button class="queue-move-up-btn p-1.5 hover:bg-white/10 rounded-lg ${idx === state.currentIndex ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-white/60 hover:text-white"} transition-all cursor-pointer" data-index="${idx}" title="Move track up">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m18 15-6-6-6 6"/></svg>
                         </button>
-                    ` : ''}
+                    `
+                            : ""
+                    }
                     
-                    ${idx < state.currentQueue.length - 1 ? `
-                        <button class="queue-move-down-btn p-1.5 hover:bg-white/10 rounded-lg ${idx === state.currentIndex ? 'text-primary-foreground/70 hover:text-primary-foreground' : 'text-white/60 hover:text-white'} transition-all cursor-pointer" data-index="${idx}" title="Move track down">
+                    ${
+                        idx < state.currentQueue.length - 1
+                            ? `
+                        <button class="queue-move-down-btn p-1.5 hover:bg-white/10 rounded-lg ${idx === state.currentIndex ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-white/60 hover:text-white"} transition-all cursor-pointer" data-index="${idx}" title="Move track down">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="m6 9 6 6 6-6"/></svg>
                         </button>
-                    ` : ''}
+                    `
+                            : ""
+                    }
                     
-                    <button class="queue-remove-btn p-1.5 hover:bg-white/10 rounded-lg ${idx === state.currentIndex ? 'text-primary-foreground/70 hover:text-red-300' : 'text-white/60 hover:text-red-400'} transition-all cursor-pointer" data-index="${idx}" title="Remove track from queue">
+                    <button class="queue-remove-btn p-1.5 hover:bg-white/10 rounded-lg ${idx === state.currentIndex ? "text-primary-foreground/70 hover:text-red-300" : "text-white/60 hover:text-red-400"} transition-all cursor-pointer" data-index="${idx}" title="Remove track from queue">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                     </button>
                 </div>
             </div>
-        `).join('');
+        `,
+            )
+            .join("");
 
-        qContainer.querySelectorAll('.queue-remove-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        qContainer.querySelectorAll(".queue-remove-btn").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const index = parseInt((btn as HTMLElement).dataset.index!);
                 removeFromQueue(index);
             });
         });
 
-        qContainer.querySelectorAll('.queue-move-up-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        qContainer.querySelectorAll(".queue-move-up-btn").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const index = parseInt((btn as HTMLElement).dataset.index!);
-                moveQueueItem(index, 'up');
+                moveQueueItem(index, "up");
             });
         });
 
-        qContainer.querySelectorAll('.queue-move-down-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        qContainer.querySelectorAll(".queue-move-down-btn").forEach((btn) => {
+            btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const index = parseInt((btn as HTMLElement).dataset.index!);
-                moveQueueItem(index, 'down');
+                moveQueueItem(index, "down");
             });
         });
 
-        qContainer.querySelectorAll('.queue-item').forEach(item => {
-            item.addEventListener('click', (e) => {
+        qContainer.querySelectorAll(".queue-item").forEach((item) => {
+            item.addEventListener("click", (e) => {
                 const target = e.target as HTMLElement;
-                if (target.closest('button')) return;
-                
+                if (target.closest("button")) return;
+
                 const index = parseInt((item as HTMLElement).dataset.index!);
                 state.currentIndex = index;
                 fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
@@ -1147,23 +1740,30 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     async function fetchAutoplayAndPlay() {
         const lastTrack = state.currentQueue[state.currentIndex];
-        titleEls().forEach(el => el && (el.textContent = "Autoplay recommendations..."));
+        titleEls().forEach(
+            (el) => el && (el.textContent = "Autoplay recommendations..."),
+        );
         try {
             const suggestions = await fetchSuggestions(lastTrack.id);
             if (suggestions && suggestions.length > 0) {
-                const newTracks = suggestions.filter((s: any) => !state.currentQueue.some((t: any) => t.id === s.id));
+                const newTracks = suggestions.filter(
+                    (s: any) =>
+                        !state.currentQueue.some((t: any) => t.id === s.id),
+                );
                 let nextTrackToPlay = null;
                 if (newTracks.length > 0) {
                     state.currentQueue.push(...newTracks);
                     nextTrackToPlay = newTracks[0];
                 } else {
-                    const fallbackTrack = suggestions.find((s: any) => s.id !== lastTrack.id) || suggestions[0];
+                    const fallbackTrack =
+                        suggestions.find((s: any) => s.id !== lastTrack.id) ||
+                        suggestions[0];
                     if (fallbackTrack) {
                         state.currentQueue.push(fallbackTrack);
                         nextTrackToPlay = fallbackTrack;
                     }
                 }
-                
+
                 if (nextTrackToPlay) {
                     state.currentIndex = state.currentQueue.length - 1;
                     updateQueueUI();
@@ -1180,7 +1780,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
         let nextIndex = state.currentIndex + 1;
         if (nextIndex >= state.currentQueue.length) {
-            if (state.repeatMode === 'all') {
+            if (state.repeatMode === "all") {
                 nextIndex = 0;
             } else {
                 if (state.isAutoplay) {
@@ -1200,8 +1800,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         // Synchronous cache play check
         const cached = state.streamUrlCache && state.streamUrlCache[track.id];
         if (cached && (cached.proxyUrl || cached.streamUrl)) {
-            console.log(`[Sync Autoplay] Cache hit for ${track.title}. Transitioning synchronously.`);
-            
+            console.log(
+                `[Sync Autoplay] Cache hit for ${track.title}. Transitioning synchronously.`,
+            );
+
             // Always use proxy when it exists to route requests through our Vercel proxy.
             const useProxy = !!cached.proxyUrl;
             const playUrl = useProxy ? cached.proxyUrl : cached.streamUrl;
@@ -1210,31 +1812,41 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             audio.src = playUrl;
 
             // Sync UI details synchronously
-            titleEls().forEach(el => el && (el.textContent = track.title));
-            artistEls().forEach(el => el && (el.textContent = track.artist));
-            artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
-            
-            const glowEl = document.getElementById('immersive-artwork-glow');
+            titleEls().forEach((el) => el && (el.textContent = track.title));
+            artistEls().forEach((el) => el && (el.textContent = track.artist));
+            artworkEls().forEach(
+                (el) => el && ((el as HTMLImageElement).src = track.image),
+            );
+
+            const glowEl = document.getElementById("immersive-artwork-glow");
             if (glowEl) glowEl.style.background = getGlowGradient(track.title);
 
             updateMediaSession(track);
             updateQueueUI();
             updateRelatedUI(track.id);
-            if (state.activeTab === 'lyrics') {
+            if (state.activeTab === "lyrics") {
                 updateLyrics(track.id);
             }
 
             requestWakeLock();
-            audio.play().then(() => {
-                syncPlayPauseUI(true);
-                state.isPreFetching = false;
-                preFetchNextTrack();
-            }).catch(err => {
-                console.warn("[Sync Autoplay] Play rejected, falling back to fetchStreamAndPlay", err);
-                fetchStreamAndPlay(track);
-            });
+            audio
+                .play()
+                .then(() => {
+                    syncPlayPauseUI(true);
+                    state.isPreFetching = false;
+                    preFetchNextTrack();
+                })
+                .catch((err) => {
+                    console.warn(
+                        "[Sync Autoplay] Play rejected, falling back to fetchStreamAndPlay",
+                        err,
+                    );
+                    fetchStreamAndPlay(track);
+                });
         } else {
-            console.log(`[Sync Autoplay] Cache miss for ${track.title}. Falling back to async fetch.`);
+            console.log(
+                `[Sync Autoplay] Cache miss for ${track.title}. Falling back to async fetch.`,
+            );
             fetchStreamAndPlay(track);
         }
     }
@@ -1245,55 +1857,61 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     function prevTrack() {
         if (state.currentQueue.length === 0) return;
-        state.currentIndex = (state.currentIndex - 1 + state.currentQueue.length) % state.currentQueue.length;
+        state.currentIndex =
+            (state.currentIndex - 1 + state.currentQueue.length) %
+            state.currentQueue.length;
         fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
     }
 
     function saveState() {
-        localStorage.setItem('premium_music_state', JSON.stringify({
-            queue: state.currentQueue,
-            originalQueue: state.originalQueue,
-            index: state.currentIndex,
-            shuffle: state.isShuffle,
-            repeat: state.repeatMode
-        }));
+        localStorage.setItem(
+            "premium_music_state",
+            JSON.stringify({
+                queue: state.currentQueue,
+                originalQueue: state.originalQueue,
+                index: state.currentIndex,
+                shuffle: state.isShuffle,
+                repeat: state.repeatMode,
+            }),
+        );
     }
 
     function updateControlsUI() {
         const sBtn = shuffleBtn();
-        const immSBtn = document.getElementById('immersive-shuffle-btn');
+        const immSBtn = document.getElementById("immersive-shuffle-btn");
         if (state.isShuffle) {
-            sBtn?.classList.add('text-primary');
-            sBtn?.classList.remove('text-muted-foreground');
-            immSBtn?.classList.add('text-primary');
-            immSBtn?.classList.remove('text-muted-foreground');
+            sBtn?.classList.add("text-primary");
+            sBtn?.classList.remove("text-muted-foreground");
+            immSBtn?.classList.add("text-primary");
+            immSBtn?.classList.remove("text-muted-foreground");
         } else {
-            sBtn?.classList.remove('text-primary');
-            sBtn?.classList.add('text-muted-foreground');
-            immSBtn?.classList.remove('text-primary');
-            immSBtn?.classList.add('text-muted-foreground');
+            sBtn?.classList.remove("text-primary");
+            sBtn?.classList.add("text-muted-foreground");
+            immSBtn?.classList.remove("text-primary");
+            immSBtn?.classList.add("text-muted-foreground");
         }
 
         const rBtn = repeatBtn();
-        const immRBtn = document.getElementById('immersive-repeat-btn');
-        
+        const immRBtn = document.getElementById("immersive-repeat-btn");
+
         const applyRepeatStyle = (btn: HTMLElement | null) => {
             if (!btn) return;
-            if (state.repeatMode === 'none') {
-                btn.classList.add('text-muted-foreground');
-                btn.classList.remove('text-primary');
-                btn.querySelector('.repeat-badge')?.remove();
-            } else if (state.repeatMode === 'all') {
-                btn.classList.add('text-primary');
-                btn.classList.remove('text-muted-foreground');
-                btn.querySelector('.repeat-badge')?.remove();
-            } else if (state.repeatMode === 'one') {
-                btn.classList.add('text-primary');
-                btn.classList.remove('text-muted-foreground');
-                if (!btn.querySelector('.repeat-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'repeat-badge absolute -top-1 -right-1 text-[8px] font-black bg-primary text-primary-foreground rounded-full w-3.5 h-3.5 flex items-center justify-center';
-                    badge.innerText = '1';
+            if (state.repeatMode === "none") {
+                btn.classList.add("text-muted-foreground");
+                btn.classList.remove("text-primary");
+                btn.querySelector(".repeat-badge")?.remove();
+            } else if (state.repeatMode === "all") {
+                btn.classList.add("text-primary");
+                btn.classList.remove("text-muted-foreground");
+                btn.querySelector(".repeat-badge")?.remove();
+            } else if (state.repeatMode === "one") {
+                btn.classList.add("text-primary");
+                btn.classList.remove("text-muted-foreground");
+                if (!btn.querySelector(".repeat-badge")) {
+                    const badge = document.createElement("span");
+                    badge.className =
+                        "repeat-badge absolute -top-1 -right-1 text-[8px] font-black bg-primary text-primary-foreground rounded-full w-3.5 h-3.5 flex items-center justify-center";
+                    badge.innerText = "1";
                     btn.appendChild(badge);
                 }
             }
@@ -1305,12 +1923,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const aBtn = autoplayBtn();
         const aTgl = autoplayToggle();
         if (state.isAutoplay) {
-            aBtn?.classList.add('text-primary');
-            aBtn?.classList.remove('text-muted-foreground');
+            aBtn?.classList.add("text-primary");
+            aBtn?.classList.remove("text-muted-foreground");
             if (aTgl) aTgl.checked = true;
         } else {
-            aBtn?.classList.remove('text-primary');
-            aBtn?.classList.add('text-muted-foreground');
+            aBtn?.classList.remove("text-primary");
+            aBtn?.classList.add("text-muted-foreground");
             if (aTgl) aTgl.checked = false;
         }
     }
@@ -1321,20 +1939,24 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (state.isShuffle) {
             state.originalQueue = [...state.currentQueue];
             const currentTrack = state.currentQueue[state.currentIndex];
-            const remaining = state.currentQueue.filter((_: any, idx: number) => idx !== state.currentIndex);
-            
+            const remaining = state.currentQueue.filter(
+                (_: any, idx: number) => idx !== state.currentIndex,
+            );
+
             for (let i = remaining.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
             }
-            
+
             state.currentQueue = [currentTrack, ...remaining];
             state.currentIndex = 0;
         } else {
             const currentTrack = state.currentQueue[state.currentIndex];
             if (state.originalQueue.length > 0) {
                 state.currentQueue = [...state.originalQueue];
-                state.currentIndex = state.currentQueue.findIndex((t: any) => t.id === currentTrack.id);
+                state.currentIndex = state.currentQueue.findIndex(
+                    (t: any) => t.id === currentTrack.id,
+                );
             }
         }
         updateQueueUI();
@@ -1343,12 +1965,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function handleRepeatToggle() {
-        if (state.repeatMode === 'none') {
-            state.repeatMode = 'all';
-        } else if (state.repeatMode === 'all') {
-            state.repeatMode = 'one';
+        if (state.repeatMode === "none") {
+            state.repeatMode = "all";
+        } else if (state.repeatMode === "all") {
+            state.repeatMode = "one";
         } else {
-            state.repeatMode = 'none';
+            state.repeatMode = "none";
         }
         updateControlsUI();
         saveState();
@@ -1361,43 +1983,51 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         } else {
             state.isAutoplay = !state.isAutoplay;
         }
-        localStorage.setItem('premium_music_autoplay', state.isAutoplay.toString());
+        localStorage.setItem(
+            "premium_music_autoplay",
+            state.isAutoplay.toString(),
+        );
         updateControlsUI();
     }
 
-    const toggleImmersive = () => immersivePlayer?.classList.toggle('translate-y-full');
+    const toggleImmersive = () =>
+        immersivePlayer?.classList.toggle("translate-y-full");
 
     function loadState() {
-        const savedAutoplay = localStorage.getItem('premium_music_autoplay');
+        const savedAutoplay = localStorage.getItem("premium_music_autoplay");
         if (savedAutoplay !== null) {
-            state.isAutoplay = savedAutoplay === 'true';
+            state.isAutoplay = savedAutoplay === "true";
         }
 
         if (state.currentQueue.length > 0 && state.currentIndex !== -1) {
             const track = state.currentQueue[state.currentIndex];
-            titleEls().forEach(el => el && (el.textContent = track.title));
-            artistEls().forEach(el => el && (el.textContent = track.artist));
-            artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
-            
-            const glowEl = document.getElementById('immersive-artwork-glow');
+            titleEls().forEach((el) => el && (el.textContent = track.title));
+            artistEls().forEach((el) => el && (el.textContent = track.artist));
+            artworkEls().forEach(
+                (el) => el && ((el as HTMLImageElement).src = track.image),
+            );
+
+            const glowEl = document.getElementById("immersive-artwork-glow");
             if (glowEl) glowEl.style.background = getGlowGradient(track.title);
 
-            miniPlayer?.classList.remove('translate-y-full');
+            miniPlayer?.classList.remove("translate-y-full");
             updateQueueUI();
-            if (state.activeTab === 'lyrics') {
+            if (state.activeTab === "lyrics") {
                 updateLyrics(track.id);
             } else {
                 const lyr = lyricsContent();
-                if (lyr) lyr.innerHTML = '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+                if (lyr)
+                    lyr.innerHTML =
+                        '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
             }
             updateRelatedUI(track.id);
-            
+
             syncPlayPauseUI(state.isPlaying);
             updateControlsUI();
             return;
         }
 
-        const saved = localStorage.getItem('premium_music_state');
+        const saved = localStorage.getItem("premium_music_state");
         if (saved) {
             try {
                 const loadedState = JSON.parse(saved);
@@ -1405,23 +2035,38 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 state.originalQueue = loadedState.originalQueue || [];
                 state.currentIndex = loadedState.index || -1;
                 state.isShuffle = loadedState.shuffle || false;
-                state.repeatMode = loadedState.repeat || 'none';
-                if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+                state.repeatMode = loadedState.repeat || "none";
+                if (
+                    state.currentIndex !== -1 &&
+                    state.currentQueue[state.currentIndex]
+                ) {
                     const track = state.currentQueue[state.currentIndex];
-                    titleEls().forEach(el => el && (el.textContent = track.title));
-                    artistEls().forEach(el => el && (el.textContent = track.artist));
-                    artworkEls().forEach(el => el && ((el as HTMLImageElement).src = track.image));
-                    
-                    const glowEl = document.getElementById('immersive-artwork-glow');
-                    if (glowEl) glowEl.style.background = getGlowGradient(track.title);
+                    titleEls().forEach(
+                        (el) => el && (el.textContent = track.title),
+                    );
+                    artistEls().forEach(
+                        (el) => el && (el.textContent = track.artist),
+                    );
+                    artworkEls().forEach(
+                        (el) =>
+                            el && ((el as HTMLImageElement).src = track.image),
+                    );
 
-                    miniPlayer?.classList.remove('translate-y-full');
+                    const glowEl = document.getElementById(
+                        "immersive-artwork-glow",
+                    );
+                    if (glowEl)
+                        glowEl.style.background = getGlowGradient(track.title);
+
+                    miniPlayer?.classList.remove("translate-y-full");
                     updateQueueUI();
-                    if (state.activeTab === 'lyrics') {
+                    if (state.activeTab === "lyrics") {
                         updateLyrics(track.id);
                     } else {
                         const lyr = lyricsContent();
-                        if (lyr) lyr.innerHTML = '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+                        if (lyr)
+                            lyr.innerHTML =
+                                '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
                     }
                     updateRelatedUI(track.id);
                 }
@@ -1432,24 +2077,24 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function initPlayer() {
-        audio = document.getElementById('main-audio') as HTMLAudioElement;
-        miniPlayer = document.getElementById('audio-player');
-        immersivePlayer = document.getElementById('immersive-player');
+        audio = document.getElementById("main-audio") as HTMLAudioElement;
+        miniPlayer = document.getElementById("audio-player");
+        immersivePlayer = document.getElementById("immersive-player");
 
         if (!audio) return;
 
         // Register Media Session action handlers
-        if ('mediaSession' in navigator) {
-            navigator.mediaSession.setActionHandler('play', () => {
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.setActionHandler("play", () => {
                 audio.play().catch(() => {});
             });
-            navigator.mediaSession.setActionHandler('pause', () => {
+            navigator.mediaSession.setActionHandler("pause", () => {
                 audio.pause();
             });
-            navigator.mediaSession.setActionHandler('previoustrack', prevTrack);
-            navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
+            navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
+            navigator.mediaSession.setActionHandler("nexttrack", nextTrack);
             try {
-                navigator.mediaSession.setActionHandler('seekto', (details) => {
+                navigator.mediaSession.setActionHandler("seekto", (details) => {
                     if (details.seekTime !== undefined) {
                         audio.currentTime = details.seekTime;
                     }
@@ -1459,7 +2104,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
         // HTML5 Audio element listeners
         audio.onended = () => {
-            if (state.repeatMode === 'one') {
+            if (state.repeatMode === "one") {
                 audio.currentTime = 0;
                 audio.play();
             } else {
@@ -1498,21 +2143,34 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             syncPlayPauseUI(nextPlayingState);
 
             const currentSrc = audio.src;
-            if (!currentSrc || currentSrc === window.location.href || currentSrc.endsWith('/')) {
-                if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+            if (
+                !currentSrc ||
+                currentSrc === window.location.href ||
+                currentSrc.endsWith("/")
+            ) {
+                if (
+                    state.currentIndex !== -1 &&
+                    state.currentQueue[state.currentIndex]
+                ) {
                     fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
                     return;
                 }
             }
-            
+
             if (nextPlayingState) {
-                audio.play().then(() => {
-                    requestWakeLock();
-                }).catch((err) => {
-                    console.warn("Audio play failed, reverting UI state:", err);
-                    syncPlayPauseUI(false);
-                    releaseWakeLock();
-                });
+                audio
+                    .play()
+                    .then(() => {
+                        requestWakeLock();
+                    })
+                    .catch((err) => {
+                        console.warn(
+                            "Audio play failed, reverting UI state:",
+                            err,
+                        );
+                        syncPlayPauseUI(false);
+                        releaseWakeLock();
+                    });
             } else {
                 audio.pause();
                 releaseWakeLock();
@@ -1520,90 +2178,107 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         };
 
         // Bind play/pause
-        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playPauseBtn = document.getElementById("play-pause-btn");
         if (playPauseBtn && !playPauseBtn.dataset.bound) {
             playPauseBtn.dataset.bound = "true";
-            playPauseBtn.addEventListener('click', togglePlay);
+            playPauseBtn.addEventListener("click", togglePlay);
         }
 
-        const mobMiniPlayPause = document.getElementById('mobile-mini-play-pause');
+        const mobMiniPlayPause = document.getElementById(
+            "mobile-mini-play-pause",
+        );
         if (mobMiniPlayPause && !mobMiniPlayPause.dataset.bound) {
             mobMiniPlayPause.dataset.bound = "true";
-            mobMiniPlayPause.addEventListener('click', (e) => {
+            mobMiniPlayPause.addEventListener("click", (e) => {
                 e.stopPropagation();
                 togglePlay();
             });
         }
 
-        const immPlayPauseBtn = document.getElementById('immersive-play-pause-btn');
+        const immPlayPauseBtn = document.getElementById(
+            "immersive-play-pause-btn",
+        );
         if (immPlayPauseBtn && !immPlayPauseBtn.dataset.bound) {
             immPlayPauseBtn.dataset.bound = "true";
-            immPlayPauseBtn.addEventListener('click', togglePlay);
+            immPlayPauseBtn.addEventListener("click", togglePlay);
         }
 
         // Next and Prev binding
-        const bindControl = (id: string, action: () => void, stopEvent: boolean = false) => {
+        const bindControl = (
+            id: string,
+            action: () => void,
+            stopEvent: boolean = false,
+        ) => {
             const btn = document.getElementById(id);
             if (btn && !btn.dataset.bound) {
                 btn.dataset.bound = "true";
-                btn.addEventListener('click', (e) => {
+                btn.addEventListener("click", (e) => {
                     if (stopEvent) e.stopPropagation();
                     action();
                 });
             }
         };
 
-        bindControl('next-btn', nextTrack);
-        bindControl('immersive-next-btn', nextTrack);
-        bindControl('mobile-mini-next', nextTrack, true);
-        bindControl('prev-btn', prevTrack);
-        bindControl('immersive-prev-btn', prevTrack);
+        bindControl("next-btn", nextTrack);
+        bindControl("immersive-next-btn", nextTrack);
+        bindControl("mobile-mini-next", nextTrack, true);
+        bindControl("prev-btn", prevTrack);
+        bindControl("immersive-prev-btn", prevTrack);
 
         // Shuffles & Repeats
-        bindControl('shuffle-btn', handleShuffleToggle);
-        bindControl('immersive-shuffle-btn', handleShuffleToggle);
-        bindControl('repeat-btn', handleRepeatToggle);
-        bindControl('immersive-repeat-btn', handleRepeatToggle);
-        bindControl('autoplay-btn', handleAutoplayToggle);
+        bindControl("shuffle-btn", handleShuffleToggle);
+        bindControl("immersive-shuffle-btn", handleShuffleToggle);
+        bindControl("repeat-btn", handleRepeatToggle);
+        bindControl("immersive-repeat-btn", handleRepeatToggle);
+        bindControl("autoplay-btn", handleAutoplayToggle);
 
         const aTgl = autoplayToggle();
         if (aTgl && !aTgl.dataset.bound) {
             aTgl.dataset.bound = "true";
-            aTgl.addEventListener('change', handleAutoplayToggle);
+            aTgl.addEventListener("change", handleAutoplayToggle);
         }
 
         // Likes
-        bindControl('mini-like-btn', handleLikeToggle as any);
-        bindControl('immersive-like-btn', handleLikeToggle as any);
+        bindControl("mini-like-btn", handleLikeToggle as any);
+        bindControl("immersive-like-btn", handleLikeToggle as any);
 
         // Download bindings
         const handleDownload = async () => {
-            if (state.currentIndex === -1 || !state.currentQueue[state.currentIndex]) return;
+            if (
+                state.currentIndex === -1 ||
+                !state.currentQueue[state.currentIndex]
+            )
+                return;
             const track = state.currentQueue[state.currentIndex];
-            
+
             const downloadBtns = [
-                document.getElementById('mini-download-btn'),
-                document.getElementById('mobile-mini-download'),
-                document.getElementById('immersive-download-btn')
+                document.getElementById("mini-download-btn"),
+                document.getElementById("mobile-mini-download"),
+                document.getElementById("immersive-download-btn"),
             ];
-            
+
             const updateDownloadProgress = (text: string, active: boolean) => {
-                downloadBtns.forEach(btn => {
+                downloadBtns.forEach((btn) => {
                     if (btn) {
                         if (active) {
-                            btn.classList.add('animate-pulse', 'text-primary');
-                            btn.setAttribute('title', text);
+                            btn.classList.add("animate-pulse", "text-primary");
+                            btn.setAttribute("title", text);
                         } else {
-                            btn.classList.remove('animate-pulse', 'text-primary');
-                            btn.setAttribute('title', 'Download song');
+                            btn.classList.remove(
+                                "animate-pulse",
+                                "text-primary",
+                            );
+                            btn.setAttribute("title", "Download song");
                         }
                     }
                 });
             };
 
-            updateDownloadProgress('Preparing...', true);
+            updateDownloadProgress("Preparing...", true);
 
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isLocalhost =
+                window.location.hostname === "localhost" ||
+                window.location.hostname === "127.0.0.1";
 
             try {
                 let streamUrl = state.currentStreamUrl;
@@ -1613,7 +2288,9 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 const data = await apiFetch(`/stream/${track.id}`);
                 if (data) {
                     streamUrl = data.url;
-                    proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                    proxyUrl = data.proxy_url.startsWith("http")
+                        ? data.proxy_url
+                        : `${API_BASE}${data.proxy_url}`;
                 }
 
                 if (!streamUrl) {
@@ -1623,44 +2300,54 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 // If on production Vercel, redirect directly to the backend download endpoint.
                 // The backend redirects to a playable direct attachment URL to bypass Vercel constraints.
                 if (!isLocalhost) {
-                    console.log("[Downloader] Using production download redirect endpoint...");
-                    updateDownloadProgress('Downloading...', true);
+                    console.log(
+                        "[Downloader] Using production download redirect endpoint...",
+                    );
+                    updateDownloadProgress("Downloading...", true);
                     window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                    setTimeout(() => updateDownloadProgress('Download complete', false), 2000);
+                    setTimeout(
+                        () =>
+                            updateDownloadProgress("Download complete", false),
+                        2000,
+                    );
                     return;
                 }
 
                 // Range request for 0-0 to retrieve total size via Content-Range
                 const testRes = await fetch(proxyUrl, {
-                    headers: { 'Range': 'bytes=0-0' }
+                    headers: { Range: "bytes=0-0" },
                 });
 
                 if (!testRes.ok) {
-                    throw new Error(`Failed to initialize stream download: ${testRes.status}`);
+                    throw new Error(
+                        `Failed to initialize stream download: ${testRes.status}`,
+                    );
                 }
 
-                const contentRange = testRes.headers.get('Content-Range');
+                const contentRange = testRes.headers.get("Content-Range");
                 let totalSize = 0;
                 if (contentRange) {
-                    const parts = contentRange.split('/');
+                    const parts = contentRange.split("/");
                     if (parts.length > 1) {
                         totalSize = parseInt(parts[1]);
                     }
                 }
-                
+
                 if (!totalSize) {
-                    const cl = testRes.headers.get('Content-Length');
+                    const cl = testRes.headers.get("Content-Length");
                     totalSize = cl ? parseInt(cl) : 0;
                 }
 
                 if (!totalSize) {
                     // Fallback to direct download
                     window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                    updateDownloadProgress('Downloading...', false);
+                    updateDownloadProgress("Downloading...", false);
                     return;
                 }
 
-                console.log(`[Chunk Downloader] Total size: ${totalSize} bytes`);
+                console.log(
+                    `[Chunk Downloader] Total size: ${totalSize} bytes`,
+                );
 
                 // 2.5 MB chunk size (staying safely below Vercel's 4.5MB limit)
                 const chunkSize = 2.5 * 1024 * 1024;
@@ -1671,14 +2358,18 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     const end = Math.min(start + chunkSize - 1, totalSize - 1);
                     const progress = Math.round((start / totalSize) * 100);
                     updateDownloadProgress(`Downloading: ${progress}%`, true);
-                    console.log(`[Chunk Downloader] Fetching range: ${start}-${end}`);
+                    console.log(
+                        `[Chunk Downloader] Fetching range: ${start}-${end}`,
+                    );
 
                     const chunkRes = await fetch(proxyUrl, {
-                        headers: { 'Range': `bytes=${start}-${end}` }
+                        headers: { Range: `bytes=${start}-${end}` },
                     });
 
                     if (!chunkRes.ok) {
-                        throw new Error(`Failed to download audio chunk: ${chunkRes.status}`);
+                        throw new Error(
+                            `Failed to download audio chunk: ${chunkRes.status}`,
+                        );
                     }
 
                     const blob = await chunkRes.blob();
@@ -1686,51 +2377,52 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     start += chunkSize;
                 }
 
-                updateDownloadProgress('Saving...', true);
+                updateDownloadProgress("Saving...", true);
 
-                const finalBlob = new Blob(blobs, { type: 'audio/mpeg' });
+                const finalBlob = new Blob(blobs, { type: "audio/mpeg" });
                 const downloadUrl = URL.createObjectURL(finalBlob);
 
-                const link = document.createElement('a');
+                const link = document.createElement("a");
                 link.href = downloadUrl;
                 link.download = `${track.title}.mp3`;
                 document.body.appendChild(link);
                 link.click();
-                
+
                 document.body.removeChild(link);
                 URL.revokeObjectURL(downloadUrl);
-                updateDownloadProgress('Download complete', false);
+                updateDownloadProgress("Download complete", false);
                 console.log("[Chunk Downloader] Download complete!");
-
             } catch (err) {
                 console.error("[Chunk Downloader] Download failed:", err);
-                updateDownloadProgress('Failed', false);
+                updateDownloadProgress("Failed", false);
                 window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
             }
         };
 
-        const miniDownloadBtn = document.getElementById('mini-download-btn');
+        const miniDownloadBtn = document.getElementById("mini-download-btn");
         if (miniDownloadBtn && !miniDownloadBtn.dataset.bound) {
             miniDownloadBtn.dataset.bound = "true";
-            miniDownloadBtn.addEventListener('click', (e) => {
+            miniDownloadBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 handleDownload();
             });
         }
 
-        const mobDownloadBtn = document.getElementById('mobile-mini-download');
+        const mobDownloadBtn = document.getElementById("mobile-mini-download");
         if (mobDownloadBtn && !mobDownloadBtn.dataset.bound) {
             mobDownloadBtn.dataset.bound = "true";
-            mobDownloadBtn.addEventListener('click', (e) => {
+            mobDownloadBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 handleDownload();
             });
         }
 
-        const immDownloadBtn = document.getElementById('immersive-download-btn');
+        const immDownloadBtn = document.getElementById(
+            "immersive-download-btn",
+        );
         if (immDownloadBtn && !immDownloadBtn.dataset.bound) {
             immDownloadBtn.dataset.bound = "true";
-            immDownloadBtn.addEventListener('click', handleDownload);
+            immDownloadBtn.addEventListener("click", handleDownload);
         }
 
         // Progress Seeking with Drag & Touch Support
@@ -1738,197 +2430,276 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             const container = document.getElementById(containerId);
             if (container && !container.dataset.bound) {
                 container.dataset.bound = "true";
-                
+
                 let isDragging = false;
-                
+
                 const seekToPos = (clientX: number) => {
                     const rect = container.getBoundingClientRect();
-                    const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-                    
-                    const progressBar = document.getElementById('progress-bar');
-                    const progressHandle = document.getElementById('progress-handle');
-                    const mobProgressBar = document.getElementById('mobile-progress-bar');
-                    const mobProgressHandle = document.getElementById('mobile-progress-handle');
-                    const immProgressBar = document.getElementById('immersive-progress-bar');
-                    const immProgressHandle = document.getElementById('immersive-progress-handle');
+                    const pos = Math.max(
+                        0,
+                        Math.min(1, (clientX - rect.left) / rect.width),
+                    );
+
+                    const progressBar = document.getElementById("progress-bar");
+                    const progressHandle =
+                        document.getElementById("progress-handle");
+                    const mobProgressBar = document.getElementById(
+                        "mobile-progress-bar",
+                    );
+                    const mobProgressHandle = document.getElementById(
+                        "mobile-progress-handle",
+                    );
+                    const immProgressBar = document.getElementById(
+                        "immersive-progress-bar",
+                    );
+                    const immProgressHandle = document.getElementById(
+                        "immersive-progress-handle",
+                    );
                     if (progressBar) progressBar.style.width = `${pos * 100}%`;
-                    if (progressHandle) progressHandle.style.left = `${pos * 100}%`;
-                    if (mobProgressBar) mobProgressBar.style.width = `${pos * 100}%`;
-                    if (mobProgressHandle) mobProgressHandle.style.left = `${pos * 100}%`;
-                    if (immProgressBar) immProgressBar.style.width = `${pos * 100}%`;
-                    if (immProgressHandle) immProgressHandle.style.left = `${pos * 100}%`;
-                    
+                    if (progressHandle)
+                        progressHandle.style.left = `${pos * 100}%`;
+                    if (mobProgressBar)
+                        mobProgressBar.style.width = `${pos * 100}%`;
+                    if (mobProgressHandle)
+                        mobProgressHandle.style.left = `${pos * 100}%`;
+                    if (immProgressBar)
+                        immProgressBar.style.width = `${pos * 100}%`;
+                    if (immProgressHandle)
+                        immProgressHandle.style.left = `${pos * 100}%`;
+
                     const duration = getDuration();
                     if (duration > 0) {
                         const currentTime = pos * duration;
-                        const currentTimeEl = document.getElementById('current-time');
-                        const immCurrentTimeEl = document.getElementById('immersive-current-time');
-                        if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
-                        if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
-                        
+                        const currentTimeEl =
+                            document.getElementById("current-time");
+                        const immCurrentTimeEl = document.getElementById(
+                            "immersive-current-time",
+                        );
+                        if (currentTimeEl)
+                            currentTimeEl.textContent = formatTime(currentTime);
+                        if (immCurrentTimeEl)
+                            immCurrentTimeEl.textContent =
+                                formatTime(currentTime);
+
                         audio.currentTime = currentTime;
                         updateActiveLyric(currentTime); // Smoothly update active lyric scrolling during drag seeking!
                     }
                 };
-                
-                container.addEventListener('mousedown', (e) => {
+
+                container.addEventListener("mousedown", (e) => {
                     isDragging = true;
                     seekToPos(e.clientX);
                 });
-                
-                window.addEventListener('mousemove', (e) => {
+
+                window.addEventListener("mousemove", (e) => {
                     if (isDragging) seekToPos(e.clientX);
                 });
-                
-                window.addEventListener('mouseup', () => {
+
+                window.addEventListener("mouseup", () => {
                     isDragging = false;
                 });
-                
+
                 // Touch support for phones
-                container.addEventListener('touchstart', (e) => {
-                    isDragging = true;
-                    seekToPos(e.touches[0].clientX);
-                }, { passive: true });
-                
-                window.addEventListener('touchmove', (e) => {
-                    if (isDragging) seekToPos(e.touches[0].clientX);
-                }, { passive: true });
-                
-                window.addEventListener('touchend', () => {
+                container.addEventListener(
+                    "touchstart",
+                    (e) => {
+                        isDragging = true;
+                        seekToPos(e.touches[0].clientX);
+                    },
+                    { passive: true },
+                );
+
+                window.addEventListener(
+                    "touchmove",
+                    (e) => {
+                        if (isDragging) seekToPos(e.touches[0].clientX);
+                    },
+                    { passive: true },
+                );
+
+                window.addEventListener("touchend", () => {
                     isDragging = false;
                 });
             }
         };
 
-        bindProgressContainer('progress-container');
-        bindProgressContainer('mobile-progress-container');
-        bindProgressContainer('immersive-progress-container');
+        bindProgressContainer("progress-container");
+        bindProgressContainer("mobile-progress-container");
+        bindProgressContainer("immersive-progress-container");
 
         // Allow clicking the bottom player anywhere (except buttons/volume) to open immersive view on mobile
-        const audioPlayerContainer = document.getElementById('audio-player');
+        const audioPlayerContainer = document.getElementById("audio-player");
         if (audioPlayerContainer && !audioPlayerContainer.dataset.clickBound) {
             audioPlayerContainer.dataset.clickBound = "true";
-            audioPlayerContainer.addEventListener('click', (e) => {
+            audioPlayerContainer.addEventListener("click", (e) => {
                 const target = e.target as HTMLElement;
-                if (target.closest('button') || target.closest('a') || target.closest('#volume-container') || target.closest('#mobile-progress-container') || target.closest('#progress-container')) {
+                if (
+                    target.closest("button") ||
+                    target.closest("a") ||
+                    target.closest("#volume-container") ||
+                    target.closest("#mobile-progress-container") ||
+                    target.closest("#progress-container")
+                ) {
                     return;
                 }
-                const immPlayer = document.getElementById('immersive-player');
+                const immPlayer = document.getElementById("immersive-player");
                 if (immPlayer) {
-                    immPlayer.classList.remove('translate-y-full');
+                    immPlayer.classList.remove("translate-y-full");
                 }
             });
         }
 
         // Volume Seek with Drag & Touch Support
-        const volumeContainer = document.getElementById('volume-container');
+        const volumeContainer = document.getElementById("volume-container");
         if (volumeContainer && !volumeContainer.dataset.bound) {
             volumeContainer.dataset.bound = "true";
-            
+
             let isDraggingVolume = false;
-            
+
             const setVolumeFromPos = (clientX: number) => {
                 const rect = volumeContainer.getBoundingClientRect();
-                const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+                const pos = Math.max(
+                    0,
+                    Math.min(1, (clientX - rect.left) / rect.width),
+                );
                 audio.volume = pos;
-                const volumeBar = document.getElementById('volume-bar');
+                const volumeBar = document.getElementById("volume-bar");
                 if (volumeBar) volumeBar.style.width = `${pos * 100}%`;
             };
-            
-            volumeContainer.addEventListener('mousedown', (e) => {
+
+            volumeContainer.addEventListener("mousedown", (e) => {
                 isDraggingVolume = true;
                 setVolumeFromPos(e.clientX);
             });
-            
-            window.addEventListener('mousemove', (e) => {
+
+            window.addEventListener("mousemove", (e) => {
                 if (isDraggingVolume) setVolumeFromPos(e.clientX);
             });
-            
-            window.addEventListener('mouseup', () => {
+
+            window.addEventListener("mouseup", () => {
                 isDraggingVolume = false;
             });
-            
-            volumeContainer.addEventListener('touchstart', (e) => {
-                isDraggingVolume = true;
-                setVolumeFromPos(e.touches[0].clientX);
-            }, { passive: true });
-            
-            window.addEventListener('touchmove', (e) => {
-                if (isDraggingVolume) setVolumeFromPos(e.touches[0].clientX);
-            }, { passive: true });
-            
-            window.addEventListener('touchend', () => {
+
+            volumeContainer.addEventListener(
+                "touchstart",
+                (e) => {
+                    isDraggingVolume = true;
+                    setVolumeFromPos(e.touches[0].clientX);
+                },
+                { passive: true },
+            );
+
+            window.addEventListener(
+                "touchmove",
+                (e) => {
+                    if (isDraggingVolume)
+                        setVolumeFromPos(e.touches[0].clientX);
+                },
+                { passive: true },
+            );
+
+            window.addEventListener("touchend", () => {
                 isDraggingVolume = false;
             });
         }
 
         // Overlay Toggle triggers
-        const mInfo = document.getElementById('mini-info');
+        const mInfo = document.getElementById("mini-info");
         if (mInfo && !mInfo.dataset.bound) {
             mInfo.dataset.bound = "true";
-            mInfo.addEventListener('click', () => {
+            mInfo.addEventListener("click", () => {
                 toggleImmersive();
                 switchTab(state.activeTab);
             });
         }
 
-        const toggleImmBtn = document.getElementById('toggle-immersive-btn');
+        const toggleImmBtn = document.getElementById("toggle-immersive-btn");
         if (toggleImmBtn && !toggleImmBtn.dataset.bound) {
             toggleImmBtn.dataset.bound = "true";
-            toggleImmBtn.addEventListener('click', () => {
+            toggleImmBtn.addEventListener("click", () => {
                 toggleImmersive();
                 switchTab(state.activeTab);
             });
         }
 
-        const closeImm = document.getElementById('close-immersive');
+        const closeImm = document.getElementById("close-immersive");
         if (closeImm && !closeImm.dataset.bound) {
             closeImm.dataset.bound = "true";
-            closeImm.addEventListener('click', toggleImmersive);
+            closeImm.addEventListener("click", toggleImmersive);
         }
 
         // Tab selection switcher in full overlay
-        const tQueue = document.getElementById('tab-queue');
-        const tLyrics = document.getElementById('tab-lyrics');
-        const tRelated = document.getElementById('tab-related');
-        const qContent = document.getElementById('queue-content');
-        const lyrContent = document.getElementById('lyrics-content');
-        const relContent = document.getElementById('related-content');
+        const tQueue = document.getElementById("tab-queue");
+        const tLyrics = document.getElementById("tab-lyrics");
+        const tRelated = document.getElementById("tab-related");
+        const qContent = document.getElementById("queue-content");
+        const lyrContent = document.getElementById("lyrics-content");
+        const relContent = document.getElementById("related-content");
 
         const switchTab = (activeTab: string) => {
             state.activeTab = activeTab;
-            [tQueue, tLyrics, tRelated].forEach(t => {
-                t?.classList.remove('bg-primary/5', 'border-primary', 'text-white');
-                t?.classList.add('text-white/60', 'border-transparent');
+            [tQueue, tLyrics, tRelated].forEach((t) => {
+                t?.classList.remove(
+                    "bg-primary/5",
+                    "border-primary",
+                    "text-white",
+                );
+                t?.classList.add("text-white/60", "border-transparent");
             });
-            [qContent, lyrContent, relContent].forEach(c => c?.classList.add('hidden'));
+            [qContent, lyrContent, relContent].forEach((c) =>
+                c?.classList.add("hidden"),
+            );
 
-            const leftCol = document.getElementById('immersive-left-column');
-            const rightCol = document.getElementById('immersive-right-column');
+            const leftCol = document.getElementById("immersive-left-column");
+            const rightCol = document.getElementById("immersive-right-column");
 
             // Responsive wrapper: keep columns visible and let them stack vertically on mobile (flex-col) and side-by-side on desktop (lg:flex-row)
-            leftCol?.classList.remove('hidden');
-            leftCol?.classList.add('flex');
-            rightCol?.classList.remove('hidden');
-            rightCol?.classList.add('flex');
+            leftCol?.classList.remove("hidden");
+            leftCol?.classList.add("flex");
+            rightCol?.classList.remove("hidden");
+            rightCol?.classList.add("flex");
 
-            if (activeTab === 'queue') {
-                tQueue?.classList.add('bg-primary/5', 'border-primary', 'text-white');
-                tQueue?.classList.remove('text-white/60', 'border-transparent');
-                qContent?.classList.remove('hidden');
+            if (activeTab === "queue") {
+                tQueue?.classList.add(
+                    "bg-primary/5",
+                    "border-primary",
+                    "text-white",
+                );
+                tQueue?.classList.remove("text-white/60", "border-transparent");
+                qContent?.classList.remove("hidden");
                 updateQueueUI();
-            } else if (activeTab === 'lyrics') {
-                tLyrics?.classList.add('bg-primary/5', 'border-primary', 'text-white');
-                tLyrics?.classList.remove('text-white/60', 'border-transparent');
-                lyrContent?.classList.remove('hidden');
-                if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+            } else if (activeTab === "lyrics") {
+                tLyrics?.classList.add(
+                    "bg-primary/5",
+                    "border-primary",
+                    "text-white",
+                );
+                tLyrics?.classList.remove(
+                    "text-white/60",
+                    "border-transparent",
+                );
+                lyrContent?.classList.remove("hidden");
+                if (
+                    state.currentIndex !== -1 &&
+                    state.currentQueue[state.currentIndex]
+                ) {
                     updateLyrics(state.currentQueue[state.currentIndex].id);
                 }
-            } else if (activeTab === 'related') {
-                tRelated?.classList.add('bg-primary/5', 'border-primary', 'text-white');
-                tRelated?.classList.remove('text-white/60', 'border-transparent');
-                relContent?.classList.remove('hidden');
-                if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+            } else if (activeTab === "related") {
+                tRelated?.classList.add(
+                    "bg-primary/5",
+                    "border-primary",
+                    "text-white",
+                );
+                tRelated?.classList.remove(
+                    "text-white/60",
+                    "border-transparent",
+                );
+                relContent?.classList.remove("hidden");
+                if (
+                    state.currentIndex !== -1 &&
+                    state.currentQueue[state.currentIndex]
+                ) {
                     updateRelatedUI(state.currentQueue[state.currentIndex].id);
                 }
             }
@@ -1936,29 +2707,37 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
         if (tQueue && !tQueue.dataset.bound) {
             tQueue.dataset.bound = "true";
-            tQueue.addEventListener('click', () => switchTab('queue'));
+            tQueue.addEventListener("click", () => switchTab("queue"));
         }
         if (tLyrics && !tLyrics.dataset.bound) {
             tLyrics.dataset.bound = "true";
-            tLyrics.addEventListener('click', () => switchTab('lyrics'));
+            tLyrics.addEventListener("click", () => switchTab("lyrics"));
         }
         if (tRelated && !tRelated.dataset.bound) {
             tRelated.dataset.bound = "true";
-            tRelated.addEventListener('click', () => switchTab('related'));
+            tRelated.addEventListener("click", () => switchTab("related"));
         }
 
         // Remove old listeners to prevent multiple bindings during page swaps
         if ((window as any).playTrackListener) {
-            window.removeEventListener('play-track', (window as any).playTrackListener);
+            window.removeEventListener(
+                "play-track",
+                (window as any).playTrackListener,
+            );
         }
         if ((window as any).addToQueueListener) {
-            window.removeEventListener('add-to-queue', (window as any).addToQueueListener);
+            window.removeEventListener(
+                "add-to-queue",
+                (window as any).addToQueueListener,
+            );
         }
 
         // Define and bind new listeners for this page load
         (window as any).playTrackListener = async (e: CustomEvent) => {
             const track = e.detail;
-            const existingIdx = state.currentQueue.findIndex((t: any) => t.id === track.id);
+            const existingIdx = state.currentQueue.findIndex(
+                (t: any) => t.id === track.id,
+            );
             if (existingIdx === -1) {
                 state.currentQueue.push(track);
                 state.currentIndex = state.currentQueue.length - 1;
@@ -1981,22 +2760,28 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     state.originalQueue.push(track);
                 }
                 updateQueueUI();
-                miniPlayer?.classList.remove('translate-y-full');
+                miniPlayer?.classList.remove("translate-y-full");
                 saveState();
             }
         };
 
-        window.addEventListener('play-track', (window as any).playTrackListener as any);
-        window.addEventListener('add-to-queue', (window as any).addToQueueListener as any);
+        window.addEventListener(
+            "play-track",
+            (window as any).playTrackListener as any,
+        );
+        window.addEventListener(
+            "add-to-queue",
+            (window as any).addToQueueListener as any,
+        );
 
         // Unified Document Click Delegation for dynamically rendered song triggers and playlist routing
         if (!(document as any).clickBound) {
             (document as any).clickBound = true;
-            document.addEventListener('click', (e) => {
+            document.addEventListener("click", (e) => {
                 const target = e.target as HTMLElement;
 
                 // Playlist click routing
-                const plTrigger = target.closest('.playlist-trigger');
+                const plTrigger = target.closest(".playlist-trigger");
                 if (plTrigger) {
                     const id = (plTrigger as HTMLElement).dataset.id;
                     navigate(`/playlist?id=${id}`);
@@ -2004,19 +2789,37 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 }
 
                 // Add to queue trigger
-                const queueBtn = target.closest('.queue-add');
+                const queueBtn = target.closest(".queue-add");
                 if (queueBtn) {
                     e.stopPropagation();
-                    const track = queueBtn.closest('.track-trigger') as HTMLElement;
-                    window.dispatchEvent(new CustomEvent('add-to-queue', { detail: { ...track.dataset } }));
+                    const track = queueBtn.closest(
+                        ".track-trigger",
+                    ) as HTMLElement;
+                    window.dispatchEvent(
+                        new CustomEvent("add-to-queue", {
+                            detail: { ...track.dataset },
+                        }),
+                    );
                     return;
                 }
 
                 // Play track trigger
-                const trigger = target.closest('.track-trigger');
+                const trigger = target.closest(".track-trigger");
                 if (trigger) {
-                    const { id, title, artist, artwork } = (trigger as HTMLElement).dataset;
-                    window.dispatchEvent(new CustomEvent('play-track', { detail: { id, title, artist, artwork, image: artwork } }));
+                    const { id, title, artist, artwork } = (
+                        trigger as HTMLElement
+                    ).dataset;
+                    window.dispatchEvent(
+                        new CustomEvent("play-track", {
+                            detail: {
+                                id,
+                                title,
+                                artist,
+                                artwork,
+                                image: artwork,
+                            },
+                        }),
+                    );
                 }
             });
         }
@@ -2024,7 +2827,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         loadState();
     }
 
-    document.addEventListener('astro:page-load', initPlayer);
+    document.addEventListener("astro:page-load", initPlayer);
 </script>
 
 <style>
@@ -2038,8 +2841,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         animation-play-state: running;
     }
     @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
     }
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
