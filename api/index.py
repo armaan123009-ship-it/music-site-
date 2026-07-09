@@ -823,27 +823,35 @@ def proxy():
         headers["Range"] = range_header
 
     def build_response(r):
-        def generate():
-            for chunk in r.iter_content(chunk_size=512*1024):
-                if chunk:
-                    yield chunk
-
         status_code = r.status_code
-        # If browser asked for Range but upstream didn't honor it (200), force 206 semantics.
+        content = r.content
+
+        content_type = r.headers.get("Content-Type", "audio/mpeg")
+        cl = r.headers.get("Content-Length")
+        cr = r.headers.get("Content-Range")
+
+        # Handle manual range slicing if browser requested range but upstream returned 200 OK
         if range_header and status_code == 200:
-            status_code = 206
+            try:
+                range_val = range_header.replace('bytes=', '')
+                start_str, end_str = range_val.split('-')
+                start = int(start_str) if start_str else 0
+                end = int(end_str) if end_str else len(content) - 1
+                
+                sliced_content = content[start:end+1]
+                status_code = 206
+                content = sliced_content
+                cl = str(len(sliced_content))
+                cr = f"bytes {start}-{end}/{len(r.content)}"
+            except Exception as range_err:
+                print(f"Error slicing content for range request: {range_err}")
 
-        response = Response(generate(), status=status_code)
-
-        # Deterministic headers for media correctness (fixes duration=Infinity issues)
-        response.headers["Content-Type"] = r.headers.get("Content-Type", "audio/mpeg")
+        response = Response(content, status=status_code)
+        response.headers["Content-Type"] = content_type
         response.headers["Accept-Ranges"] = "bytes"
 
-        cl = r.headers.get("Content-Length")
         if cl is not None:
             response.headers["Content-Length"] = cl
-
-        cr = r.headers.get("Content-Range")
         if cr is not None:
             response.headers["Content-Range"] = cr
 

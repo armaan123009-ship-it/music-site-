@@ -258,7 +258,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         streamUrlCache: {},
         parsedLyrics: [],
         lastActiveLyricIdx: -1,
-        isPreFetched: false
+        isPreFetching: false,
+        preFetchedTrackId: null
     };
     (window as any).playerState = state;
 
@@ -295,6 +296,37 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         }
     }
 
+    // Parse duration strings like "3:45", "1:02:15", or seconds "225"
+    function parseDurationStringToSeconds(durationStr: string): number {
+        if (!durationStr) return 0;
+        const parts = durationStr.split(':').map(Number);
+        if (parts.some(isNaN)) return 0;
+        if (parts.length === 3) {
+            // hh:mm:ss
+            return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        } else if (parts.length === 2) {
+            // mm:ss
+            return parts[0] * 60 + parts[1];
+        } else if (parts.length === 1) {
+            return parts[0];
+        }
+        return 0;
+    }
+
+    function getDuration(): number {
+        if (audio && isFinite(audio.duration) && !isNaN(audio.duration) && audio.duration > 0) {
+            return audio.duration;
+        }
+        if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+            const track = state.currentQueue[state.currentIndex];
+            if (track.duration) {
+                const secs = parseDurationStringToSeconds(track.duration);
+                if (secs > 0) return secs;
+            }
+        }
+        return 0;
+    }
+
     // LRC Parser implementation
     interface LyricLine {
         time: number;
@@ -302,24 +334,25 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     }
 
     function parseLRC(lrcText: string): LyricLine[] {
-        const lines = lrcText.split('\n');
+        if (!lrcText) return [];
+        const lines = lrcText.split(/\r?\n/);
         const lyrics: LyricLine[] = [];
-        const timeRegex = /\[(\d+):(\d+)(?:\.(\d+))?\]/;
+        const timeRegex = /\[(\d+):(\d+)[\.:](\d+)\](.*)/;
         
         for (const line of lines) {
-            const match = timeRegex.exec(line);
+            const trimmed = line.trim();
+            const match = timeRegex.exec(trimmed);
             if (match) {
-                const minutes = parseInt(match[1]);
-                const seconds = parseInt(match[2]);
-                const msStr = match[3] || '0';
-                const milliseconds = parseFloat('0.' + msStr) * 1000;
+                const minutes = parseInt(match[1], 10);
+                const seconds = parseInt(match[2], 10);
+                const msStr = match[3];
+                const msVal = parseInt(msStr, 10);
+                const fractionalSeconds = msVal / Math.pow(10, msStr.length);
                 
-                const time = minutes * 60 + seconds + (milliseconds / 1000);
-                const text = line.replace(timeRegex, '').trim();
+                const time = minutes * 60 + seconds + fractionalSeconds;
+                const text = match[4].trim();
                 
-                if (text && !text.startsWith('[') && !text.endsWith(']')) {
-                    lyrics.push({ time, text });
-                }
+                lyrics.push({ time, text });
             }
         }
         
@@ -398,9 +431,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
     function updatePlaybackPosition() {
         if ('mediaSession' in navigator && 'positionState' in navigator.mediaSession) {
             try {
-                if (audio && !isNaN(audio.duration) && isFinite(audio.duration)) {
+                const duration = getDuration();
+                if (duration > 0) {
                     navigator.mediaSession.setPositionState({
-                        duration: audio.duration,
+                        duration: duration,
                         playbackRate: audio.playbackRate || 1.0,
                         position: audio.currentTime
                     });
@@ -471,21 +505,36 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
     async function preFetchNextTrack() {
         if (state.currentIndex === -1) return;
-        if (state.isPreFetched) return;
-        state.isPreFetched = true;
+        const currentTrack = state.currentQueue[state.currentIndex];
+        if (!currentTrack) return;
+        
+        // If already successfully pre-fetched for this track, skip
+        if (state.preFetchedTrackId === currentTrack.id) return;
+        
+        // If currently pre-fetching, skip
+        if (state.isPreFetching) return;
 
-        // 1. If Autoplay is enabled and we are playing the last track of the queue, fetch suggestions in advance.
-        if (state.isAutoplay && state.currentIndex === state.currentQueue.length - 1) {
-            const lastTrack = state.currentQueue[state.currentIndex];
-            console.log(`[Autoplay Pre-fetch] Fetching recommendations in advance for: ${lastTrack.title}`);
-            try {
-                const suggestions = await fetchSuggestions(lastTrack.id);
+        // Rate limit: wait at least 10 seconds between attempts
+        const now = Date.now();
+        if (state.lastPreFetchAttemptTime && now - state.lastPreFetchAttemptTime < 10000) {
+            return;
+        }
+        state.lastPreFetchAttemptTime = now;
+
+        state.isPreFetching = true;
+        console.log(`[Pre-fetch] Starting pre-fetch sequence for active track: ${currentTrack.title}`);
+
+        try {
+            // 1. If Autoplay is enabled and we are playing the last track of the queue, fetch suggestions in advance.
+            if (state.isAutoplay && state.currentIndex === state.currentQueue.length - 1) {
+                console.log(`[Autoplay Pre-fetch] Fetching recommendations in advance for: ${currentTrack.title}`);
+                const suggestions = await fetchSuggestions(currentTrack.id);
                 if (suggestions && suggestions.length > 0) {
                     const newTracks = suggestions.filter((s: any) => !state.currentQueue.some((t: any) => t.id === s.id));
                     if (newTracks.length > 0) {
                         state.currentQueue.push(...newTracks);
                     } else {
-                        const fallbackTrack = suggestions.find((s: any) => s.id !== lastTrack.id) || suggestions[0];
+                        const fallbackTrack = suggestions.find((s: any) => s.id !== currentTrack.id) || suggestions[0];
                         if (fallbackTrack) {
                             state.currentQueue.push(fallbackTrack);
                         }
@@ -493,69 +542,75 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     updateQueueUI();
                     saveState();
                 }
-            } catch (e) {
-                console.error("Autoplay pre-fetch suggestions failed:", e);
             }
-        }
 
-        // 2. Identify index of the next track
-        let nextIndex = -1;
-        if (state.currentIndex < state.currentQueue.length - 1) {
-            nextIndex = state.currentIndex + 1;
-        } else if (state.repeatMode === 'all' && state.currentQueue.length > 0) {
-            nextIndex = 0;
-        }
+            // 2. Identify index of the next track
+            let nextIndex = -1;
+            if (state.currentIndex < state.currentQueue.length - 1) {
+                nextIndex = state.currentIndex + 1;
+            } else if (state.repeatMode === 'all' && state.currentQueue.length > 0) {
+                nextIndex = 0;
+            }
 
-        // 3. Pre-fetch the next track stream details
-        if (nextIndex !== -1) {
-            const nextTrack = state.currentQueue[nextIndex];
-            state.streamUrlCache = state.streamUrlCache || {};
-            if (!state.streamUrlCache[nextTrack.id]) {
-                console.log(`[Stream Pre-fetch] Pre-fetching stream details for: ${nextTrack.title}`);
-                try {
-                    const data = await apiFetch(`/stream/${nextTrack.id}`);
-                    if (data && data.url) {
-                        const proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
-                        state.streamUrlCache[nextTrack.id] = {
-                            streamUrl: data.url,
-                            proxyUrl: proxyUrl
-                        };
-                        console.log(`[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`);
-                    } else {
-                        throw new Error("Invalid stream data");
-                    }
-                } catch (e) {
-                    console.warn(`Failed to pre-fetch stream URL for ${nextTrack.title}:`, e);
-                    // Try client-side Cobalt pre-fetch fallback
+            // 3. Pre-fetch the next track stream details
+            if (nextIndex !== -1) {
+                const nextTrack = state.currentQueue[nextIndex];
+                state.streamUrlCache = state.streamUrlCache || {};
+                if (!state.streamUrlCache[nextTrack.id]) {
+                    console.log(`[Stream Pre-fetch] Pre-fetching stream details for: ${nextTrack.title}`);
                     try {
-                        const cobaltRes = await fetch("https://rue-cobalt.xenon.zone", {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Accept": "application/json"
-                            },
-                            body: JSON.stringify({
-                                url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
-                                downloadMode: "audio",
-                                audioFormat: "mp3"
-                            })
-                        });
-                        if (cobaltRes.ok) {
-                            const cobaltData = await cobaltRes.json();
-                            const sUrl = cobaltData.url || cobaltData.picker;
-                            if (sUrl) {
-                                state.streamUrlCache[nextTrack.id] = {
-                                    streamUrl: sUrl,
-                                    proxyUrl: sUrl
-                                };
-                                console.log(`[Stream Pre-fetch] Successfully pre-fetched client-side stream for: ${nextTrack.title}`);
-                            }
+                        const data = await apiFetch(`/stream/${nextTrack.id}`);
+                        if (data && data.url) {
+                            const proxyUrl = data.proxy_url.startsWith('http') ? data.proxy_url : `${API_BASE}${data.proxy_url}`;
+                            state.streamUrlCache[nextTrack.id] = {
+                                streamUrl: data.url,
+                                proxyUrl: proxyUrl
+                            };
+                            console.log(`[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`);
+                        } else {
+                            throw new Error("Invalid stream data");
                         }
-                    } catch (prefErr) {
-                        console.warn("[Stream Pre-fetch] Client-side fallback pre-fetch failed:", prefErr);
+                    } catch (e) {
+                        console.warn(`Failed to pre-fetch stream URL for ${nextTrack.title}:`, e);
+                        // Try client-side Cobalt pre-fetch fallback
+                        try {
+                            const cobaltRes = await fetch("https://rue-cobalt.xenon.zone", {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                    "Accept": "application/json"
+                                },
+                                body: JSON.stringify({
+                                    url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
+                                    downloadMode: "audio",
+                                    audioFormat: "mp3"
+                                })
+                            });
+                            if (cobaltRes.ok) {
+                                const cobaltData = await cobaltRes.json();
+                                const sUrl = cobaltData.url || cobaltData.picker;
+                                if (sUrl) {
+                                    state.streamUrlCache[nextTrack.id] = {
+                                        streamUrl: sUrl,
+                                        proxyUrl: sUrl
+                                    };
+                                    console.log(`[Stream Pre-fetch] Successfully pre-fetched client-side stream for: ${nextTrack.title}`);
+                                }
+                            }
+                        } catch (prefErr) {
+                            console.warn("[Stream Pre-fetch] Client-side fallback pre-fetch failed:", prefErr);
+                        }
                     }
                 }
             }
+
+            // Mark pre-fetch sequence as successful for this track
+            state.preFetchedTrackId = currentTrack.id;
+        } catch (e) {
+            console.warn(`[Pre-fetch] Pre-fetch attempt failed for ${currentTrack.title}:`, e);
+            // Do not set preFetchedTrackId, allowing retry on next trigger window
+        } finally {
+            state.isPreFetching = false;
         }
     }
 
@@ -697,7 +752,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         audio.play().then(() => {
                             syncPlayPauseUI(true);
                             requestWakeLock();
-                            state.isPreFetched = false;
+                            state.isPreFetching = false;
                             preFetchNextTrack();
                         }).catch((err) => {
                             syncPlayPauseUI(false);
@@ -717,7 +772,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 audio.play().then(() => {
                     syncPlayPauseUI(true);
                     requestWakeLock();
-                    state.isPreFetched = false;
+                    state.isPreFetching = false;
                     preFetchNextTrack();
                 }).catch(e => {
                     if (e && e.name === 'NotAllowedError') {
@@ -730,7 +785,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         audio.play().then(() => {
                             syncPlayPauseUI(true);
                             requestWakeLock();
-                            state.isPreFetched = false;
+                            state.isPreFetching = false;
                             preFetchNextTrack();
                         }).catch((err) => {
                             syncPlayPauseUI(false);
@@ -1114,7 +1169,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             requestWakeLock();
             audio.play().then(() => {
                 syncPlayPauseUI(true);
-                state.isPreFetched = false;
+                state.isPreFetching = false;
                 preFetchNextTrack();
             }).catch(err => {
                 console.warn("[Sync Autoplay] Play rejected, falling back to fetchStreamAndPlay", err);
@@ -1362,19 +1417,21 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             releaseWakeLock();
         };
         audio.ontimeupdate = () => {
-            const progress = (audio.currentTime / (audio.duration || 1)) * 100;
-            updateProgressUI(audio.currentTime, audio.duration, progress);
+            const duration = getDuration() || 1;
+            const progress = (audio.currentTime / duration) * 100;
+            updateProgressUI(audio.currentTime, duration, progress);
             updatePlaybackPosition();
             updateActiveLyric(audio.currentTime);
 
-            // Pre-fetch at 90% completion
-            if (progress >= 90) {
+            // Pre-fetch starting at 25% progress
+            if (progress >= 25) {
                 preFetchNextTrack();
             }
         };
         audio.onloadedmetadata = () => {
-            const progress = (audio.currentTime / (audio.duration || 1)) * 100;
-            updateProgressUI(audio.currentTime, audio.duration, progress);
+            const duration = getDuration() || 1;
+            const progress = (audio.currentTime / duration) * 100;
+            updateProgressUI(audio.currentTime, duration, progress);
         };
 
         // Attach event listeners to player controls
@@ -1649,8 +1706,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     if (immProgressBar) immProgressBar.style.width = `${pos * 100}%`;
                     if (immProgressHandle) immProgressHandle.style.left = `${pos * 100}%`;
                     
-                    const duration = audio.duration;
-                    if (!isNaN(duration) && isFinite(duration) && duration > 0) {
+                    const duration = getDuration();
+                    if (duration > 0) {
                         const currentTime = pos * duration;
                         const currentTimeEl = document.getElementById('current-time');
                         const immCurrentTimeEl = document.getElementById('immersive-current-time');
