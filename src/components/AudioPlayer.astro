@@ -635,7 +635,7 @@ import {
     async function resolveStreamClientSide(trackId: string): Promise<{ streamUrl: string; proxyUrl: string } | null> {
         console.log(`[Client Resolver] Resolving stream for ${trackId}...`);
 
-        // 1. Try client-side Cobalt fallback across multiple instances
+        // 1. Try client-side Cobalt fallback across multiple instances and schemas (v7, v10, minimal)
         const cobaltInstances = [
             "https://rue-cobalt.xenon.zone",
             "https://api.cobalt.tools",
@@ -646,36 +646,45 @@ import {
             "https://cobalt.col1g3.de",
             "https://cobalt.projectsegfau.lt",
         ];
+        const schemas = [
+            { downloadMode: "audio", audioFormat: "mp3" },
+            { audioOnly: true, aFormat: "mp3" },
+            { audioOnly: true, audioFormat: "mp3" },
+            {} // Minimalist video fallback
+        ];
+
         for (const instance of cobaltInstances) {
-            try {
-                const cobaltRes = await fetch(
-                    instance.endsWith("/") ? instance : `${instance}/`,
-                    {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
+            for (const schemaOption of schemas) {
+                try {
+                    const bodyData = {
+                        url: `https://www.youtube.com/watch?v=${trackId}`,
+                        ...schemaOption
+                    };
+                    const cobaltRes = await fetch(
+                        instance.endsWith("/") ? instance : `${instance}/`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                            },
+                            body: JSON.stringify(bodyData),
                         },
-                        body: JSON.stringify({
-                            url: `https://www.youtube.com/watch?v=${trackId}`,
-                        }),
-                    },
-                );
-                if (cobaltRes.ok) {
-                    const cobaltData = await cobaltRes.json();
-                    const sUrl = cobaltData.url || cobaltData.picker;
-                    if (sUrl) {
-                        console.log(
-                            `[Client Resolver] Successfully resolved stream via Cobalt on: ${instance}`,
-                        );
-                        return { streamUrl: sUrl, proxyUrl: sUrl };
+                    );
+                    if (cobaltRes.ok) {
+                        const cobaltData = await cobaltRes.json();
+                        const sUrl = cobaltData.url || cobaltData.picker;
+                        if (sUrl) {
+                            console.log(
+                                `[Client Resolver] Successfully resolved stream via Cobalt on: ${instance} using schema:`,
+                                schemaOption
+                            );
+                            return { streamUrl: sUrl, proxyUrl: sUrl };
+                        }
                     }
+                } catch (cobaltErr) {
+                    // Fail silently and try next schema/instance
                 }
-            } catch (cobaltErr) {
-                console.warn(
-                    `[Client Resolver] Cobalt instance ${instance} failed:`,
-                    cobaltErr,
-                );
             }
         }
 

@@ -686,26 +686,37 @@ def fetch_dynamic_cobalt_instances():
         
     return dynamic_cobalt_cache["instances"]
 
-def check_cobalt_instance(instance, headers, json_data):
-    try:
-        r = requests.post(instance, headers=headers, json=json_data, timeout=2.0)
-        if r.status_code == 200:
-            res_data = r.json()
-            stream_url = res_data.get("url") or res_data.get("picker")
-            if stream_url:
-                return instance, stream_url
-    except Exception:
-        pass
-    
-    try:
-        r = requests.post(f"{instance}/", headers=headers, json=json_data, timeout=2.0)
-        if r.status_code == 200:
-            res_data = r.json()
-            stream_url = res_data.get("url") or res_data.get("picker")
-            if stream_url:
-                return instance, stream_url
-    except Exception:
-        pass
+def check_cobalt_instance(instance, headers, video_id):
+    url = f"https://www.youtube.com/watch?v={video_id}"
+    schemas = [
+        # Schema 1: Cobalt v7 Audio Only
+        {"url": url, "downloadMode": "audio", "audioFormat": "mp3"},
+        # Schema 2: Cobalt v10 Audio Only
+        {"url": url, "audioOnly": True, "aFormat": "mp3"},
+        {"url": url, "audioOnly": True, "audioFormat": "mp3"},
+        # Schema 3: Cobalt Minimalist
+        {"url": url}
+    ]
+    for schema in schemas:
+        try:
+            r = requests.post(instance, headers=headers, json=schema, timeout=2.5)
+            if r.status_code == 200:
+                res_data = r.json()
+                stream_url = res_data.get("url") or res_data.get("picker")
+                if stream_url:
+                    return instance, stream_url
+        except Exception:
+            pass
+        
+        try:
+            r = requests.post(f"{instance}/", headers=headers, json=schema, timeout=2.5)
+            if r.status_code == 200:
+                res_data = r.json()
+                stream_url = res_data.get("url") or res_data.get("picker")
+                if stream_url:
+                    return instance, stream_url
+        except Exception:
+            pass
     return None
 
 def fetch_cobalt_stream_url(video_id):
@@ -743,15 +754,12 @@ def fetch_cobalt_stream_url(video_id):
         "Accept": "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    json_data = {
-        "url": f"https://www.youtube.com/watch?v={video_id}"
-    }
 
     candidates = instances[:8]
     print(f"[Cobalt Resolver] Checking {len(candidates)} candidates concurrently...")
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(candidates)) as executor:
-        futures = {executor.submit(check_cobalt_instance, inst, headers, json_data): inst for inst in candidates}
+        futures = {executor.submit(check_cobalt_instance, inst, headers, video_id): inst for inst in candidates}
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result:
