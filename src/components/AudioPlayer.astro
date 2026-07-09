@@ -792,12 +792,10 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 }
             }
 
-            // Only use proxy for Google Video streams on localhost.
-            // On production Vercel, proxying causes 504 timeouts and 4.5MB payload limits,
-            // while Cobalt/Piped/Invidious streams support CORS natively and must be played directly.
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const isGoogleVideo = streamUrl && streamUrl.includes('googlevideo.com');
-            const useProxy = isLocalhost && isGoogleVideo && proxyUrl;
+            // Always use proxy when it exists to route requests through our Vercel proxy.
+            // Our proxy now handles Range requests dynamically (requesting 2.5MB chunks from upstream),
+            // resolving Vercel server timeouts and CORS streaming errors perfectly.
+            const useProxy = !!proxyUrl;
 
             const playUrl = useProxy ? proxyUrl : streamUrl;
 
@@ -1210,9 +1208,8 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (cached && (cached.proxyUrl || cached.streamUrl)) {
             console.log(`[Sync Autoplay] Cache hit for ${track.title}. Transitioning synchronously.`);
             
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const isGoogleVideo = cached.streamUrl && cached.streamUrl.includes('googlevideo.com');
-            const useProxy = isLocalhost && isGoogleVideo && cached.proxyUrl;
+            // Always use proxy when it exists to route requests through our Vercel proxy.
+            const useProxy = !!cached.proxyUrl;
             const playUrl = useProxy ? cached.proxyUrl : cached.streamUrl;
 
             // Set source directly

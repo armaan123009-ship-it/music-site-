@@ -900,51 +900,72 @@ def proxy():
 
     range_header = request.headers.get("Range")
 
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
-    if range_header:
-        headers["Range"] = range_header
+    # 2.5 MB maximum response chunk size to stay safely within Vercel's 4.5 MB payload limit
+    MAX_CHUNK_SIZE = 2500000
 
-    def build_response(r):
+    start = 0
+    end = None
+    is_range = False
+
+    if range_header:
+        is_range = True
+        try:
+            range_val = range_header.replace('bytes=', '')
+            start_str, end_str = range_val.split('-')
+            start = int(start_str) if start_str else 0
+            if end_str:
+                end = int(end_str)
+        except Exception as e:
+            print(f"Error parsing range header: {e}")
+
+    # Enforce 2.5MB chunk size limit for the upstream request
+    if end is None:
+        end = start + MAX_CHUNK_SIZE - 1
+    elif end - start + 1 > MAX_CHUNK_SIZE:
+        end = start + MAX_CHUNK_SIZE - 1
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Range": f"bytes={start}-{end}"
+    }
+
+    try:
+        r = requests.get(url, headers=headers, stream=True, timeout=15)
+
+        # Transparently resolve fresh URL if cached or resolved URL is forbidden/expired
+        if r.status_code not in [200, 206] and video_id:
+            print(f"[Proxy] Upstream returned status code {r.status_code}. Resolving fresh URL for {video_id}...")
+            if video_id in stream_cache:
+                del stream_cache[video_id]
+            fresh_url = resolve_stream_url(video_id)
+            if fresh_url:
+                print(f"[Proxy] Fresh URL resolved. Retrying request...")
+                r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
+
+        status_code = r.status_code
         content = r.content
         total_len = len(content)
 
-        # 2.5 MB maximum response chunk size to stay safely within Vercel's 4.5 MB payload limit
-        MAX_CHUNK_SIZE = 2500000
+        content_type = r.headers.get("Content-Type", "audio/mpeg")
+        
+        # If upstream responded with 206 Partial Content, we mirror its range headers
+        if status_code == 206:
+            content_range = r.headers.get("Content-Range")
+            content_length = r.headers.get("Content-Length", str(total_len))
+        else:
+            # If upstream returned 200, we slice the content in memory and return 206
+            status_code = 206
+            sliced = content[start:end+1]
+            content_range = f"bytes {start}-{start + len(sliced) - 1}/{total_len}"
+            content_length = str(len(sliced))
+            content = sliced
 
-        start = 0
-        end = total_len - 1
-        is_range = False
-
-        if range_header:
-            is_range = True
-            try:
-                range_val = range_header.replace('bytes=', '')
-                start_str, end_str = range_val.split('-')
-                start = int(start_str) if start_str else 0
-                if end_str:
-                    end = int(end_str)
-            except Exception as e:
-                print(f"Error parsing range header: {e}")
-
-        # Limit the chunk size to MAX_CHUNK_SIZE to respect Vercel payload constraints
-        if end - start + 1 > MAX_CHUNK_SIZE:
-            end = start + MAX_CHUNK_SIZE - 1
-            is_range = True
-
-        # Keep indices within bounds
-        start = max(0, min(start, total_len - 1))
-        end = max(start, min(end, total_len - 1))
-
-        sliced_content = content[start:end+1]
-        status_code = 206 if is_range or r.status_code == 206 else r.status_code
-
-        response = Response(sliced_content, status=status_code)
-        response.headers["Content-Type"] = r.headers.get("Content-Type", "audio/mpeg")
+        response = Response(content, status=status_code)
+        response.headers["Content-Type"] = content_type
         response.headers["Accept-Ranges"] = "bytes"
-        response.headers["Content-Length"] = str(len(sliced_content))
-
-        if is_range:
-            response.headers["Content-Range"] = f"bytes {start}-{end}/{total_len}"
+        response.headers["Content-Length"] = content_length
+        if content_range:
+            response.headers["Content-Range"] = content_range
 
         if download:
             response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
@@ -962,34 +983,8 @@ def proxy():
             response.headers[k] = v
 
         return response
-
-    try:
-        r = requests.get(url, headers=headers, stream=True, timeout=15)
-
-        # Transparently resolve fresh URL if cached or resolved URL is forbidden/expired
-        if r.status_code not in [200, 206] and video_id:
-            print(f"[Proxy] Upstream returned status code {r.status_code}. Resolving fresh URL for {video_id}...")
-            if video_id in stream_cache:
-                del stream_cache[video_id]
-            fresh_url = resolve_stream_url(video_id)
-            if fresh_url:
-                print(f"[Proxy] Fresh URL resolved. Retrying request...")
-                r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
-
-        return build_response(r)
     except Exception as e:
-        # Fallback fresh resolution on request exceptions
-        if video_id:
-            try:
-                print(f"[Proxy] Exception caught during stream request: {e}. Resolving fresh URL...")
-                if video_id in stream_cache:
-                    del stream_cache[video_id]
-                fresh_url = resolve_stream_url(video_id)
-                if fresh_url:
-                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=15)
-                    return build_response(r)
-            except Exception as retry_err:
-                return f"Verification retry failed: {str(retry_err)}", 500
+        print(f"Proxy error: {e}")
         return str(e), 500
 
 @app.route("/api/image-proxy")
