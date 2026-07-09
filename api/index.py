@@ -823,37 +823,46 @@ def proxy():
         headers["Range"] = range_header
 
     def build_response(r):
-        status_code = r.status_code
         content = r.content
+        total_len = len(content)
 
-        content_type = r.headers.get("Content-Type", "audio/mpeg")
-        cl = r.headers.get("Content-Length")
-        cr = r.headers.get("Content-Range")
+        # 2.5 MB maximum response chunk size to stay safely within Vercel's 4.5 MB payload limit
+        MAX_CHUNK_SIZE = 2500000
 
-        # Handle manual range slicing if browser requested range but upstream returned 200 OK
-        if range_header and status_code == 200:
+        start = 0
+        end = total_len - 1
+        is_range = False
+
+        if range_header:
+            is_range = True
             try:
                 range_val = range_header.replace('bytes=', '')
                 start_str, end_str = range_val.split('-')
                 start = int(start_str) if start_str else 0
-                end = int(end_str) if end_str else len(content) - 1
-                
-                sliced_content = content[start:end+1]
-                status_code = 206
-                content = sliced_content
-                cl = str(len(sliced_content))
-                cr = f"bytes {start}-{end}/{len(r.content)}"
-            except Exception as range_err:
-                print(f"Error slicing content for range request: {range_err}")
+                if end_str:
+                    end = int(end_str)
+            except Exception as e:
+                print(f"Error parsing range header: {e}")
 
-        response = Response(content, status=status_code)
-        response.headers["Content-Type"] = content_type
+        # Limit the chunk size to MAX_CHUNK_SIZE to respect Vercel payload constraints
+        if end - start + 1 > MAX_CHUNK_SIZE:
+            end = start + MAX_CHUNK_SIZE - 1
+            is_range = True
+
+        # Keep indices within bounds
+        start = max(0, min(start, total_len - 1))
+        end = max(start, min(end, total_len - 1))
+
+        sliced_content = content[start:end+1]
+        status_code = 206 if is_range or r.status_code == 206 else r.status_code
+
+        response = Response(sliced_content, status=status_code)
+        response.headers["Content-Type"] = r.headers.get("Content-Type", "audio/mpeg")
         response.headers["Accept-Ranges"] = "bytes"
+        response.headers["Content-Length"] = str(len(sliced_content))
 
-        if cl is not None:
-            response.headers["Content-Length"] = cl
-        if cr is not None:
-            response.headers["Content-Range"] = cr
+        if is_range:
+            response.headers["Content-Range"] = f"bytes {start}-{end}/{total_len}"
 
         if download:
             response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
@@ -866,9 +875,7 @@ def proxy():
         # Copy through additional safe headers from upstream
         for k, v in r.headers.items():
             lk = k.lower()
-            if lk in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition']:
-                continue
-            if lk in ['content-type', 'accept-ranges', 'content-length', 'content-range']:
+            if lk in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition', 'content-type', 'accept-ranges', 'content-length', 'content-range']:
                 continue
             response.headers[k] = v
 

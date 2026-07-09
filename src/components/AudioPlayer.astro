@@ -489,13 +489,35 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         const durationEl = document.getElementById('duration');
         const immDurationEl = document.getElementById('immersive-duration');
 
-        if (progressBar) progressBar.style.width = `${progress}%`;
-        if (progressHandle) progressHandle.style.left = `${progress}%`;
-        if (mobProgressBar) mobProgressBar.style.width = `${progress}%`;
-        if (mobProgressHandle) mobProgressHandle.style.left = `${progress}%`;
-        if (immProgressBar) immProgressBar.style.width = `${progress}%`;
-        if (immProgressHandle) immProgressHandle.style.left = `${progress}%`;
+        // Bounding the progress between 0 and 100 to prevent layout blowouts
+        const boundedProgress = Math.max(0, Math.min(100, isNaN(progress) ? 0 : progress));
+        const progressPercent = `${boundedProgress}%`;
+
+        if (progressBar) progressBar.style.width = progressPercent;
+        if (progressHandle) progressHandle.style.left = progressPercent;
+        if (mobProgressBar) mobProgressBar.style.width = progressPercent;
+        if (mobProgressHandle) mobProgressHandle.style.left = progressPercent;
+        if (immProgressBar) immProgressBar.style.width = progressPercent;
+        if (immProgressHandle) immProgressHandle.style.left = progressPercent;
         
+        // Active binding of custom CSS variables driving timeline track backgrounds
+        const progressContainer = document.getElementById('progress-container');
+        const mobProgressContainer = document.getElementById('mobile-progress-container');
+        const immProgressContainer = document.getElementById('immersive-progress-container');
+
+        if (progressContainer) {
+            progressContainer.style.setProperty('--progress', progressPercent);
+            progressContainer.style.setProperty('--theme-accent', 'var(--primary)');
+        }
+        if (mobProgressContainer) {
+            mobProgressContainer.style.setProperty('--progress', progressPercent);
+            mobProgressContainer.style.setProperty('--theme-accent', 'var(--primary)');
+        }
+        if (immProgressContainer) {
+            immProgressContainer.style.setProperty('--progress', progressPercent);
+            immProgressContainer.style.setProperty('--theme-accent', 'var(--primary)');
+        }
+
         if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
         if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
         
@@ -1854,10 +1876,11 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             const leftCol = document.getElementById('immersive-left-column');
             const rightCol = document.getElementById('immersive-right-column');
 
-            leftCol?.classList.add('hidden', 'lg:flex');
-            leftCol?.classList.remove('flex');
-            rightCol?.classList.add('flex-1', 'h-full');
-            rightCol?.classList.remove('h-[380px]');
+            // Responsive wrapper: keep columns visible and let them stack vertically on mobile (flex-col) and side-by-side on desktop (lg:flex-row)
+            leftCol?.classList.remove('hidden');
+            leftCol?.classList.add('flex');
+            rightCol?.classList.remove('hidden');
+            rightCol?.classList.add('flex');
 
             if (activeTab === 'queue') {
                 tQueue?.classList.add('bg-primary/5', 'border-primary', 'text-white');
