@@ -592,6 +592,7 @@ import {
         lastActiveLyricIdx: -1,
         isPreFetching: false,
         preFetchedTrackId: null,
+        isDraggingProgress: false,
     };
     (window as any).playerState = state;
 
@@ -737,9 +738,11 @@ import {
     }
 
     // Parse duration strings like "3:45", "1:02:15", or seconds "225"
-    function parseDurationStringToSeconds(durationStr: string): number {
+    function parseDurationStringToSeconds(durationStr: any): number {
         if (!durationStr) return 0;
-        const parts = durationStr.split(":").map(Number);
+        if (typeof durationStr === "number") return durationStr;
+        const str = String(durationStr).trim();
+        const parts = str.split(":").map(Number);
         if (parts.some(isNaN)) return 0;
         if (parts.length === 3) {
             // hh:mm:ss
@@ -1248,39 +1251,31 @@ import {
                 );
             } else {
                 try {
-                    const data = await apiFetch(`/stream/${track.id}`);
-                    if (data && data.url) {
-                        streamUrl = data.url;
-                        // proxy_url is expected to be a relative path like /proxy?... on the Flask backend.
-                        // Only prefix API_BASE when needed.
-                        if (data.proxy_url) {
-                            proxyUrl = data.proxy_url.startsWith("http")
-                                ? data.proxy_url
-                                : `${API_BASE}${data.proxy_url}`;
-                        }
+                    console.log(`[Fast Load] Racing backend resolver and client resolver in parallel for: ${track.title}`);
+                    const result = await Promise.any([
+                        apiFetch(`/stream/${track.id}`).then((data) => {
+                            if (data && data.url) {
+                                const pUrl = data.proxy_url.startsWith("http")
+                                    ? data.proxy_url
+                                    : `${API_BASE}${data.proxy_url}`;
+                                return { streamUrl: data.url, proxyUrl: pUrl };
+                            }
+                            throw new Error("Backend resolve failed");
+                        }),
+                        resolveStreamClientSide(track.id).then((resolved) => {
+                            if (resolved) return resolved;
+                            throw new Error("Client resolve failed");
+                        })
+                    ]);
+                    if (result) {
+                        streamUrl = result.streamUrl;
+                        proxyUrl = result.proxyUrl;
                         state.currentStreamUrl = streamUrl;
                         state.currentProxyUrl = proxyUrl;
+                        state.streamUrlCache[track.id] = result;
                     }
-                    console.log("[Stream Debug]", {
-                        trackId: track.id,
-                        resolved: data,
-                        computedStreamUrl: streamUrl,
-                        computedProxyUrl: proxyUrl,
-                        API_BASE,
-                    });
                 } catch (err) {
-                    console.warn("Failed to retrieve stream details:", err);
-                }
-            }
-
-            // Fallback: If server failed to resolve streaming URLs, resolve client-side
-            if (!proxyUrl) {
-                const resolved = await resolveStreamClientSide(track.id);
-                if (resolved) {
-                    streamUrl = resolved.streamUrl;
-                    proxyUrl = resolved.proxyUrl;
-                    state.currentStreamUrl = streamUrl;
-                    state.currentProxyUrl = proxyUrl;
+                    console.warn("[Fast Load] Both backend and client-side resolvers failed. Will fallback to sequential play attempt.", err);
                 }
             }
 
@@ -2084,6 +2079,7 @@ import {
             releaseWakeLock();
         };
         audio.ontimeupdate = () => {
+            if (state.isDraggingProgress) return;
             const duration = getDuration() || 1;
             const progress = (audio.currentTime / duration) * 100;
             updateProgressUI(audio.currentTime, duration, progress);
@@ -2390,15 +2386,14 @@ import {
             immDownloadBtn.addEventListener("click", handleDownload);
         }
 
-        // Progress Seeking with Drag & Touch Support
         const bindProgressContainer = (containerId: string) => {
             const container = document.getElementById(containerId);
             if (container && !container.dataset.bound) {
                 container.dataset.bound = "true";
 
-                let isDragging = false;
+                let localDragging = false;
 
-                const seekToPos = (clientX: number) => {
+                const updateUIDrag = (clientX: number) => {
                     const rect = container.getBoundingClientRect();
                     const pos = Math.max(
                         0,
@@ -2406,70 +2401,70 @@ import {
                     );
 
                     const progressBar = document.getElementById("progress-bar");
-                    const progressHandle =
-                        document.getElementById("progress-handle");
-                    const mobProgressBar = document.getElementById(
-                        "mobile-progress-bar",
-                    );
-                    const mobProgressHandle = document.getElementById(
-                        "mobile-progress-handle",
-                    );
-                    const immProgressBar = document.getElementById(
-                        "immersive-progress-bar",
-                    );
-                    const immProgressHandle = document.getElementById(
-                        "immersive-progress-handle",
-                    );
-                    if (progressBar) progressBar.style.width = `${pos * 100}%`;
-                    if (progressHandle)
-                        progressHandle.style.left = `${pos * 100}%`;
-                    if (mobProgressBar)
-                        mobProgressBar.style.width = `${pos * 100}%`;
-                    if (mobProgressHandle)
-                        mobProgressHandle.style.left = `${pos * 100}%`;
-                    if (immProgressBar)
-                        immProgressBar.style.width = `${pos * 100}%`;
-                    if (immProgressHandle)
-                        immProgressHandle.style.left = `${pos * 100}%`;
+                    const progressHandle = document.getElementById("progress-handle");
+                    const mobProgressBar = document.getElementById("mobile-progress-bar");
+                    const mobProgressHandle = document.getElementById("mobile-progress-handle");
+                    const immProgressBar = document.getElementById("immersive-progress-bar");
+                    const immProgressHandle = document.getElementById("immersive-progress-handle");
+
+                    const progressPercent = `${pos * 100}%`;
+                    if (progressBar) progressBar.style.width = progressPercent;
+                    if (progressHandle) progressHandle.style.left = progressPercent;
+                    if (mobProgressBar) mobProgressBar.style.width = progressPercent;
+                    if (mobProgressHandle) mobProgressHandle.style.left = progressPercent;
+                    if (immProgressBar) immProgressBar.style.width = progressPercent;
+                    if (immProgressHandle) immProgressHandle.style.left = progressPercent;
 
                     const duration = getDuration();
                     if (duration > 0) {
                         const currentTime = pos * duration;
-                        const currentTimeEl =
-                            document.getElementById("current-time");
-                        const immCurrentTimeEl = document.getElementById(
-                            "immersive-current-time",
-                        );
-                        if (currentTimeEl)
-                            currentTimeEl.textContent = formatTime(currentTime);
-                        if (immCurrentTimeEl)
-                            immCurrentTimeEl.textContent =
-                                formatTime(currentTime);
+                        const currentTimeEl = document.getElementById("current-time");
+                        const immCurrentTimeEl = document.getElementById("immersive-current-time");
+                        if (currentTimeEl) currentTimeEl.textContent = formatTime(currentTime);
+                        if (immCurrentTimeEl) immCurrentTimeEl.textContent = formatTime(currentTime);
+                        updateActiveLyric(currentTime);
+                    }
+                };
 
-                        audio.currentTime = currentTime;
-                        updateActiveLyric(currentTime); // Smoothly update active lyric scrolling during drag seeking!
+                const finishSeek = (clientX: number) => {
+                    const rect = container.getBoundingClientRect();
+                    const pos = Math.max(
+                        0,
+                        Math.min(1, (clientX - rect.left) / rect.width),
+                    );
+                    const duration = getDuration();
+                    if (duration > 0) {
+                        const seekTime = pos * duration;
+                        audio.currentTime = seekTime;
+                        updateActiveLyric(seekTime);
                     }
                 };
 
                 container.addEventListener("mousedown", (e) => {
-                    isDragging = true;
-                    seekToPos(e.clientX);
+                    state.isDraggingProgress = true;
+                    localDragging = true;
+                    updateUIDrag(e.clientX);
                 });
 
                 window.addEventListener("mousemove", (e) => {
-                    if (isDragging) seekToPos(e.clientX);
+                    if (localDragging) updateUIDrag(e.clientX);
                 });
 
-                window.addEventListener("mouseup", () => {
-                    isDragging = false;
+                window.addEventListener("mouseup", (e) => {
+                    if (localDragging) {
+                        finishSeek(e.clientX);
+                        localDragging = false;
+                        state.isDraggingProgress = false;
+                    }
                 });
 
-                // Touch support for phones
+                // Touch support
                 container.addEventListener(
                     "touchstart",
                     (e) => {
-                        isDragging = true;
-                        seekToPos(e.touches[0].clientX);
+                        state.isDraggingProgress = true;
+                        localDragging = true;
+                        updateUIDrag(e.touches[0].clientX);
                     },
                     { passive: true },
                 );
@@ -2477,13 +2472,20 @@ import {
                 window.addEventListener(
                     "touchmove",
                     (e) => {
-                        if (isDragging) seekToPos(e.touches[0].clientX);
+                        if (localDragging) updateUIDrag(e.touches[0].clientX);
                     },
                     { passive: true },
                 );
 
-                window.addEventListener("touchend", () => {
-                    isDragging = false;
+                window.addEventListener("touchend", (e) => {
+                    if (localDragging) {
+                        const clientX = e.changedTouches && e.changedTouches.length ? e.changedTouches[0].clientX : 0;
+                        if (clientX) {
+                            finishSeek(clientX);
+                        }
+                        localDragging = false;
+                        state.isDraggingProgress = false;
+                    }
                 });
             }
         };

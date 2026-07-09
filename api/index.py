@@ -1079,6 +1079,9 @@ def download_audio(video_id):
     is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
     
     try:
+        # Force fresh resolution for downloads to guarantee high-quality audio-only format
+        if video_id in stream_cache:
+            del stream_cache[video_id]
         url = resolve_stream_url(video_id)
         if not url:
             raise Exception("Failed to resolve stream URL from all sources")
