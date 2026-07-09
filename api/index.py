@@ -938,10 +938,19 @@ def download_audio(video_id):
     if not safe_title:
         safe_title = "audio"
     print(f"[Download] Request received for video_id={video_id}, title={title}")
+    
+    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
+    
     try:
         url = resolve_stream_url(video_id)
         if not url:
             raise Exception("Failed to resolve stream URL from all sources")
+            
+        if is_production:
+            # On production Vercel, bypass the 4.5MB serverless response payload limits
+            # by redirecting the client's browser directly to the stream provider link
+            print(f"[Download] Production mode: Redirecting directly to stream URL: {url}")
+            return redirect(url)
             
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
         r = requests.get(url, headers=headers, stream=True, timeout=20)

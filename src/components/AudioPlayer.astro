@@ -337,7 +337,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
         if (!lrcText) return [];
         const lines = lrcText.split(/\r?\n/);
         const lyrics: LyricLine[] = [];
-        const timeRegex = /\[(\d+):(\d+)[\.:](\d+)\](.*)/;
+        const timeRegex = /\[(\d+):(\d+)(?:[\.:](\d+))?\](.*)/;
         
         for (const line of lines) {
             const trimmed = line.trim();
@@ -345,7 +345,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             if (match) {
                 const minutes = parseInt(match[1], 10);
                 const seconds = parseInt(match[2], 10);
-                const msStr = match[3];
+                const msStr = match[3] || '0';
                 const msVal = parseInt(msStr, 10);
                 const fractionalSeconds = msVal / Math.pow(10, msStr.length);
                 
@@ -755,9 +755,9 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 }
             }
 
-            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const isGoogleVideo = streamUrl && streamUrl.includes('googlevideo.com');
-            const useProxy = isLocalhost && isGoogleVideo && proxyUrl;
+            // Always use proxy in all environments to bypass CORS blocks on media streaming,
+            // since our backend proxy now enforces a 2.5MB safety slice limit to prevent Vercel payload errors.
+            const useProxy = !!proxyUrl;
 
             const playUrl = useProxy ? proxyUrl : streamUrl;
 
@@ -1584,19 +1584,13 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                     throw new Error("Unable to resolve streaming URL");
                 }
 
-                // If on production Vercel, bypass chunked proxy download (causes payload & timeout errors)
-                // and trigger direct browser file download from the Cobalt/Piped stream URL
+                // If on production Vercel, redirect directly to the backend download endpoint.
+                // The backend redirects to a playable direct attachment URL to bypass Vercel constraints.
                 if (!isLocalhost) {
-                    console.log("[Downloader] Bypassing proxy for production direct download...");
+                    console.log("[Downloader] Using production download redirect endpoint...");
                     updateDownloadProgress('Downloading...', true);
-                    const link = document.createElement('a');
-                    link.href = streamUrl;
-                    link.target = '_blank';
-                    link.download = `${track.title}.mp3`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    updateDownloadProgress('Download complete', false);
+                    window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                    setTimeout(() => updateDownloadProgress('Download complete', false), 2000);
                     return;
                 }
 
