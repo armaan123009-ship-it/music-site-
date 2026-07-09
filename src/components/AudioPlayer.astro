@@ -605,6 +605,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                                 body: JSON.stringify({
                                     url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
                                     downloadMode: "audio",
+                                    isAudioOnly: true,
                                     audioFormat: "mp3"
                                 })
                             });
@@ -710,6 +711,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         body: JSON.stringify({
                             url: `https://www.youtube.com/watch?v=${track.id}`,
                             downloadMode: "audio",
+                            isAudioOnly: true,
                             audioFormat: "mp3"
                         })
                     });
@@ -755,9 +757,12 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                 }
             }
 
-            // Always use proxy in all environments to bypass CORS blocks on media streaming,
-            // since our backend proxy now enforces a 2.5MB safety slice limit to prevent Vercel payload errors.
-            const useProxy = !!proxyUrl;
+            // Only use proxy for Google Video streams on localhost.
+            // On production Vercel, proxying causes 504 timeouts and 4.5MB payload limits,
+            // while Cobalt/Piped/Invidious streams support CORS natively and must be played directly.
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isGoogleVideo = streamUrl && streamUrl.includes('googlevideo.com');
+            const useProxy = isLocalhost && isGoogleVideo && proxyUrl;
 
             const playUrl = useProxy ? proxyUrl : streamUrl;
 
@@ -1167,11 +1172,16 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
 
         // Synchronous cache play check
         const cached = state.streamUrlCache && state.streamUrlCache[track.id];
-        if (cached && cached.proxyUrl) {
+        if (cached && (cached.proxyUrl || cached.streamUrl)) {
             console.log(`[Sync Autoplay] Cache hit for ${track.title}. Transitioning synchronously.`);
             
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isGoogleVideo = cached.streamUrl && cached.streamUrl.includes('googlevideo.com');
+            const useProxy = isLocalhost && isGoogleVideo && cached.proxyUrl;
+            const playUrl = useProxy ? cached.proxyUrl : cached.streamUrl;
+
             // Set source directly
-            audio.src = cached.proxyUrl;
+            audio.src = playUrl;
 
             // Sync UI details synchronously
             titleEls().forEach(el => el && (el.textContent = track.title));
