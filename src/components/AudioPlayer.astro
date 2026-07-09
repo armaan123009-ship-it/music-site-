@@ -599,6 +599,15 @@ import {
     let miniPlayer: HTMLElement | null;
     let immersivePlayer: HTMLElement | null;
 
+    function syncUnlockAudio() {
+        if (audio) {
+            try {
+                audio.play().catch(() => {});
+                audio.pause();
+            } catch (e) {}
+        }
+    }
+
     // Wake Lock Variables
     let wakeLock: any = null;
 
@@ -1685,6 +1694,7 @@ import {
                 const target = e.target as HTMLElement;
                 if (target.closest("button")) return;
 
+                syncUnlockAudio();
                 const index = parseInt((item as HTMLElement).dataset.index!);
                 state.currentIndex = index;
                 fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
@@ -2106,6 +2116,7 @@ import {
                     state.currentIndex !== -1 &&
                     state.currentQueue[state.currentIndex]
                 ) {
+                    syncUnlockAudio();
                     fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
                     return;
                 }
@@ -2760,6 +2771,7 @@ import {
                 // Play track trigger
                 const trigger = target.closest(".track-trigger");
                 if (trigger) {
+                    syncUnlockAudio();
                     const { id, title, artist, artwork } = (
                         trigger as HTMLElement
                     ).dataset;
