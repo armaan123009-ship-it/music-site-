@@ -594,34 +594,47 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
                         }
                     } catch (e) {
                         console.warn(`Failed to pre-fetch stream URL for ${nextTrack.title}:`, e);
-                        // Try client-side Cobalt pre-fetch fallback
-                        try {
-                            const cobaltRes = await fetch("https://rue-cobalt.xenon.zone", {
-                                method: "POST",
-                                headers: {
-                                    "Content-Type": "application/json",
-                                    "Accept": "application/json"
-                                },
-                                body: JSON.stringify({
-                                    url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
-                                    downloadMode: "audio",
-                                    isAudioOnly: true,
-                                    audioFormat: "mp3"
-                                })
-                            });
-                            if (cobaltRes.ok) {
-                                const cobaltData = await cobaltRes.json();
-                                const sUrl = cobaltData.url || cobaltData.picker;
-                                if (sUrl) {
-                                    state.streamUrlCache[nextTrack.id] = {
-                                        streamUrl: sUrl,
-                                        proxyUrl: sUrl
-                                    };
-                                    console.log(`[Stream Pre-fetch] Successfully pre-fetched client-side stream for: ${nextTrack.title}`);
+                        // Try client-side Cobalt pre-fetch fallback across multiple instances
+                        const cobaltInstances = [
+                            "https://rue-cobalt.xenon.zone",
+                            "https://api.cobalt.tools",
+                            "https://cobalt.foxtrot-omega.me",
+                            "https://cobalt.willy.lol",
+                            "https://cobalt.k6.dev",
+                            "https://cobalt-api.lunar.icu",
+                            "https://cobalt.col1g3.de",
+                            "https://cobalt.projectsegfau.lt"
+                        ];
+                        for (const instance of cobaltInstances) {
+                            try {
+                                const cobaltRes = await fetch(instance.endsWith('/') ? instance : `${instance}/`, {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        "Accept": "application/json"
+                                    },
+                                    body: JSON.stringify({
+                                        url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
+                                        downloadMode: "audio",
+                                        isAudioOnly: true,
+                                        audioFormat: "mp3"
+                                    })
+                                });
+                                if (cobaltRes.ok) {
+                                    const cobaltData = await cobaltRes.json();
+                                    const sUrl = cobaltData.url || cobaltData.picker;
+                                    if (sUrl) {
+                                        state.streamUrlCache[nextTrack.id] = {
+                                            streamUrl: sUrl,
+                                            proxyUrl: sUrl
+                                        };
+                                        console.log(`[Stream Pre-fetch] Successfully pre-fetched client-side stream via ${instance} for: ${nextTrack.title}`);
+                                        break;
+                                    }
                                 }
+                            } catch (prefErr) {
+                                // continue to next instance
                             }
-                        } catch (prefErr) {
-                            console.warn("[Stream Pre-fetch] Client-side fallback pre-fetch failed:", prefErr);
                         }
                     }
                 }
@@ -701,39 +714,61 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Shuffle, ListMusic
             // Fallback: If server failed to resolve streaming URLs (common on cloud/Vercel host blocks), resolve client-side
             if (!proxyUrl) {
                 console.log(`[Client Resolver] Server failed to resolve stream for ${track.id}. Trying client-side resolution...`);
-                try {
-                    const cobaltRes = await fetch("https://rue-cobalt.xenon.zone", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Accept": "application/json"
-                        },
-                        body: JSON.stringify({
-                            url: `https://www.youtube.com/watch?v=${track.id}`,
-                            downloadMode: "audio",
-                            isAudioOnly: true,
-                            audioFormat: "mp3"
-                        })
-                    });
-                    if (cobaltRes.ok) {
-                        const cobaltData = await cobaltRes.json();
-                        streamUrl = cobaltData.url || cobaltData.picker;
-                        if (streamUrl) {
-                            console.log(`[Client Resolver] Successfully resolved stream via client-side Cobalt!`);
-                            proxyUrl = streamUrl;
-                            state.currentStreamUrl = streamUrl;
-                            state.currentProxyUrl = proxyUrl;
+                
+                // 1. Try client-side Cobalt fallback across multiple instances
+                const cobaltInstances = [
+                    "https://rue-cobalt.xenon.zone",
+                    "https://api.cobalt.tools",
+                    "https://cobalt.foxtrot-omega.me",
+                    "https://cobalt.willy.lol",
+                    "https://cobalt.k6.dev",
+                    "https://cobalt-api.lunar.icu",
+                    "https://cobalt.col1g3.de",
+                    "https://cobalt.projectsegfau.lt"
+                ];
+                for (const instance of cobaltInstances) {
+                    try {
+                        const cobaltRes = await fetch(instance.endsWith('/') ? instance : `${instance}/`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Accept": "application/json"
+                            },
+                            body: JSON.stringify({
+                                url: `https://www.youtube.com/watch?v=${track.id}`,
+                                downloadMode: "audio",
+                                isAudioOnly: true,
+                                audioFormat: "mp3"
+                            })
+                        });
+                        if (cobaltRes.ok) {
+                            const cobaltData = await cobaltRes.json();
+                            streamUrl = cobaltData.url || cobaltData.picker;
+                            if (streamUrl) {
+                                console.log(`[Client Resolver] Successfully resolved stream via client-side Cobalt on: ${instance}`);
+                                proxyUrl = streamUrl;
+                                state.currentStreamUrl = streamUrl;
+                                state.currentProxyUrl = proxyUrl;
+                                break;
+                            }
                         }
+                    } catch (cobaltErr) {
+                        console.warn(`[Client Resolver] Cobalt instance ${instance} failed:`, cobaltErr);
                     }
-                } catch (cobaltErr) {
-                    console.warn("[Client Resolver] Client-side Cobalt failed:", cobaltErr);
                 }
                 
+                // 2. Try client-side Piped fallback across multiple instances
                 if (!proxyUrl) {
                     const pipedInstances = [
                         "https://api-piped.mha.fi",
                         "https://api.piped.private.coffee",
-                        "https://pipedapi.kavin.rocks"
+                        "https://pipedapi.kavin.rocks",
+                        "https://pipedapi.col1g3.de",
+                        "https://piped-api.garudalinux.org",
+                        "https://pipedapi.us.to",
+                        "https://api.piped.projectsegfau.lt",
+                        "https://pipedapi.privacydev.net",
+                        "https://pipedapi.lunar.icu"
                     ];
                     for (const instance of pipedInstances) {
                         try {
