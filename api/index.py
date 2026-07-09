@@ -647,13 +647,74 @@ def extract_stream_url(video_id):
         
     return None
 
+last_working_cobalt = None
+last_working_piped = None
+last_working_invidious = None
+
+dynamic_cobalt_cache = {"instances": [], "last_fetched": 0}
+
+def fetch_dynamic_cobalt_instances():
+    now = time.time()
+    # Cache for 15 minutes to prevent hitting rate limits
+    if now - dynamic_cobalt_cache["last_fetched"] < 900:
+        return dynamic_cobalt_cache["instances"]
+        
+    try:
+        print("[Dynamic Cobalt] Fetching live instances from instances.cobalt.best...")
+        r = requests.get("https://instances.cobalt.best/api/instances.json", timeout=2.0)
+        if r.status_code == 200:
+            data = r.json()
+            instances = []
+            if isinstance(data, list):
+                for item in data:
+                    url = item.get("url")
+                    if url and (item.get("status") == "up" or item.get("score", 0) > 50):
+                        instances.append(url.rstrip('/'))
+            elif isinstance(data, dict):
+                for k, v in data.items():
+                    if isinstance(v, dict):
+                        url = v.get("url") or k
+                        if url:
+                            instances.append(url.rstrip('/'))
+            if instances:
+                print(f"[Dynamic Cobalt] Found {len(instances)} live instances.")
+                dynamic_cobalt_cache["instances"] = instances
+                dynamic_cobalt_cache["last_fetched"] = now
+                return instances
+    except Exception as e:
+        print(f"[Dynamic Cobalt] Failed to fetch dynamic list: {e}")
+        
+    return dynamic_cobalt_cache["instances"]
+
 def fetch_cobalt_stream_url(video_id):
-    instances = [
+    global last_working_cobalt
+    instances = []
+    
+    # Try fetching live instances dynamically first
+    dynamic_instances = fetch_dynamic_cobalt_instances()
+    if dynamic_instances:
+        instances.extend(dynamic_instances)
+        
+    # Reliable community fallbacks
+    static_fallbacks = [
         "https://rue-cobalt.xenon.zone",
         "https://api.cobalt.tools",
-        "https://cobalt.foxtrot-omega.me"
+        "https://cobalt.foxtrot-omega.me",
+        "https://cobalt.willy.lol",
+        "https://cobalt.k6.dev",
+        "https://cobalt-api.lunar.icu",
+        "https://cobalt.col1g3.de",
+        "https://cobalt.projectsegfau.lt"
     ]
-    
+    for fallback in static_fallbacks:
+        if fallback not in instances:
+            instances.append(fallback)
+            
+    # Place last working instance first
+    if last_working_cobalt and last_working_cobalt in instances:
+        instances.remove(last_working_cobalt)
+        instances.insert(0, last_working_cobalt)
+
     headers = {
         "Content-Type": "application/json",
         "Accept": "application/json",
@@ -671,30 +732,41 @@ def fetch_cobalt_stream_url(video_id):
         for endpoint in endpoints:
             try:
                 print(f"[Cobalt Resolver] Attempting: {endpoint} for video_id={video_id}")
-                r = requests.post(endpoint, headers=headers, json=data, timeout=2.5)
+                r = requests.post(endpoint, headers=headers, json=data, timeout=1.5)
                 if r.status_code == 200:
                     res_data = r.json()
                     stream_url = res_data.get("url") or res_data.get("picker")
                     if stream_url:
                         print(f"[Cobalt Resolver] Success on: {endpoint}")
+                        last_working_cobalt = instance
                         return stream_url
             except Exception as e:
-                print(f"Cobalt endpoint {endpoint} failed: {e}")
+                pass
                 
     return None
 
 def fetch_piped_stream_url(video_id):
+    global last_working_piped
     instances = [
         "https://api-piped.mha.fi",
         "https://api.piped.private.coffee",
-        "https://pipedapi.kavin.rocks"
+        "https://pipedapi.kavin.rocks",
+        "https://pipedapi.col1g3.de",
+        "https://piped-api.garudalinux.org",
+        "https://pipedapi.us.to",
+        "https://api.piped.projectsegfau.lt",
+        "https://pipedapi.privacydev.net",
+        "https://pipedapi.lunar.icu"
     ]
-    
+    if last_working_piped and last_working_piped in instances:
+        instances.remove(last_working_piped)
+        instances.insert(0, last_working_piped)
+
     for instance in instances:
         url = f"{instance}/streams/{video_id}"
         try:
             print(f"[Piped Resolver] Querying instance: {url}")
-            r = requests.get(url, timeout=2.5)
+            r = requests.get(url, timeout=1.5)
             if r.status_code == 200:
                 data = r.json()
                 audio_streams = data.get("audioStreams", [])
@@ -702,27 +774,35 @@ def fetch_piped_stream_url(video_id):
                     stream_url = audio_streams[0].get("url")
                     if stream_url:
                         print(f"[Piped Resolver] Success on: {instance}")
+                        last_working_piped = instance
                         return stream_url
         except Exception as e:
-            print(f"Piped endpoint {url} failed: {e}")
+            pass
             
     return None
 
 def fetch_invidious_stream_url(video_id):
+    global last_working_invidious
     instances = [
         "https://inv.nadeko.net",
         "https://invidious.nerdvpn.de",
         "https://invidious.f5.si",
         "https://yt.chocolatemoo53.com",
         "https://inv.zoomerville.com",
-        "https://invidious.tiekoetter.com"
+        "https://invidious.tiekoetter.com",
+        "https://invidious.projectsegfau.lt",
+        "https://invidious.privacydev.net",
+        "https://invidious.lunar.icu"
     ]
-    
+    if last_working_invidious and last_working_invidious in instances:
+        instances.remove(last_working_invidious)
+        instances.insert(0, last_working_invidious)
+
     for instance in instances:
         url = f"{instance}/api/v1/videos/{video_id}?local=true"
         try:
             print(f"[Invidious Resolver] Querying: {url}")
-            r = requests.get(url, timeout=2.5)
+            r = requests.get(url, timeout=1.5)
             if r.status_code == 200:
                 data = r.json()
                 formats = data.get("adaptiveFormats", [])
@@ -733,9 +813,10 @@ def fetch_invidious_stream_url(video_id):
                         if stream_url.startswith("/"):
                             stream_url = f"{instance}{stream_url}"
                         print(f"[Invidious Resolver] Success on: {instance}")
+                        last_working_invidious = instance
                         return stream_url
         except Exception as e:
-            print(f"Invidious endpoint {url} failed: {e}")
+            pass
             
     return None
 
@@ -995,6 +1076,32 @@ def download_audio(video_id):
         print(f"[Download] Failed for {video_id}: {e}")
         return jsonify({"error": f"Download failed: {str(e)}"}), 500
 
+def sanitize_lyrics_search(title, artist):
+    import re
+    # Clean artist name first
+    artist_clean = re.sub(r'\s*-\s*topic$', '', artist, flags=re.IGNORECASE)
+    artist_clean = re.sub(r'(?:feat\.?|ft\.?)\s+.*$', '', artist_clean, flags=re.IGNORECASE).strip()
+
+    title_clean = title
+    # Remove common promotional tags/brackets
+    title_clean = re.sub(r'[\(\[][^\]\)]*(?:official|video|lyric|audio|live|remix|edit|hd|4k|hq|clip)[^\]\)]*[\)\]]', '', title_clean, flags=re.IGNORECASE)
+    
+    # If the title is in the format "Artist - Title", extract just "Title"
+    if " - " in title_clean:
+        parts = title_clean.split(" - ", 1)
+        # If the first part matches the clean artist, use the second part
+        if parts[0].strip().lower() == artist_clean.lower() or artist_clean.lower() in parts[0].lower():
+            title_clean = parts[1]
+            
+    # Remove artist name prefix/suffix if it's still in the title
+    title_clean = re.sub(rf'^\s*{re.escape(artist_clean)}\s*-\s*', '', title_clean, flags=re.IGNORECASE)
+    title_clean = re.sub(rf'\s*-\s*{re.escape(artist_clean)}\s*$', '', title_clean, flags=re.IGNORECASE)
+    
+    # Clean up multiple whitespaces
+    title_clean = re.sub(r'\s+', ' ', title_clean).strip()
+    
+    return title_clean, artist_clean
+
 @app.route("/api/lyrics/<video_id>")
 def get_lyrics(video_id):
     title = request.args.get('title', '')
@@ -1009,12 +1116,13 @@ def get_lyrics(video_id):
     
     # Try fetching synced lyrics from Lrclib first
     if title and artist:
+        title_clean, artist_clean = sanitize_lyrics_search(title, artist)
         try:
-            print(f"[Lyrics API] Fetching synced lyrics from Lrclib for '{title}' by '{artist}'")
+            print(f"[Lyrics API] Fetching synced lyrics from Lrclib (Exact) for '{title_clean}' by '{artist_clean}'")
             lrclib_url = "https://lrclib.net/api/get"
             params = {
-                "artist_name": artist,
-                "track_name": title
+                "artist_name": artist_clean,
+                "track_name": title_clean
             }
             r = requests.get(lrclib_url, params=params, timeout=5)
             if r.status_code == 200:
@@ -1026,7 +1134,26 @@ def get_lyrics(video_id):
                 elif plain_lyrics:
                     res = {"synced": False, "lyrics": plain_lyrics}
         except Exception as e:
-            print(f"[Lyrics API] Lrclib failed: {e}")
+            print(f"[Lyrics API] Lrclib exact failed: {e}")
+
+        # Fallback: if exact match didn't yield synced lyrics, try general search endpoint
+        if not res or not res.get("synced"):
+            try:
+                print(f"[Lyrics API] Synced lyrics not found by exact match. Trying Lrclib search query...")
+                search_url = "https://lrclib.net/api/search"
+                r = requests.get(search_url, params={"q": f"{artist_clean} {title_clean}"}, timeout=5)
+                if r.status_code == 200:
+                    results = r.json()
+                    if results and isinstance(results, list) and len(results) > 0:
+                        # Find the first result that has synced lyrics
+                        for item in results:
+                            synced_lyrics = item.get("syncedLyrics")
+                            if synced_lyrics:
+                                res = {"synced": True, "lyrics": synced_lyrics}
+                                print(f"[Lyrics API] Found synced lyrics via search fallback: {item.get('trackName')}")
+                                break
+            except Exception as search_err:
+                print(f"[Lyrics API] Lrclib search fallback failed: {search_err}")
             
     # Fallback to YTMusic if Lrclib didn't yield anything
     if not res:
