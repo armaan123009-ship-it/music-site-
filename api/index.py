@@ -1000,10 +1000,13 @@ def proxy():
     elif end - start + 1 > MAX_CHUNK_SIZE:
         end = start + MAX_CHUNK_SIZE - 1
 
+    is_googlevideo = "googlevideo.com" in url
+
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Range": f"bytes={start}-{end}"
     }
+    if is_googlevideo:
+        headers["Range"] = f"bytes={start}-{end}"
 
     r = None
     try:
@@ -1019,6 +1022,12 @@ def proxy():
             fresh_url = resolve_stream_url(video_id)
             if fresh_url:
                 print(f"[Proxy] Fresh URL resolved: {fresh_url}. Retrying request...")
+                is_googlevideo = "googlevideo.com" in fresh_url
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                }
+                if is_googlevideo:
+                    headers["Range"] = f"bytes={start}-{end}"
                 try:
                     r = requests.get(fresh_url, headers=headers, timeout=3.0)
                 except Exception as retry_err:
@@ -1036,7 +1045,7 @@ def proxy():
         total_len = len(content)
         content_type = r.headers.get("Content-Type", "audio/mpeg")
 
-        if status_code == 206:
+        if is_googlevideo and status_code == 206:
             content_range = r.headers.get("Content-Range")
             content_length = r.headers.get("Content-Length", str(total_len))
         else:
