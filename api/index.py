@@ -688,28 +688,18 @@ def fetch_dynamic_cobalt_instances():
 
 def check_cobalt_instance(instance, headers, video_id):
     url = f"https://www.youtube.com/watch?v={video_id}"
-    schemas = [
-        # Schema 1: Cobalt v7 Audio Only
-        {"url": url, "downloadMode": "audio", "audioFormat": "mp3"},
-        # Schema 2: Cobalt v10 Audio Only
-        {"url": url, "audioOnly": True, "aFormat": "mp3"},
-        {"url": url, "audioOnly": True, "audioFormat": "mp3"},
-        # Schema 3: Cobalt Minimalist
-        {"url": url}
-    ]
-    for schema in schemas:
+    schema = {
+        "url": url,
+        "downloadMode": "audio",
+        "audioFormat": "mp3",
+        "isAudioOnly": True,
+        "audioOnly": True,
+        "aFormat": "mp3"
+    }
+    normalized_instance = instance.rstrip('/')
+    for target in [normalized_instance, f"{normalized_instance}/"]:
         try:
-            r = requests.post(instance, headers=headers, json=schema, timeout=2.5)
-            if r.status_code == 200:
-                res_data = r.json()
-                stream_url = res_data.get("url") or res_data.get("picker")
-                if stream_url:
-                    return instance, stream_url
-        except Exception:
-            pass
-        
-        try:
-            r = requests.post(f"{instance}/", headers=headers, json=schema, timeout=2.5)
+            r = requests.post(target, headers=headers, json=schema, timeout=2.5)
             if r.status_code == 200:
                 res_data = r.json()
                 stream_url = res_data.get("url") or res_data.get("picker")
@@ -1000,6 +990,9 @@ def proxy():
 
     if r is None:
         return "Proxy error: connection failed to all resolved stream endpoints", 500
+
+    if r.status_code not in [200, 206]:
+        return f"Proxy error: upstream returned status code {r.status_code}", r.status_code
 
     try:
         status_code = r.status_code

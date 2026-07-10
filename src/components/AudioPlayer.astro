@@ -657,98 +657,128 @@ import {
     }
 
     async function resolveStreamClientSide(trackId: string): Promise<{ streamUrl: string; proxyUrl: string } | null> {
-        console.log(`[Client Resolver] Resolving stream for ${trackId}...`);
+        console.log(`[Client Resolver] Resolving stream for ${trackId} in parallel...`);
 
-        // 1. Try client-side Cobalt fallback across multiple instances and schemas (v7, v10, minimal)
-        const cobaltInstances = [
-            "https://rue-cobalt.xenon.zone",
-            "https://api.cobalt.tools",
-            "https://cobalt.foxtrot-omega.me",
-            "https://cobalt.willy.lol",
-            "https://cobalt.k6.dev",
-            "https://cobalt-api.lunar.icu",
-            "https://cobalt.col1g3.de",
-            "https://cobalt.projectsegfau.lt",
-        ];
-        const schemas = [
-            { downloadMode: "audio", audioFormat: "mp3" },
-            { audioOnly: true, aFormat: "mp3" },
-            { audioOnly: true, audioFormat: "mp3" },
-            {} // Minimalist video fallback
-        ];
-
-        for (const instance of cobaltInstances) {
-            for (const schemaOption of schemas) {
-                try {
-                    const bodyData = {
-                        url: `https://www.youtube.com/watch?v=${trackId}`,
-                        ...schemaOption
-                    };
-                    const cobaltRes = await fetch(
-                        instance.endsWith("/") ? instance : `${instance}/`,
-                        {
-                            method: "POST",
-                            headers: {
-                                "Content-Type": "application/json",
-                                Accept: "application/json",
-                            },
-                            body: JSON.stringify(bodyData),
-                        },
-                    );
-                    if (cobaltRes.ok) {
-                        const cobaltData = await cobaltRes.json();
-                        const sUrl = cobaltData.url || cobaltData.picker;
-                        if (sUrl) {
-                            console.log(
-                                `[Client Resolver] Successfully resolved stream via Cobalt on: ${instance} using schema:`,
-                                schemaOption
-                            );
-                            return { streamUrl: sUrl, proxyUrl: sUrl };
-                        }
-                    }
-                } catch (cobaltErr) {
-                    // Fail silently and try next schema/instance
-                }
-            }
-        }
-
-        // 2. Try client-side Piped fallback across multiple instances
         const pipedInstances = [
             "https://api-piped.mha.fi",
             "https://api.piped.private.coffee",
             "https://pipedapi.kavin.rocks",
+            "https://pipedapi.privacydev.net",
             "https://pipedapi.col1g3.de",
             "https://piped-api.garudalinux.org",
-            "https://pipedapi.us.to",
-            "https://api.piped.projectsegfau.lt",
-            "https://pipedapi.privacydev.net",
-            "https://pipedapi.lunar.icu",
+            "https://pipedapi.lunar.icu"
         ];
-        for (const instance of pipedInstances) {
-            try {
-                const pipedRes = await fetch(
-                    `${instance}/streams/${trackId}`,
-                );
-                if (pipedRes.ok) {
-                    const pipedData = await pipedRes.json();
-                    const audioStreams = pipedData.audioStreams || [];
-                    if (audioStreams.length > 0 && audioStreams[0].url) {
-                        const sUrl = audioStreams[0].url;
-                        console.log(
-                            `[Client Resolver] Successfully resolved stream via Piped on: ${instance}`,
-                        );
-                        return { streamUrl: sUrl, proxyUrl: sUrl };
-                    }
-                }
-            } catch (pipedErr) {
-                console.warn(
-                    `[Client Resolver] Piped instance ${instance} failed:`,
-                    pipedErr,
-                );
-            }
-        }
 
-        return null;
+        const invidiousInstances = [
+            "https://inv.nadeko.net",
+            "https://invidious.nerdvpn.de",
+            "https://invidious.projectsegfau.lt",
+            "https://invidious.privacydev.net",
+            "https://invidious.lunar.icu",
+            "https://invidious.tiekoetter.com"
+        ];
+
+        const cobaltInstances = [
+            "https://rue-cobalt.xenon.zone",
+            "https://cobalt.foxtrot-omega.me",
+            "https://cobalt.willy.lol",
+            "https://cobalt.k6.dev",
+            "https://cobalt-api.lunar.icu",
+            "https://cobalt.col1g3.de"
+        ];
+
+        const promises: Promise<{ streamUrl: string; proxyUrl: string }>[] = [];
+
+        const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 4000) => {
+            return new Promise<Response>((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+                fetch(url, options)
+                    .then(res => {
+                        clearTimeout(timer);
+                        resolve(res);
+                    })
+                    .catch(err => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+            });
+        };
+
+        // 1. Piped candidates
+        pipedInstances.forEach(instance => {
+            promises.push(
+                fetchWithTimeout(`${instance}/streams/${trackId}`, {}, 4000)
+                    .then(async res => {
+                        if (!res.ok) throw new Error("Status " + res.status);
+                        const data = await res.json();
+                        const audioStreams = data.audioStreams || [];
+                        if (audioStreams.length > 0 && audioStreams[0].url) {
+                            return { streamUrl: audioStreams[0].url, proxyUrl: audioStreams[0].url };
+                        }
+                        throw new Error("No audio stream");
+                    })
+            );
+        });
+
+        // 2. Invidious candidates (local=true forces Invidious proxying)
+        invidiousInstances.forEach(instance => {
+            promises.push(
+                fetchWithTimeout(`${instance}/api/v1/videos/${trackId}?local=true`, {}, 4000)
+                    .then(async res => {
+                        if (!res.ok) throw new Error("Status " + res.status);
+                        const data = await res.json();
+                        const formats = data.adaptiveFormats || [];
+                        const audioFormats = formats.filter((f: any) => f.type && f.type.startsWith("audio/"));
+                        if (audioFormats.length > 0 && audioFormats[0].url) {
+                            let sUrl = audioFormats[0].url;
+                            if (sUrl.startsWith("/")) {
+                                sUrl = `${instance}${sUrl}`;
+                            }
+                            return { streamUrl: sUrl, proxyUrl: sUrl };
+                        }
+                        throw new Error("No audio stream");
+                    })
+            );
+        });
+
+        // 3. Cobalt candidates (combined parameters format)
+        cobaltInstances.forEach(instance => {
+            promises.push(
+                fetchWithTimeout(instance.endsWith("/") ? instance : `${instance}/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: `https://www.youtube.com/watch?v=${trackId}`,
+                        downloadMode: "audio",
+                        audioFormat: "mp3",
+                        isAudioOnly: true,
+                        audioOnly: true,
+                        aFormat: "mp3"
+                    })
+                }, 4000)
+                    .then(async res => {
+                        if (!res.ok) throw new Error("Status " + res.status);
+                        const data = await res.json();
+                        const sUrl = data.url || data.picker;
+                        if (sUrl) {
+                            return { streamUrl: sUrl, proxyUrl: sUrl };
+                        }
+                        throw new Error("No stream URL");
+                    })
+            );
+        });
+
+        try {
+            const result = await Promise.any(promises);
+            console.log("[Client Resolver] Successfully resolved stream in parallel:", result.proxyUrl);
+            return result;
+        } catch (err) {
+            console.warn("[Client Resolver] All parallel stream resolution attempts failed:", err);
+            return null;
+        }
     }
 
     // Parse duration strings like "3:45", "1:02:15", or seconds "225"
@@ -802,12 +832,18 @@ import {
         if (!lrcText) return [];
         const lines = lrcText.split(/\r?\n/);
         const lyrics: LyricLine[] = [];
-        const timeRegex = /\[(\d+):(\d+)(?:[\.:](\d+))?\](.*)/;
+        const stampRegex = /\[\s*(\d+)\s*:\s*(\d+)(?:[\.,:]\s*(\d+))?\s*\]/g;
 
         for (const line of lines) {
             const trimmed = line.trim();
-            const match = timeRegex.exec(trimmed);
-            if (match) {
+            if (!trimmed) continue;
+
+            const matches = [...trimmed.matchAll(stampRegex)];
+            if (matches.length === 0) continue;
+
+            const text = trimmed.replace(stampRegex, "").trim();
+
+            for (const match of matches) {
                 const minutes = parseInt(match[1], 10);
                 const seconds = parseInt(match[2], 10);
                 const msStr = match[3] || "0";
@@ -815,9 +851,10 @@ import {
                 const fractionalSeconds = msVal / Math.pow(10, msStr.length);
 
                 const time = minutes * 60 + seconds + fractionalSeconds;
-                const text = match[4].trim();
 
-                lyrics.push({ time, text });
+                if (isFinite(time)) {
+                    lyrics.push({ time, text });
+                }
             }
         }
 
@@ -1509,12 +1546,15 @@ import {
     }
 
     function updateActiveLyric(currentTime: number) {
+        if (!isFinite(currentTime) || isNaN(currentTime)) return;
+
         const linesContainer = document.getElementById(
             "lyrics-lines-container",
         );
         if (
             !linesContainer ||
             !state.parsedLyrics ||
+            !Array.isArray(state.parsedLyrics) ||
             state.parsedLyrics.length === 0
         )
             return;
@@ -2336,23 +2376,8 @@ import {
                     throw new Error("Unable to resolve streaming URL");
                 }
 
-                // If on production Vercel, redirect directly to the backend download endpoint.
-                // The backend redirects to a playable direct attachment URL to bypass Vercel constraints.
-                if (!isLocalhost) {
-                    console.log(
-                        "[Downloader] Using production download redirect endpoint...",
-                    );
-                    updateDownloadProgress("Downloading...", true);
-                    window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                    setTimeout(
-                        () =>
-                            updateDownloadProgress("Download complete", false),
-                        2000,
-                    );
-                    return;
-                }
-
-                // Range request for 0-0 to retrieve total size via Content-Range
+                // Proceed directly to chunk downloader for all environments to bypass Vercel constraints.
+                // Range requests for 0-0 to retrieve total size via Content-Range
                 const testRes = await fetch(proxyUrl, {
                     headers: { Range: "bytes=0-0" },
                 });
