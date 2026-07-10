@@ -1302,22 +1302,21 @@ import {
                 );
             } else {
                 try {
-                    console.log(`[Fast Load] Racing backend resolver and client resolver in parallel for: ${track.title}`);
-                    const result = await Promise.any([
-                        apiFetch(`/stream/${track.id}`).then((data) => {
-                            if (data && data.url) {
-                                const pUrl = data.proxy_url.startsWith("http")
-                                    ? data.proxy_url
-                                    : `${API_BASE}${data.proxy_url}`;
-                                return { streamUrl: data.url, proxyUrl: pUrl };
-                            }
-                            throw new Error("Backend resolve failed");
-                        }),
-                        resolveStreamClientSide(track.id).then((resolved) => {
-                            if (resolved) return resolved;
-                            throw new Error("Client resolve failed");
-                        })
-                    ]);
+                    console.log(`[Fast Load] Attempting backend resolver first for: ${track.title}`);
+                    const result = await apiFetch(`/stream/${track.id}`).then((data) => {
+                        if (data && data.url) {
+                            const pUrl = data.proxy_url.startsWith("http")
+                                ? data.proxy_url
+                                : `${API_BASE}${data.proxy_url}`;
+                            return { streamUrl: data.url, proxyUrl: pUrl };
+                        }
+                        throw new Error("Backend resolve failed");
+                    }).catch(async (err) => {
+                        console.warn("[Fast Load] Backend resolver failed, trying client-side resolver fallback...", err);
+                        const resolved = await resolveStreamClientSide(track.id);
+                        if (resolved) return resolved;
+                        throw new Error("Client-side resolve fallback failed");
+                    });
                     if (result) {
                         streamUrl = result.streamUrl;
                         proxyUrl = result.proxyUrl;

@@ -868,24 +868,36 @@ def resolve_stream_url(video_id):
     is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
     if not is_production:
         url = extract_stream_url(video_id)
-    else:
-        print(f"[Resolver] Skipping local yt-dlp extraction on production/Vercel (prevents 10s function timeout). Trying fallbacks...")
-        
-    if not url:
-        print(f"[Resolver] yt-dlp failed or skipped for {video_id}, trying Cobalt fallback...")
-        url = fetch_cobalt_stream_url(video_id)
-        
-    if not url:
-        print(f"[Resolver] Cobalt failed for {video_id}, trying Piped fallback...")
-        url = fetch_piped_stream_url(video_id)
-        
-    if not url:
-        print(f"[Resolver] Piped failed for {video_id}, trying Invidious fallback...")
-        url = fetch_invidious_stream_url(video_id)
-        
-    if url:
-        set_cached_stream_url(video_id, url)
-        return url
+        if url:
+            set_cached_stream_url(video_id, url)
+            return url
+            
+    print(f"[Resolver] Resolving stream for {video_id} using parallel fallbacks...")
+    import concurrent.futures
+    
+    resolvers = [
+        ("Cobalt", fetch_cobalt_stream_url),
+        ("Piped", fetch_piped_stream_url),
+        ("Invidious", fetch_invidious_stream_url)
+    ]
+    
+    resolved_url = None
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_resolver = {executor.submit(func, video_id): name for name, func in resolvers}
+        for future in concurrent.futures.as_completed(future_to_resolver):
+            name = future_to_resolver[future]
+            try:
+                res = future.result()
+                if res:
+                    print(f"[Parallel Resolver] Success from {name}: {res}")
+                    resolved_url = res
+                    break
+            except Exception as e:
+                print(f"[Parallel Resolver] {name} exception: {e}")
+                
+    if resolved_url:
+        set_cached_stream_url(video_id, resolved_url)
+        return resolved_url
         
     return None
 
