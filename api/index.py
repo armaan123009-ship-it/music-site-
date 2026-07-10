@@ -1007,7 +1007,7 @@ def proxy():
 
     r = None
     try:
-        r = requests.get(url, headers=headers, stream=True, timeout=3.0)
+        r = requests.get(url, headers=headers, timeout=3.0)
     except Exception as e:
         print(f"[Proxy] Upstream request exception: {e}")
 
@@ -1020,7 +1020,7 @@ def proxy():
             if fresh_url:
                 print(f"[Proxy] Fresh URL resolved: {fresh_url}. Retrying request...")
                 try:
-                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=3.0)
+                    r = requests.get(fresh_url, headers=headers, timeout=3.0)
                 except Exception as retry_err:
                     print(f"[Proxy] Upstream retry request exception: {retry_err}")
 
@@ -1032,24 +1032,26 @@ def proxy():
 
     try:
         status_code = r.status_code
+        content = r.content
+        total_len = len(content)
         content_type = r.headers.get("Content-Type", "audio/mpeg")
 
-        def generate():
-            try:
-                for chunk in r.iter_content(chunk_size=32768):
-                    if chunk:
-                        yield chunk
-            except Exception as stream_err:
-                print(f"[Proxy Stream] Error yielding chunk: {stream_err}")
+        if status_code == 206:
+            content_range = r.headers.get("Content-Range")
+            content_length = r.headers.get("Content-Length", str(total_len))
+        else:
+            status_code = 206
+            sliced = content[start:end+1]
+            content_range = f"bytes {start}-{start + len(sliced) - 1}/{total_len}"
+            content_length = str(len(sliced))
+            content = sliced
 
-        response = Response(stream_with_context(generate()), status=status_code)
+        response = Response(content, status=status_code)
         response.headers["Content-Type"] = content_type
         response.headers["Accept-Ranges"] = "bytes"
-        
-        if "Content-Length" in r.headers:
-            response.headers["Content-Length"] = r.headers["Content-Length"]
-        if "Content-Range" in r.headers:
-            response.headers["Content-Range"] = r.headers["Content-Range"]
+        response.headers["Content-Length"] = content_length
+        if content_range:
+            response.headers["Content-Range"] = content_range
 
         if download:
             response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
