@@ -936,22 +936,96 @@ def resolve_stream_url(video_id):
 
 @app.route("/stream/<video_id>")
 def stream(video_id):
+    """Returns stream metadata. Kept for backward compat - clients should use /play/<video_id>"""
     try:
+        # Point proxy_url to the unified /play endpoint instead
+        play_url = f"/play/{video_id}"
+        # Also resolve a direct URL for client-side fallback
         url = resolve_stream_url(video_id)
         if not url:
-            raise Exception("Failed to resolve stream URL from all sources")
-            
-        expires_at = int(time.time()) + 1800  # 30 minutes validity
-        sig = generate_signature(video_id, url, expires_at)
-        proxy_url = f"/proxy?url={requests.utils.quote(url)}&id={video_id}&exp={expires_at}&sig={sig}"
-        
+            url = play_url  # fallback to play endpoint
         return jsonify({
-            "url": url, 
-            "proxy_url": proxy_url
+            "url": url,
+            "proxy_url": play_url
         })
     except Exception as e:
         print(f"Stream error for {video_id}: {e}")
         return jsonify({"error": str(e)}), 400
+
+@app.route("/play/<video_id>")
+def play(video_id):
+    """Unified endpoint: resolves stream URL and immediately pipes audio bytes to client."""
+    range_header = request.headers.get("Range")
+    MAX_CHUNK_SIZE = 2500000
+    start = 0
+    end = None
+
+    if range_header:
+        try:
+            range_val = range_header.replace('bytes=', '')
+            start_str, end_str = range_val.split('-')
+            start = int(start_str) if start_str else 0
+            if end_str:
+                end = int(end_str)
+        except Exception as e:
+            print(f"[Play] Error parsing range header: {e}")
+
+    if end is None:
+        end = start + MAX_CHUNK_SIZE - 1
+    elif end - start + 1 > MAX_CHUNK_SIZE:
+        end = start + MAX_CHUNK_SIZE - 1
+
+    # Always resolve fresh URL for this request - avoids stale tunnel URLs
+    if video_id in stream_cache:
+        del stream_cache[video_id]
+
+    url = resolve_stream_url(video_id)
+    if not url:
+        return "Could not resolve stream for this track", 503
+
+    is_tunnel = "/tunnel" in url
+    is_googlevideo = "googlevideo.com" in url
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    }
+    if is_googlevideo:
+        headers["Range"] = f"bytes={start}-{end}"
+
+    try:
+        r = requests.get(url, headers=headers, stream=is_tunnel, timeout=10.0)
+        if r.status_code not in [200, 206]:
+            return f"Upstream error: {r.status_code}", 502
+
+        content = r.content
+        total_len = len(content)
+        content_type = r.headers.get("Content-Type", "audio/mpeg")
+        if not content_type or "text" in content_type:
+            content_type = "audio/mpeg"
+
+        if is_googlevideo and r.status_code == 206:
+            content_range = r.headers.get("Content-Range")
+            content_length = r.headers.get("Content-Length", str(total_len))
+        else:
+            sliced = content[start:end+1] if total_len > 0 else content
+            content_range = f"bytes {start}-{start + len(sliced) - 1}/{total_len}"
+            content_length = str(len(sliced))
+            content = sliced
+
+        response = Response(content, status=206)
+        response.headers["Content-Type"] = content_type
+        response.headers["Accept-Ranges"] = "bytes"
+        response.headers["Content-Length"] = content_length
+        response.headers["Content-Range"] = content_range
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
+        response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+    except Exception as e:
+        print(f"[Play] Error streaming {video_id}: {e}")
+        return str(e), 500
+
 
 @app.route("/proxy")
 def proxy():
