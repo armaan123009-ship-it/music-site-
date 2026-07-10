@@ -768,9 +768,6 @@ def check_piped_instance(instance, video_id):
             if audio_streams:
                 stream_url = audio_streams[0].get("url")
                 if stream_url:
-                    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
-                    if is_production and "googlevideo.com" in stream_url:
-                        return None
                     return instance, stream_url
     except Exception:
         pass
@@ -904,32 +901,21 @@ def fetch_invidious_stream_url(video_id):
 
 def resolve_stream_url(video_id):
     url = get_cached_stream_url(video_id)
-    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
     if url:
-        if is_production and "googlevideo.com" in url:
-            if video_id in stream_cache:
-                del stream_cache[video_id]
-        else:
-            return url
-        
-    # Skip yt-dlp extraction on Vercel/Production to prevent serverless function timeouts
-    if not is_production:
-        url = extract_stream_url(video_id)
-        if url:
-            set_cached_stream_url(video_id, url)
-            return url
+        return url
             
     print(f"[Resolver] Resolving stream for {video_id} using parallel fallbacks...")
     import concurrent.futures
     
     resolvers = [
+        ("yt-dlp", extract_stream_url),
         ("Cobalt", fetch_cobalt_stream_url),
         ("Piped", fetch_piped_stream_url),
         ("Invidious", fetch_invidious_stream_url)
     ]
     
     resolved_url = None
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         future_to_resolver = {executor.submit(func, video_id): name for name, func in resolvers}
         for future in concurrent.futures.as_completed(future_to_resolver):
             name = future_to_resolver[future]
@@ -981,7 +967,6 @@ def proxy():
         return "Forbidden: Missing signature", 403
 
     try:
-        # Allow a 5-minute (300s) clock skew grace period for serverless instances
         if time.time() > int(exp) + 300:
             return "Forbidden: URL Expired", 403
         if not verify_signature(video_id, url, int(exp), sig):
@@ -991,22 +976,16 @@ def proxy():
 
     download = request.args.get('download') == 'true'
     title = request.args.get('title', 'audio')
-    # Clean filename
     safe_title = "".join([c for c in title if c.isalnum() or c in ' -_']).strip()
     if not safe_title:
         safe_title = "audio"
 
     range_header = request.headers.get("Range")
-
-    # 2.5 MB maximum response chunk size to stay safely within Vercel's 4.5 MB payload limit
     MAX_CHUNK_SIZE = 2500000
-
     start = 0
     end = None
-    is_range = False
 
     if range_header:
-        is_range = True
         try:
             range_val = range_header.replace('bytes=', '')
             start_str, end_str = range_val.split('-')
@@ -1016,7 +995,6 @@ def proxy():
         except Exception as e:
             print(f"Error parsing range header: {e}")
 
-    # Enforce 2.5MB chunk size limit for the upstream request
     if end is None:
         end = start + MAX_CHUNK_SIZE - 1
     elif end - start + 1 > MAX_CHUNK_SIZE:
@@ -1029,21 +1007,20 @@ def proxy():
 
     r = None
     try:
-        r = requests.get(url, headers=headers, stream=True, timeout=10)
+        r = requests.get(url, headers=headers, stream=True, timeout=3.0)
     except Exception as e:
         print(f"[Proxy] Upstream request exception: {e}")
 
-    # Transparently resolve fresh URL if request failed, timed out, or returned forbidden/expired status
     if r is None or r.status_code not in [200, 206]:
         if video_id:
-            print(f"[Proxy] Upstream failed or returned invalid status. Resolving fresh URL for {video_id}...")
+            print(f"[Proxy] Upstream failed or timed out. Resolving fresh URL for {video_id}...")
             if video_id in stream_cache:
                 del stream_cache[video_id]
             fresh_url = resolve_stream_url(video_id)
             if fresh_url:
                 print(f"[Proxy] Fresh URL resolved: {fresh_url}. Retrying request...")
                 try:
-                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=10)
+                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=3.0)
                 except Exception as retry_err:
                     print(f"[Proxy] Upstream retry request exception: {retry_err}")
 
@@ -1055,29 +1032,24 @@ def proxy():
 
     try:
         status_code = r.status_code
-        content = r.content
-        total_len = len(content)
-
         content_type = r.headers.get("Content-Type", "audio/mpeg")
-        
-        # If upstream responded with 206 Partial Content, we mirror its range headers
-        if status_code == 206:
-            content_range = r.headers.get("Content-Range")
-            content_length = r.headers.get("Content-Length", str(total_len))
-        else:
-            # If upstream returned 200, we slice the content in memory and return 206
-            status_code = 206
-            sliced = content[start:end+1]
-            content_range = f"bytes {start}-{start + len(sliced) - 1}/{total_len}"
-            content_length = str(len(sliced))
-            content = sliced
 
-        response = Response(content, status=status_code)
+        def generate():
+            try:
+                for chunk in r.iter_content(chunk_size=32768):
+                    if chunk:
+                        yield chunk
+            except Exception as stream_err:
+                print(f"[Proxy Stream] Error yielding chunk: {stream_err}")
+
+        response = Response(stream_with_context(generate()), status=status_code)
         response.headers["Content-Type"] = content_type
         response.headers["Accept-Ranges"] = "bytes"
-        response.headers["Content-Length"] = content_length
-        if content_range:
-            response.headers["Content-Range"] = content_range
+        
+        if "Content-Length" in r.headers:
+            response.headers["Content-Length"] = r.headers["Content-Length"]
+        if "Content-Range" in r.headers:
+            response.headers["Content-Range"] = r.headers["Content-Range"]
 
         if download:
             response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
@@ -1087,7 +1059,6 @@ def proxy():
             response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
             response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
 
-        # Copy through additional safe headers from upstream
         for k, v in r.headers.items():
             lk = k.lower()
             if lk in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition', 'content-type', 'accept-ranges', 'content-length', 'content-range']:
