@@ -741,10 +741,13 @@ import {
             );
         });
 
-        // 3. Cobalt candidates (combined parameters format)
+        // 3. Cobalt candidates (both v10 and v7 schemas in parallel)
         cobaltInstances.forEach(instance => {
+            const target = instance.endsWith("/") ? instance : `${instance}/`;
+            
+            // Schema v10
             promises.push(
-                fetchWithTimeout(instance.endsWith("/") ? instance : `${instance}/`, {
+                fetchWithTimeout(target, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -753,8 +756,30 @@ import {
                     body: JSON.stringify({
                         url: `https://www.youtube.com/watch?v=${trackId}`,
                         downloadMode: "audio",
-                        audioFormat: "mp3",
-                        isAudioOnly: true,
+                        audioFormat: "mp3"
+                    })
+                }, 4000)
+                    .then(async res => {
+                        if (!res.ok) throw new Error("Status " + res.status);
+                        const data = await res.json();
+                        const sUrl = data.url || data.picker;
+                        if (sUrl) {
+                            return { streamUrl: sUrl, proxyUrl: sUrl };
+                        }
+                        throw new Error("No stream URL");
+                    })
+            );
+
+            // Schema v7
+            promises.push(
+                fetchWithTimeout(target, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: `https://www.youtube.com/watch?v=${trackId}`,
                         audioOnly: true,
                         aFormat: "mp3"
                     })

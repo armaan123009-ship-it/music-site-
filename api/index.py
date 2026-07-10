@@ -688,16 +688,14 @@ def fetch_dynamic_cobalt_instances():
 
 def check_cobalt_instance(instance, headers, video_id):
     url = f"https://www.youtube.com/watch?v={video_id}"
-    schema = {
-        "url": url,
-        "downloadMode": "audio",
-        "audioFormat": "mp3",
-        "isAudioOnly": True,
-        "audioOnly": True,
-        "aFormat": "mp3"
-    }
-    normalized_instance = instance.rstrip('/')
-    for target in [normalized_instance, f"{normalized_instance}/"]:
+    schemas = [
+        # Schema v10
+        {"url": url, "downloadMode": "audio", "audioFormat": "mp3"},
+        # Schema v7
+        {"url": url, "audioOnly": True, "aFormat": "mp3"}
+    ]
+    target = instance.rstrip('/') + '/'
+    for schema in schemas:
         try:
             r = requests.post(target, headers=headers, json=schema, timeout=2.5)
             if r.status_code == 200:
