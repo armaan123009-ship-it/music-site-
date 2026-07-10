@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { Play } from 'lucide-react';
+import { Play, Sparkles, Radio, ArrowRight } from 'lucide-react';
 
 const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "Focus", "Romance"];
 ---
@@ -8,6 +8,30 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 <Layout title="Home | Premium Music Experience" activeNav="home">
 	<!-- Main Content Area -->
 	<div id="main-content-area" class="p-4 sm:p-8 md:p-12 space-y-10 md:space-y-12">
+			<!-- Featured listening surface -->
+			<section class="relative isolate overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-primary/30 via-[#151515] to-[#060606] px-6 py-8 shadow-2xl shadow-black/30 sm:px-10 sm:py-12">
+				<div class="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary/35 blur-3xl"></div>
+				<div class="absolute bottom-[-10rem] left-1/3 h-64 w-64 rounded-full bg-orange-300/15 blur-3xl"></div>
+				<div class="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+					<div class="max-w-2xl">
+						<p class="mb-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.24em] text-primary-foreground/80"><Sparkles className="h-3.5 w-3.5" /> Made for your next listen</p>
+						<h1 class="max-w-xl text-4xl font-black leading-[0.94] tracking-[-0.055em] text-white sm:text-6xl">A music room built around your mood.</h1>
+						<p class="mt-5 max-w-lg text-sm leading-6 text-white/65 sm:text-base">Search for a song, build a queue, and keep listening while you explore. Your player follows you everywhere.</p>
+						<div class="mt-7 flex flex-wrap gap-3">
+							<button class="mood-filter-trigger inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3 text-sm font-black text-primary-foreground shadow-lg shadow-primary/30 transition hover:scale-[1.03] cursor-pointer" data-query="Trending music"><Play className="h-4 w-4 fill-current" /> Start listening</button>
+							<a href="/explore" class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/20 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/10">Explore music <ArrowRight className="h-4 w-4" /></a>
+						</div>
+					</div>
+					<div class="hidden w-56 rotate-3 rounded-[1.6rem] border border-white/15 bg-gradient-to-br from-white/20 to-white/5 p-4 shadow-2xl backdrop-blur-sm lg:block">
+						<div class="aspect-square rounded-2xl bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,.9),rgba(255,255,255,.1)_25%,transparent_26%),linear-gradient(135deg,#ff725c,#4d1d4f_55%,#080808)] p-5">
+							<div class="flex h-full items-end"><Radio className="h-10 w-10 text-white/90" /></div>
+						</div>
+						<p class="mt-4 text-xs font-black uppercase tracking-[0.17em] text-white/50">Your station</p>
+						<p class="mt-1 font-bold text-white">Night-drive signal</p>
+					</div>
+				</div>
+			</section>
+
 			<!-- Mood Filter Bar -->
 			<section class="flex gap-2.5 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory">
 				{moodFilters.map((mood) => (
