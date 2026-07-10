@@ -1365,11 +1365,11 @@ import {
                 try {
                     let currentPlayUrl = "";
                     if (playbackAttempts === 0) {
-                        currentPlayUrl = streamUrl || "";
-                        console.log(`[Playback] Attempt 1: Playing direct stream: ${currentPlayUrl}`);
+                        currentPlayUrl = proxyUrl || streamUrl || "";
+                        console.log(`[Playback] Attempt 1: Playing through /play endpoint: ${currentPlayUrl}`);
                     } else if (playbackAttempts === 1) {
-                        currentPlayUrl = proxyUrl || "";
-                        console.log(`[Playback] Attempt 2: Playing through proxy: ${currentPlayUrl}`);
+                        currentPlayUrl = streamUrl || "";
+                        console.log(`[Playback] Attempt 2: Playing direct stream fallback: ${currentPlayUrl}`);
                     } else if (playbackAttempts === 2) {
                         console.log(`[Playback] Attempt 3: Resolving and playing client-side fallback...`);
                         showToast("Resolving backup stream...");
