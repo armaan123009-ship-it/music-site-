@@ -6,5 +6,10 @@
     { "source": "/play/(.*)", "destination": "/api/index.py" },
     { "source": "/debug/(.*)", "destination": "/api/index.py" },
     { "source": "/proxy", "destination": "/api/index.py" }
-  ]
+  ],
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 60
+    }
+  }
 }

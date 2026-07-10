@@ -647,6 +647,29 @@ def extract_stream_url(video_id):
         
     return None
 
+def extract_stream_url_fast(video_id):
+    """Fast yt-dlp extraction: android client only, single attempt. Used in /play for speed."""
+    ydl_opts = {
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+        'nocheckcertificate': True,
+        'ignoreerrors': True,
+        'cachedir': False,
+        'noconfig': True,
+        'socket_timeout': 8,
+        'extractor_args': {'youtube': {'client': ['android']}}
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            if info and 'url' in info:
+                print(f"[yt-dlp fast] Got URL for {video_id}")
+                return info['url']
+    except Exception as e:
+        print(f"[yt-dlp fast] Failed for {video_id}: {e}")
+    return None
+
 last_working_cobalt = None
 last_working_piped = None
 last_working_invidious = None
@@ -994,7 +1017,8 @@ def stream(video_id):
 
 @app.route("/play/<video_id>")
 def play(video_id):
-    """Unified endpoint: resolves stream URL and immediately pipes audio bytes to client."""
+    """Unified endpoint: resolves stream URL and immediately pipes audio bytes to client.
+    Uses a try-fetch-verify loop to guarantee non-empty bytes are returned."""
     range_header = request.headers.get("Range")
     MAX_CHUNK_SIZE = 2500000
     start = 0
@@ -1015,53 +1039,89 @@ def play(video_id):
     elif end - start + 1 > MAX_CHUNK_SIZE:
         end = start + MAX_CHUNK_SIZE - 1
 
-    # Always resolve a fresh, durable URL — never use Cobalt tunnel URLs
-    url = resolve_direct_url(video_id)
-    if not url:
-        return "Could not resolve a playable stream for this track", 503
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
-    is_tunnel = "/tunnel" in url
-    is_googlevideo = "googlevideo.com" in url
+    def try_fetch(url):
+        """Attempt to fetch audio bytes from url. Returns (content, content_type, content_range) or None."""
+        if not url:
+            return None
+        try:
+            is_tunnel = "/tunnel" in url
+            is_gv = "googlevideo.com" in url
+            hdrs = {"User-Agent": ua}
+            if is_gv:
+                hdrs["Range"] = f"bytes={start}-{end}"
+            r = requests.get(url, headers=hdrs, stream=is_tunnel, timeout=12.0)
+            if r.status_code not in [200, 206]:
+                print(f"[Play] Upstream {url[:60]} returned {r.status_code}")
+                return None
+            raw = r.content
+            if len(raw) == 0:
+                print(f"[Play] Upstream {url[:60]} returned 0 bytes — skipping")
+                return None
+            ct = r.headers.get("Content-Type", "audio/mpeg")
+            if not ct or "text" in ct or "html" in ct:
+                ct = "audio/mpeg"
+            if is_gv and r.status_code == 206:
+                cr = r.headers.get("Content-Range", f"bytes {start}-{start+len(raw)-1}/*")
+                cl = r.headers.get("Content-Length", str(len(raw)))
+                return raw, ct, cr, cl
+            else:
+                sliced = raw[start:end+1] if len(raw) > 0 else raw
+                cr = f"bytes {start}-{start+len(sliced)-1}/{len(raw)}"
+                return sliced, ct, cr, str(len(sliced))
+        except Exception as e:
+            print(f"[Play] fetch error for {url[:60]}: {e}")
+            return None
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    }
-    if is_googlevideo:
-        headers["Range"] = f"bytes={start}-{end}"
+    # Strategy 1: yt-dlp fast (android client only — resolves + fetches from same IP)
+    print(f"[Play] Trying yt-dlp for {video_id}...")
+    ytdlp_url = extract_stream_url_fast(video_id)
+    result = try_fetch(ytdlp_url)
+    if result:
+        print(f"[Play] yt-dlp succeeded for {video_id}")
+    
+    # Strategy 2: Piped instances
+    if not result:
+        print(f"[Play] yt-dlp failed, trying Piped for {video_id}...")
+        piped_url = fetch_piped_stream_url(video_id)
+        result = try_fetch(piped_url)
+        if result:
+            print(f"[Play] Piped succeeded for {video_id}")
 
-    try:
-        r = requests.get(url, headers=headers, stream=is_tunnel, timeout=10.0)
-        if r.status_code not in [200, 206]:
-            return f"Upstream error: {r.status_code}", 502
+    # Strategy 3: Invidious instances
+    if not result:
+        print(f"[Play] Piped failed, trying Invidious for {video_id}...")
+        inv_url = fetch_invidious_stream_url(video_id)
+        result = try_fetch(inv_url)
+        if result:
+            print(f"[Play] Invidious succeeded for {video_id}")
 
-        content = r.content
-        total_len = len(content)
-        content_type = r.headers.get("Content-Type", "audio/mpeg")
-        if not content_type or "text" in content_type:
-            content_type = "audio/mpeg"
+    # Strategy 4: Cobalt — but only accept non-tunnel URLs (redirect mode)
+    if not result:
+        print(f"[Play] Invidious failed, trying Cobalt non-tunnel for {video_id}...")
+        cobalt_url = fetch_cobalt_stream_url(video_id)
+        if cobalt_url and "/tunnel" not in cobalt_url:
+            result = try_fetch(cobalt_url)
+            if result:
+                print(f"[Play] Cobalt (non-tunnel) succeeded for {video_id}")
 
-        if is_googlevideo and r.status_code == 206:
-            content_range = r.headers.get("Content-Range")
-            content_length = r.headers.get("Content-Length", str(total_len))
-        else:
-            sliced = content[start:end+1] if total_len > 0 else content
-            content_range = f"bytes {start}-{start + len(sliced) - 1}/{total_len}"
-            content_length = str(len(sliced))
-            content = sliced
+    if not result:
+        print(f"[Play] All strategies failed for {video_id}")
+        return "Could not resolve a playable audio stream for this track", 503
 
-        response = Response(content, status=206)
-        response.headers["Content-Type"] = content_type
-        response.headers["Accept-Ranges"] = "bytes"
-        response.headers["Content-Length"] = content_length
-        response.headers["Content-Range"] = content_range
-        response.headers["Access-Control-Allow-Origin"] = "*"
-        response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
-        response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
-        response.headers["Cache-Control"] = "no-cache"
-        return response
-    except Exception as e:
-        print(f"[Play] Error streaming {video_id}: {e}")
-        return str(e), 500
+    content, content_type, content_range, content_length = result
+    response = Response(content, status=206)
+    response.headers["Content-Type"] = content_type
+    response.headers["Accept-Ranges"] = "bytes"
+    response.headers["Content-Length"] = content_length
+    response.headers["Content-Range"] = content_range
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
+    response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
+    response.headers["Cache-Control"] = "no-cache"
+    return response
+
 
 
 @app.route("/debug/<video_id>")
