@@ -1001,6 +1001,7 @@ def proxy():
         end = start + MAX_CHUNK_SIZE - 1
 
     is_googlevideo = "googlevideo.com" in url
+    is_tunnel = "/tunnel" in url
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -1010,7 +1011,7 @@ def proxy():
 
     r = None
     try:
-        r = requests.get(url, headers=headers, timeout=3.0)
+        r = requests.get(url, headers=headers, stream=is_tunnel, timeout=10.0)
     except Exception as e:
         print(f"[Proxy] Upstream request exception: {e}")
 
@@ -1023,13 +1024,14 @@ def proxy():
             if fresh_url:
                 print(f"[Proxy] Fresh URL resolved: {fresh_url}. Retrying request...")
                 is_googlevideo = "googlevideo.com" in fresh_url
+                is_tunnel = "/tunnel" in fresh_url
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 }
                 if is_googlevideo:
                     headers["Range"] = f"bytes={start}-{end}"
                 try:
-                    r = requests.get(fresh_url, headers=headers, timeout=3.0)
+                    r = requests.get(fresh_url, headers=headers, stream=is_tunnel, timeout=10.0)
                 except Exception as retry_err:
                     print(f"[Proxy] Upstream retry request exception: {retry_err}")
 
