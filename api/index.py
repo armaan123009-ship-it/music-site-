@@ -1064,6 +1064,29 @@ def play(video_id):
         return str(e), 500
 
 
+@app.route("/debug/<video_id>")
+def debug_stream(video_id):
+    """Diagnostic endpoint: resolves and fetches a URL, returns JSON with details."""
+    result = {"video_id": video_id}
+    try:
+        url = resolve_direct_url(video_id)
+        result["resolved_url"] = url[:120] if url else None
+        result["is_tunnel"] = "/tunnel" in url if url else False
+        result["is_googlevideo"] = "googlevideo.com" in url if url else False
+
+        if url:
+            headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+            r = requests.get(url, headers=headers, stream=("/tunnel" in url), timeout=10.0)
+            result["upstream_status"] = r.status_code
+            result["upstream_content_length"] = r.headers.get("Content-Length")
+            result["upstream_content_type"] = r.headers.get("Content-Type")
+            result["upstream_bytes_received"] = len(r.content)
+        else:
+            result["error"] = "resolve_direct_url returned None"
+    except Exception as e:
+        result["exception"] = str(e)
+    return jsonify(result)
+
 @app.route("/proxy")
 def proxy():
     url = request.args.get('url')

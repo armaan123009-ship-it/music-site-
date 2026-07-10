@@ -4,6 +4,7 @@
     { "source": "/api/(.*)", "destination": "/api/index.py" },
     { "source": "/stream/(.*)", "destination": "/api/index.py" },
     { "source": "/play/(.*)", "destination": "/api/index.py" },
+    { "source": "/debug/(.*)", "destination": "/api/index.py" },
     { "source": "/proxy", "destination": "/api/index.py" }
   ]
 }
