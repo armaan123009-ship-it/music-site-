@@ -768,6 +768,9 @@ def check_piped_instance(instance, video_id):
             if audio_streams:
                 stream_url = audio_streams[0].get("url")
                 if stream_url:
+                    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
+                    if is_production and "googlevideo.com" in stream_url:
+                        return None
                     return instance, stream_url
     except Exception:
         pass
@@ -824,10 +827,48 @@ def check_invidious_instance(instance, video_id):
         pass
     return None
 
+dynamic_invidious_cache = {"instances": [], "last_fetched": 0}
+
+def fetch_dynamic_invidious_instances():
+    now = time.time()
+    if now - dynamic_invidious_cache["last_fetched"] < 900:
+        return dynamic_invidious_cache["instances"]
+    try:
+        print("[Dynamic Invidious] Fetching live instances from api.invidious.io...")
+        r = requests.get("https://api.invidious.io/instances.json", timeout=2.0)
+        if r.status_code == 200:
+            data = r.json()
+            instances = []
+            for item in data:
+                domain = item[0]
+                details = item[1]
+                if details.get("type") == "https" and details.get("api") is True:
+                    stats = details.get("stats", {})
+                    is_healthy = False
+                    if stats and isinstance(stats, dict):
+                        is_healthy = stats.get("status") == "healthy" or stats.get("monitor", {}).get("status") == "up"
+                    if is_healthy or details.get("playback_enabled", True):
+                        uri = details.get("uri") or f"https://{domain}"
+                        instances.append(uri.rstrip('/'))
+            if instances:
+                print(f"[Dynamic Invidious] Found {len(instances)} live instances.")
+                dynamic_invidious_cache["instances"] = instances
+                dynamic_invidious_cache["last_fetched"] = now
+                return instances
+    except Exception as e:
+        print(f"[Dynamic Invidious] Failed to fetch dynamic list: {e}")
+    return dynamic_invidious_cache["instances"]
+
 def fetch_invidious_stream_url(video_id):
     import concurrent.futures
     global last_working_invidious
-    instances = [
+    instances = []
+    
+    dynamic_instances = fetch_dynamic_invidious_instances()
+    if dynamic_instances:
+        instances.extend(dynamic_instances)
+        
+    static_fallbacks = [
         "https://inv.nadeko.net",
         "https://invidious.nerdvpn.de",
         "https://invidious.f5.si",
@@ -838,6 +879,10 @@ def fetch_invidious_stream_url(video_id):
         "https://invidious.privacydev.net",
         "https://invidious.lunar.icu"
     ]
+    for fallback in static_fallbacks:
+        if fallback not in instances:
+            instances.append(fallback)
+            
     if last_working_invidious and last_working_invidious in instances:
         instances.remove(last_working_invidious)
         instances.insert(0, last_working_invidious)
@@ -859,11 +904,15 @@ def fetch_invidious_stream_url(video_id):
 
 def resolve_stream_url(video_id):
     url = get_cached_stream_url(video_id)
+    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
     if url:
-        return url
+        if is_production and "googlevideo.com" in url:
+            if video_id in stream_cache:
+                del stream_cache[video_id]
+        else:
+            return url
         
     # Skip yt-dlp extraction on Vercel/Production to prevent serverless function timeouts
-    is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
     if not is_production:
         url = extract_stream_url(video_id)
         if url:
