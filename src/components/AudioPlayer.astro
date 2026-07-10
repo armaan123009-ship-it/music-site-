@@ -1358,18 +1358,18 @@ import {
             // Always use proxy when it exists to route requests through our Vercel proxy.
             const useProxy = !!proxyUrl;
 
-            let playbackAttempts = 0; // 0 = proxy, 1 = direct, 2 = client fallback
+            let playbackAttempts = 0; // 0 = direct, 1 = proxy, 2 = client fallback
             let triedUrls = new Set<string>();
 
             const attemptPlayback = async () => {
                 try {
                     let currentPlayUrl = "";
                     if (playbackAttempts === 0) {
-                        currentPlayUrl = proxyUrl || "";
-                        console.log(`[Playback] Attempt 1: Playing through proxy: ${currentPlayUrl}`);
-                    } else if (playbackAttempts === 1) {
                         currentPlayUrl = streamUrl || "";
-                        console.log(`[Playback] Attempt 2: Playing direct stream: ${currentPlayUrl}`);
+                        console.log(`[Playback] Attempt 1: Playing direct stream: ${currentPlayUrl}`);
+                    } else if (playbackAttempts === 1) {
+                        currentPlayUrl = proxyUrl || "";
+                        console.log(`[Playback] Attempt 2: Playing through proxy: ${currentPlayUrl}`);
                     } else if (playbackAttempts === 2) {
                         console.log(`[Playback] Attempt 3: Resolving and playing client-side fallback...`);
                         showToast("Resolving backup stream...");
@@ -1378,7 +1378,7 @@ import {
                             streamUrl = resolved.streamUrl;
                             proxyUrl = resolved.proxyUrl;
                             state.streamUrlCache[track.id] = resolved;
-                            currentPlayUrl = resolved.proxyUrl;
+                            currentPlayUrl = resolved.streamUrl || resolved.proxyUrl;
                         }
                     }
 
