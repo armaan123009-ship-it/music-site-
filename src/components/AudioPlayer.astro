@@ -543,6 +543,23 @@ import {
     </div>
 
     <audio id="main-audio" preload="auto"></audio>
+    <!--
+        Production-safe playback fallback. Unlike the old /play proxy, this
+        uses YouTube's own public embed player and never handles user cookies
+        or temporary Googlevideo stream URLs.
+    -->
+    <div id="youtube-player-fallback" class="hidden fixed inset-0 z-[200] bg-black/90 p-4 sm:p-8">
+        <div class="relative mx-auto flex h-full max-w-4xl items-center">
+            <button id="youtube-player-close" type="button" class="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white hover:bg-black" aria-label="Close YouTube player">Close</button>
+            <iframe
+                id="youtube-player-frame"
+                class="aspect-video w-full rounded-2xl bg-black shadow-2xl"
+                title="YouTube music player"
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowfullscreen
+            ></iframe>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -599,6 +616,50 @@ import {
     let audio: HTMLAudioElement;
     let miniPlayer: HTMLElement | null;
     let immersivePlayer: HTMLElement | null;
+
+    // Vercel functions cannot reliably proxy temporary YouTube audio URLs.
+    // On deployed sites, hand playback to YouTube's supported embed instead.
+    const useYoutubeEmbed =
+        typeof window !== "undefined" &&
+        (window.location.hostname.endsWith(".vercel.app") ||
+            window.location.hostname === "music-site-red.vercel.app");
+    state.usingYoutubeEmbed = state.usingYoutubeEmbed || false;
+
+    function youtubeCommand(command: "playVideo" | "pauseVideo" | "stopVideo") {
+        const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
+        frame?.contentWindow?.postMessage(
+            JSON.stringify({ event: "command", func: command, args: [] }),
+            "https://www.youtube-nocookie.com",
+        );
+    }
+
+    function stopYoutubeEmbed() {
+        const fallback = document.getElementById("youtube-player-fallback");
+        const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
+        if (frame) frame.src = "about:blank";
+        fallback?.classList.add("hidden");
+        state.usingYoutubeEmbed = false;
+    }
+
+    function playWithYoutubeEmbed(track: any) {
+        const fallback = document.getElementById("youtube-player-fallback");
+        const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
+        if (!fallback || !frame || !track?.id) return false;
+
+        const params = new URLSearchParams({
+            autoplay: "1",
+            playsinline: "1",
+            rel: "0",
+            enablejsapi: "1",
+            origin: window.location.origin,
+        });
+        frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(track.id)}?${params.toString()}`;
+        fallback.classList.remove("hidden");
+        state.usingYoutubeEmbed = true;
+        syncPlayPauseUI(true);
+        requestWakeLock();
+        return true;
+    }
 
     function syncUnlockAudio() {
         if (audio) {
@@ -1307,9 +1368,36 @@ import {
             audio.onerror = null;
             audio.pause();
             audio.src = "";
+            stopYoutubeEmbed();
             try {
                 audio.load();
             } catch (e) {}
+
+            // The old production path tried to turn third-party YouTube URLs
+            // into MP3 streams through a Vercel function. Those URLs are
+            // short-lived and the resolver returns 503 in Vercel. Use the
+            // provider-supported player directly on deployed sites instead.
+            if (useYoutubeEmbed) {
+                updateMediaSession(track);
+                miniPlayer?.classList.remove("translate-y-full");
+                if (!playWithYoutubeEmbed(track)) {
+                    syncPlayPauseUI(false);
+                    showToast("This track could not be opened in YouTube.");
+                }
+
+                if (state.activeTab === "lyrics") {
+                    updateLyrics(track.id);
+                } else {
+                    const lyr = lyricsContent();
+                    if (lyr)
+                        lyr.innerHTML =
+                            '<p class="opacity-50 italic">Select a track to see lyrics...</p>';
+                }
+                updateRelatedUI(track.id);
+                updateQueueUI();
+                saveState();
+                return;
+            }
 
             let streamUrl = null;
             let proxyUrl = null;
@@ -2131,9 +2219,19 @@ import {
         // Register Media Session action handlers
         if ("mediaSession" in navigator) {
             navigator.mediaSession.setActionHandler("play", () => {
+                if (state.usingYoutubeEmbed) {
+                    youtubeCommand("playVideo");
+                    syncPlayPauseUI(true);
+                    return;
+                }
                 audio.play().catch(() => {});
             });
             navigator.mediaSession.setActionHandler("pause", () => {
+                if (state.usingYoutubeEmbed) {
+                    youtubeCommand("pauseVideo");
+                    syncPlayPauseUI(false);
+                    return;
+                }
                 audio.pause();
             });
             navigator.mediaSession.setActionHandler("previoustrack", prevTrack);
@@ -2245,6 +2343,13 @@ import {
             const nextPlayingState = !state.isPlaying;
             syncPlayPauseUI(nextPlayingState);
 
+            if (state.usingYoutubeEmbed) {
+                youtubeCommand(nextPlayingState ? "playVideo" : "pauseVideo");
+                if (nextPlayingState) requestWakeLock();
+                else releaseWakeLock();
+                return;
+            }
+
             const currentSrc = audio.src;
             if (
                 !currentSrc ||
@@ -2286,6 +2391,17 @@ import {
         if (playPauseBtn && !playPauseBtn.dataset.bound) {
             playPauseBtn.dataset.bound = "true";
             playPauseBtn.addEventListener("click", togglePlay);
+        }
+
+        const youtubeClose = document.getElementById("youtube-player-close");
+        if (youtubeClose && !youtubeClose.dataset.bound) {
+            youtubeClose.dataset.bound = "true";
+            youtubeClose.addEventListener("click", () => {
+                youtubeCommand("stopVideo");
+                stopYoutubeEmbed();
+                syncPlayPauseUI(false);
+                releaseWakeLock();
+            });
         }
 
         const mobMiniPlayPause = document.getElementById(
