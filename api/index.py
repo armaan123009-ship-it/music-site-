@@ -934,6 +934,46 @@ def resolve_stream_url(video_id):
         
     return None
 
+def resolve_direct_url(video_id):
+    """Resolve a durable, direct audio URL — skips Cobalt tunnels which are IP-bound and single-use.
+    Used exclusively by the /play endpoint to guarantee a fetchable URL."""
+    import concurrent.futures
+
+    print(f"[Direct Resolver] Resolving durable URL for {video_id}...")
+
+    resolvers = [
+        ("Piped", fetch_piped_stream_url),
+        ("Invidious", fetch_invidious_stream_url),
+        ("yt-dlp", extract_stream_url),
+    ]
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_name = {executor.submit(func, video_id): name for name, func in resolvers}
+        for future in concurrent.futures.as_completed(future_to_name):
+            name = future_to_name[future]
+            try:
+                res = future.result()
+                if res and "/tunnel" not in res:
+                    print(f"[Direct Resolver] Got durable URL from {name}: {res[:80]}...")
+                    return res
+                elif res:
+                    print(f"[Direct Resolver] Skipping tunnel URL from {name}")
+            except Exception as e:
+                print(f"[Direct Resolver] {name} exception: {e}")
+
+    # Last resort: try Cobalt but only accept non-tunnel redirect URLs
+    try:
+        cobalt_url = fetch_cobalt_stream_url(video_id)
+        if cobalt_url and "/tunnel" not in cobalt_url:
+            print(f"[Direct Resolver] Cobalt returned a non-tunnel URL: {cobalt_url[:80]}...")
+            return cobalt_url
+    except Exception:
+        pass
+
+    print(f"[Direct Resolver] All resolvers failed for {video_id}")
+    return None
+
+
 @app.route("/stream/<video_id>")
 def stream(video_id):
     """Returns stream metadata. Kept for backward compat - clients should use /play/<video_id>"""
@@ -975,13 +1015,10 @@ def play(video_id):
     elif end - start + 1 > MAX_CHUNK_SIZE:
         end = start + MAX_CHUNK_SIZE - 1
 
-    # Always resolve fresh URL for this request - avoids stale tunnel URLs
-    if video_id in stream_cache:
-        del stream_cache[video_id]
-
-    url = resolve_stream_url(video_id)
+    # Always resolve a fresh, durable URL — never use Cobalt tunnel URLs
+    url = resolve_direct_url(video_id)
     if not url:
-        return "Could not resolve stream for this track", 503
+        return "Could not resolve a playable stream for this track", 503
 
     is_tunnel = "/tunnel" in url
     is_googlevideo = "googlevideo.com" in url
