@@ -617,9 +617,12 @@ import {
     let miniPlayer: HTMLElement | null;
     let immersivePlayer: HTMLElement | null;
 
-    // Disabled YouTube embed fallback to always use direct MP3 playback
-    const useYoutubeEmbed = false;
-    state.usingYoutubeEmbed = state.usingYoutubeEmbed || false;
+    // Enable YouTube embed player on production Vercel to bypass IP blocks, keeping it local on dev
+    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+    const useYoutubeEmbed = !isLocalhost;
+    state.usingYoutubeEmbed = state.usingYoutubeEmbed || !isLocalhost;
+    let ytPlayer: any = null;
+    let ytProgressInterval: any = null;
 
     function youtubeCommand(command: "playVideo" | "pauseVideo" | "stopVideo") {
         const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
@@ -635,6 +638,115 @@ import {
         if (frame) frame.src = "about:blank";
         fallback?.classList.add("hidden");
         state.usingYoutubeEmbed = false;
+        if (ytProgressInterval) {
+            clearInterval(ytProgressInterval);
+            ytProgressInterval = null;
+        }
+        if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
+            try { ytPlayer.pauseVideo(); } catch(e) {}
+        }
+    }
+
+    // Load YouTube API script dynamically
+    if (typeof window !== 'undefined' && !(window as any).YTReady) {
+        (window as any).YTReady = true;
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName("script")[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
+    function ensureYoutubePlayer(): Promise<any> {
+        return new Promise((resolve) => {
+            if (ytPlayer) {
+                resolve(ytPlayer);
+                return;
+            }
+            if ((window as any).YT && (window as any).YT.Player) {
+                ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
+                    events: {
+                        onStateChange: onPlayerStateChange,
+                        onError: onPlayerError
+                    }
+                });
+                resolve(ytPlayer);
+                return;
+            }
+            const checkInterval = setInterval(() => {
+                if ((window as any).YT && (window as any).YT.Player) {
+                    clearInterval(checkInterval);
+                    ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
+                        events: {
+                            onStateChange: onPlayerStateChange,
+                            onError: onPlayerError
+                        }
+                    });
+                    resolve(ytPlayer);
+                }
+            }, 100);
+        });
+    }
+
+    function onPlayerStateChange(event: any) {
+        const playerState = event.data;
+        const YT_PLAYING = 1;
+        const YT_PAUSED = 2;
+        const YT_ENDED = 0;
+
+        if (playerState === YT_PLAYING) {
+            state.isPlaying = true;
+            syncPlayPauseUI(true);
+            requestWakeLock();
+            
+            if (ytProgressInterval) clearInterval(ytProgressInterval);
+            ytProgressInterval = setInterval(() => {
+                if (ytPlayer && typeof ytPlayer.getCurrentTime === "function") {
+                    const currentTime = ytPlayer.getCurrentTime();
+                    const duration = ytPlayer.getDuration() || 1;
+                    const progress = (currentTime / duration) * 100;
+                    
+                    if (!state.isDraggingProgress) {
+                        updateProgressUI(currentTime, duration, progress);
+                        updatePlaybackPosition();
+                        updateActiveLyric(currentTime);
+                        
+                        if (progress >= 25) {
+                            preFetchNextTrack();
+                        }
+                    }
+                }
+            }, 250);
+        } else {
+            if (ytProgressInterval) {
+                clearInterval(ytProgressInterval);
+                ytProgressInterval = null;
+            }
+            
+            if (playerState === YT_PAUSED) {
+                state.isPlaying = false;
+                syncPlayPauseUI(false);
+                releaseWakeLock();
+            } else if (playerState === YT_ENDED) {
+                state.isPlaying = false;
+                syncPlayPauseUI(false);
+                releaseWakeLock();
+                if (state.repeatMode === "one") {
+                    try {
+                        ytPlayer.seekTo(0);
+                        ytPlayer.playVideo();
+                    } catch(e) {}
+                } else {
+                    playNextTrack();
+                }
+            }
+        }
+    }
+
+    function onPlayerError(event: any) {
+        console.error("YouTube Player Error:", event.data);
+        showToast("Playback failed on YouTube.");
+        syncPlayPauseUI(false);
+        releaseWakeLock();
     }
 
     function playWithYoutubeEmbed(track: any) {
@@ -642,18 +754,31 @@ import {
         const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
         if (!fallback || !frame || !track?.id) return false;
 
-        const params = new URLSearchParams({
-            autoplay: "1",
-            playsinline: "1",
-            rel: "0",
-            enablejsapi: "1",
-            origin: window.location.origin,
-        });
-        frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(track.id)}?${params.toString()}`;
+        // Position iframe invisibly off-screen to play audio in background
         fallback.classList.remove("hidden");
-        state.usingYoutubeEmbed = true;
-        syncPlayPauseUI(true);
-        requestWakeLock();
+        fallback.classList.add("invisible");
+        fallback.style.position = "fixed";
+        fallback.style.top = "0";
+        fallback.style.left = "-9999px";
+        fallback.style.width = "200px";
+        fallback.style.height = "150px";
+        fallback.style.opacity = "0.01";
+        fallback.style.pointerEvents = "none";
+        fallback.style.zIndex = "-100";
+
+        ensureYoutubePlayer().then((player) => {
+            if (player && typeof player.loadVideoById === "function") {
+                player.loadVideoById({
+                    videoId: track.id,
+                    startSeconds: 0,
+                    suggestedQuality: "small"
+                });
+                state.usingYoutubeEmbed = true;
+                syncPlayPauseUI(true);
+                requestWakeLock();
+            }
+        });
+
         return true;
     }
 
@@ -667,6 +792,15 @@ import {
     }
 
     function seekRelative(seconds: number) {
+        if (state.usingYoutubeEmbed) {
+            if (ytPlayer && typeof ytPlayer.getCurrentTime === "function") {
+                const duration = getDuration();
+                const targetTime = Math.max(0, Math.min(duration, ytPlayer.getCurrentTime() + seconds));
+                ytPlayer.seekTo(targetTime, true);
+                updateActiveLyric(targetTime);
+            }
+            return;
+        }
         if (!audio) return;
         const duration = getDuration();
         if (duration > 0) {
@@ -885,6 +1019,12 @@ import {
     }
 
     function getDuration(): number {
+        if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.getDuration === "function") {
+            try {
+                const ytDur = ytPlayer.getDuration();
+                if (ytDur > 0) return ytDur;
+            } catch(e) {}
+        }
         if (
             audio &&
             isFinite(audio.duration) &&
@@ -1951,6 +2091,11 @@ import {
         state.currentIndex = nextIndex;
         const track = state.currentQueue[state.currentIndex];
 
+        if (useYoutubeEmbed) {
+            fetchStreamAndPlay(track);
+            return;
+        }
+
         // Synchronous cache play check
         const cached = state.streamUrlCache && state.streamUrlCache[track.id];
         if (cached && (cached.proxyUrl || cached.streamUrl)) {
@@ -2700,7 +2845,11 @@ import {
                     const duration = getDuration();
                     if (duration > 0) {
                         const seekTime = pos * duration;
-                        audio.currentTime = seekTime;
+                        if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.seekTo === "function") {
+                            try { ytPlayer.seekTo(seekTime, true); } catch(e) {}
+                        } else {
+                            audio.currentTime = seekTime;
+                        }
                         updateActiveLyric(seekTime);
                     }
                 };
@@ -2795,6 +2944,9 @@ import {
                     Math.min(1, (clientX - rect.left) / rect.width),
                 );
                 audio.volume = pos;
+                if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.setVolume === "function") {
+                    try { ytPlayer.setVolume(pos * 100); } catch(e) {}
+                }
                 const volumeBar = document.getElementById("volume-bar");
                 if (volumeBar) volumeBar.style.width = `${pos * 100}%`;
             };
