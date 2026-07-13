@@ -2508,9 +2508,19 @@ import {
             syncPlayPauseUI(nextPlayingState);
 
             if (state.usingYoutubeEmbed) {
-                youtubeCommand(nextPlayingState ? "playVideo" : "pauseVideo");
-                if (nextPlayingState) requestWakeLock();
-                else releaseWakeLock();
+                if (ytPlayer && typeof ytPlayer.playVideo === "function") {
+                    try {
+                        if (nextPlayingState) {
+                            ytPlayer.playVideo();
+                            requestWakeLock();
+                        } else {
+                            ytPlayer.pauseVideo();
+                            releaseWakeLock();
+                        }
+                    } catch (e) {
+                        console.error("[YouTube API] togglePlay error:", e);
+                    }
+                }
                 return;
             }
 
@@ -2659,6 +2669,31 @@ import {
             };
 
             updateDownloadProgress("Preparing...", true);
+
+            const isCapacitor = (window as any).Capacitor ||
+                window.location.protocol === 'capacitor:' ||
+                (window.location.hostname === 'localhost' && !window.location.port);
+
+            if (isCapacitor) {
+                // In mobile app WebView, resolve a Cobalt tunnel URL client-side and open it in the native browser.
+                // Standard Blob downloads (<a download>) are blocked/ignored by the WebView container.
+                try {
+                    const resolved = await resolveStreamClientSide(track.id);
+                    if (resolved && resolved.streamUrl && resolved.streamUrl.includes("/tunnel")) {
+                        window.open(resolved.streamUrl, "_system");
+                        updateDownloadProgress("Downloading...", false);
+                        return;
+                    }
+                } catch (e) {
+                    console.error("[App Download] Failed to resolve Cobalt tunnel URL:", e);
+                }
+                
+                // Fallback: Open the direct Vercel download endpoint in the native browser
+                const fallbackUrl = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                window.open(fallbackUrl, "_system");
+                updateDownloadProgress("Downloading...", false);
+                return;
+            }
 
             const isLocalhost =
                 window.location.hostname === "localhost" ||
