@@ -548,9 +548,9 @@ import {
         uses YouTube's own public embed player and never handles user cookies
         or temporary Googlevideo stream URLs.
     -->
-    <div id="youtube-player-fallback" class="hidden fixed inset-0 z-[200] bg-black/90 p-4 sm:p-8">
+    <div id="youtube-player-fallback" class="fixed top-0 left-[-9999px] w-[200px] h-[150px] opacity-[0.01] pointer-events-none z-[-100]">
         <div class="relative mx-auto flex h-full max-w-4xl items-center">
-            <button id="youtube-player-close" type="button" class="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white hover:bg-black" aria-label="Close YouTube player">Close</button>
+            <button id="youtube-player-close" type="button" class="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white hover:bg-black hidden" aria-label="Close YouTube player">Close</button>
             <div
                 id="youtube-player-frame"
                 class="aspect-video w-full rounded-2xl bg-black shadow-2xl"
@@ -630,17 +630,13 @@ import {
     }
 
     function stopYoutubeEmbed() {
-        const fallback = document.getElementById("youtube-player-fallback");
-        const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
-        if (frame) frame.src = "about:blank";
-        fallback?.classList.add("hidden");
         state.usingYoutubeEmbed = false;
         if (ytProgressInterval) {
             clearInterval(ytProgressInterval);
             ytProgressInterval = null;
         }
-        if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
-            try { ytPlayer.pauseVideo(); } catch(e) {}
+        if (ytPlayer && typeof ytPlayer.stopVideo === "function") {
+            try { ytPlayer.stopVideo(); } catch(e) {}
         }
     }
 
@@ -736,18 +732,6 @@ import {
         const fallback = document.getElementById("youtube-player-fallback");
         const frame = document.getElementById("youtube-player-frame");
         if (!fallback || !frame || !track?.id) return false;
-
-        // Position frame invisibly off-screen to play audio in background
-        fallback.classList.remove("hidden");
-        fallback.classList.add("invisible");
-        fallback.style.position = "fixed";
-        fallback.style.top = "0";
-        fallback.style.left = "-9999px";
-        fallback.style.width = "200px";
-        fallback.style.height = "150px";
-        fallback.style.opacity = "0.01";
-        fallback.style.pointerEvents = "none";
-        fallback.style.zIndex = "-100";
 
         if (ytPlayer && typeof ytPlayer.loadVideoById === "function") {
             try {
