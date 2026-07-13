@@ -551,13 +551,10 @@ import {
     <div id="youtube-player-fallback" class="hidden fixed inset-0 z-[200] bg-black/90 p-4 sm:p-8">
         <div class="relative mx-auto flex h-full max-w-4xl items-center">
             <button id="youtube-player-close" type="button" class="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white hover:bg-black" aria-label="Close YouTube player">Close</button>
-            <iframe
+            <div
                 id="youtube-player-frame"
                 class="aspect-video w-full rounded-2xl bg-black shadow-2xl"
-                title="YouTube music player"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowfullscreen
-            ></iframe>
+            ></div>
         </div>
     </div>
 </div>
@@ -647,46 +644,6 @@ import {
         }
     }
 
-    // Load YouTube API script dynamically
-    if (typeof window !== 'undefined' && !(window as any).YTReady) {
-        (window as any).YTReady = true;
-        const tag = document.createElement("script");
-        tag.src = "https://www.youtube.com/iframe_api";
-        const firstScriptTag = document.getElementsByTagName("script")[0];
-        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-    }
-
-    function ensureYoutubePlayer(): Promise<any> {
-        return new Promise((resolve) => {
-            if (ytPlayer) {
-                resolve(ytPlayer);
-                return;
-            }
-            if ((window as any).YT && (window as any).YT.Player) {
-                ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
-                    events: {
-                        onStateChange: onPlayerStateChange,
-                        onError: onPlayerError
-                    }
-                });
-                resolve(ytPlayer);
-                return;
-            }
-            const checkInterval = setInterval(() => {
-                if ((window as any).YT && (window as any).YT.Player) {
-                    clearInterval(checkInterval);
-                    ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
-                        events: {
-                            onStateChange: onPlayerStateChange,
-                            onError: onPlayerError
-                        }
-                    });
-                    resolve(ytPlayer);
-                }
-            }, 100);
-        });
-    }
-
     function onPlayerStateChange(event: any) {
         const playerState = event.data;
         const YT_PLAYING = 1;
@@ -749,12 +706,38 @@ import {
         releaseWakeLock();
     }
 
+    // Register global onYouTubeIframeAPIReady callback immediately
+    if (typeof window !== 'undefined') {
+        (window as any).onYouTubeIframeAPIReady = () => {
+            console.log("[YouTube API] Global ready hook triggered. Initializing player...");
+            try {
+                ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
+                    events: {
+                        onStateChange: onPlayerStateChange,
+                        onError: onPlayerError
+                    }
+                });
+            } catch (e) {
+                console.error("[YouTube API] Initial creation failed:", e);
+            }
+        };
+    }
+
+    // Load YouTube API script dynamically
+    if (typeof window !== 'undefined' && !(window as any).YTReady) {
+        (window as any).YTReady = true;
+        const tag = document.createElement("script");
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName("script")[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+    }
+
     function playWithYoutubeEmbed(track: any) {
         const fallback = document.getElementById("youtube-player-fallback");
-        const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
+        const frame = document.getElementById("youtube-player-frame");
         if (!fallback || !frame || !track?.id) return false;
 
-        // Position iframe invisibly off-screen to play audio in background
+        // Position frame invisibly off-screen to play audio in background
         fallback.classList.remove("hidden");
         fallback.classList.add("invisible");
         fallback.style.position = "fixed";
@@ -766,9 +749,9 @@ import {
         fallback.style.pointerEvents = "none";
         fallback.style.zIndex = "-100";
 
-        ensureYoutubePlayer().then((player) => {
-            if (player && typeof player.loadVideoById === "function") {
-                player.loadVideoById({
+        if (ytPlayer && typeof ytPlayer.loadVideoById === "function") {
+            try {
+                ytPlayer.loadVideoById({
                     videoId: track.id,
                     startSeconds: 0,
                     suggestedQuality: "small"
@@ -776,8 +759,39 @@ import {
                 state.usingYoutubeEmbed = true;
                 syncPlayPauseUI(true);
                 requestWakeLock();
+            } catch (e) {
+                console.error("[YouTube API] loadVideoById error:", e);
             }
-        });
+        } else {
+            console.warn("[YouTube API] Player not fully initialized yet. Attempting lazy hook...");
+            // Initialize on the fly if script has loaded
+            if ((window as any).YT && (window as any).YT.Player) {
+                try {
+                    ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
+                        events: {
+                            onStateChange: onPlayerStateChange,
+                            onError: onPlayerError
+                        }
+                    });
+                    setTimeout(() => {
+                        if (ytPlayer && typeof ytPlayer.loadVideoById === "function") {
+                            ytPlayer.loadVideoById({
+                                videoId: track.id,
+                                startSeconds: 0,
+                                suggestedQuality: "small"
+                            });
+                            state.usingYoutubeEmbed = true;
+                            syncPlayPauseUI(true);
+                            requestWakeLock();
+                        }
+                    }, 500);
+                } catch(e) {
+                    console.error("[YouTube API] Lazy creation failed:", e);
+                }
+            } else {
+                console.error("[YouTube API] YouTube iframe API scripts are not available!");
+            }
+        }
 
         return true;
     }
