@@ -1042,15 +1042,15 @@ def play(video_id):
     ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     def try_fetch(url):
-        """Attempt to fetch audio bytes from url. Returns (content, content_type, content_range) or None."""
+        """Attempt to fetch audio bytes from url. Returns (content, content_type, content_range, content_length) or None."""
         if not url:
             return None
         try:
             is_tunnel = "/tunnel" in url
-            is_gv = "googlevideo.com" in url
-            hdrs = {"User-Agent": ua}
-            if is_gv:
-                hdrs["Range"] = f"bytes={start}-{end}"
+            hdrs = {
+                "User-Agent": ua,
+                "Range": f"bytes={start}-{end}"
+            }
             r = requests.get(url, headers=hdrs, stream=is_tunnel, timeout=12.0)
             if r.status_code not in [200, 206]:
                 print(f"[Play] Upstream {url[:60]} returned {r.status_code}")
@@ -1062,7 +1062,7 @@ def play(video_id):
             ct = r.headers.get("Content-Type", "audio/mpeg")
             if not ct or "text" in ct or "html" in ct:
                 ct = "audio/mpeg"
-            if is_gv and r.status_code == 206:
+            if r.status_code == 206:
                 cr = r.headers.get("Content-Range", f"bytes {start}-{start+len(raw)-1}/*")
                 cl = r.headers.get("Content-Length", str(len(raw)))
                 return raw, ct, cr, cl
@@ -1199,9 +1199,8 @@ def proxy():
 
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Range": f"bytes={start}-{end}",
     }
-    if is_googlevideo:
-        headers["Range"] = f"bytes={start}-{end}"
 
     r = None
     try:
@@ -1221,9 +1220,8 @@ def proxy():
                 is_tunnel = "/tunnel" in fresh_url
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Range": f"bytes={start}-{end}",
                 }
-                if is_googlevideo:
-                    headers["Range"] = f"bytes={start}-{end}"
                 try:
                     r = requests.get(fresh_url, headers=headers, stream=is_tunnel, timeout=10.0)
                 except Exception as retry_err:
@@ -1241,7 +1239,7 @@ def proxy():
         total_len = len(content)
         content_type = r.headers.get("Content-Type", "audio/mpeg")
 
-        if is_googlevideo and status_code == 206:
+        if status_code == 206:
             content_range = r.headers.get("Content-Range")
             content_length = r.headers.get("Content-Length", str(total_len))
         else:
