@@ -1147,6 +1147,20 @@ def debug_stream(video_id):
         result["exception"] = str(e)
     return jsonify(result)
 
+@app.route("/api/sign", methods=["POST"])
+def sign_url():
+    data = request.json or {}
+    url = data.get("url")
+    video_id = data.get("id", "")
+    if not url:
+        return jsonify({"error": "No URL provided"}), 400
+    # Signature valid for 2 hours (7200 seconds)
+    expires_at = int(time.time()) + 7200
+    sig = generate_signature(video_id, url, expires_at)
+    import urllib.parse
+    signed_url = f"/proxy?url={urllib.parse.quote(url)}&id={video_id}&exp={expires_at}&sig={sig}"
+    return jsonify({"proxy_url": signed_url})
+
 @app.route("/proxy")
 def proxy():
     url = request.args.get('url')
@@ -1161,6 +1175,7 @@ def proxy():
         return "Forbidden: Missing signature", 403
 
     try:
+        # Give a 5-minute buffer
         if time.time() > int(exp) + 300:
             return "Forbidden: URL Expired", 403
         if not verify_signature(video_id, url, int(exp), sig):
@@ -1175,36 +1190,17 @@ def proxy():
         safe_title = "audio"
 
     range_header = request.headers.get("Range")
-    MAX_CHUNK_SIZE = 2500000
-    start = 0
-    end = None
-
-    if range_header:
-        try:
-            range_val = range_header.replace('bytes=', '')
-            start_str, end_str = range_val.split('-')
-            start = int(start_str) if start_str else 0
-            if end_str:
-                end = int(end_str)
-        except Exception as e:
-            print(f"Error parsing range header: {e}")
-
-    if end is None:
-        end = start + MAX_CHUNK_SIZE - 1
-    elif end - start + 1 > MAX_CHUNK_SIZE:
-        end = start + MAX_CHUNK_SIZE - 1
-
-    is_googlevideo = "googlevideo.com" in url
-    is_tunnel = "/tunnel" in url
-
+    
+    # Configure requests headers to upstream
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Range": f"bytes={start}-{end}",
     }
+    if range_header:
+        headers["Range"] = range_header
 
     r = None
     try:
-        r = requests.get(url, headers=headers, stream=is_tunnel, timeout=10.0)
+        r = requests.get(url, headers=headers, stream=True, timeout=12.0)
     except Exception as e:
         print(f"[Proxy] Upstream request exception: {e}")
 
@@ -1216,14 +1212,13 @@ def proxy():
             fresh_url = resolve_stream_url(video_id)
             if fresh_url:
                 print(f"[Proxy] Fresh URL resolved: {fresh_url}. Retrying request...")
-                is_googlevideo = "googlevideo.com" in fresh_url
-                is_tunnel = "/tunnel" in fresh_url
                 headers = {
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Range": f"bytes={start}-{end}",
                 }
+                if range_header:
+                    headers["Range"] = range_header
                 try:
-                    r = requests.get(fresh_url, headers=headers, stream=is_tunnel, timeout=10.0)
+                    r = requests.get(fresh_url, headers=headers, stream=True, timeout=12.0)
                 except Exception as retry_err:
                     print(f"[Proxy] Upstream retry request exception: {retry_err}")
 
@@ -1237,17 +1232,25 @@ def proxy():
         status_code = r.status_code
         content = r.content
         total_len = len(content)
-        content_type = r.headers.get("Content-Type", "audio/mpeg")
+        content_type = "audio/mpeg"  # stable audio Content-Type
 
-        if status_code == 206:
-            content_range = r.headers.get("Content-Range")
-            content_length = r.headers.get("Content-Length", str(total_len))
-        else:
+        content_range = r.headers.get("Content-Range")
+        content_length = r.headers.get("Content-Length", str(total_len))
+
+        # If client requested range but upstream returned 200, manually slice the content
+        if range_header and status_code == 200:
             status_code = 206
-            sliced = content[start:end+1]
-            content_range = f"bytes {start}-{start + len(sliced) - 1}/{total_len}"
-            content_length = str(len(sliced))
-            content = sliced
+            try:
+                range_val = range_header.replace('bytes=', '')
+                start_str, end_str = range_val.split('-')
+                start = int(start_str) if start_str else 0
+                end = int(end_str) if end_str else total_len - 1
+                
+                content = content[start:end+1]
+                content_length = str(len(content))
+                content_range = f"bytes {start}-{start + len(content) - 1}/{total_len}"
+            except Exception as slice_err:
+                print(f"[Proxy] Error slicing content: {slice_err}")
 
         response = Response(content, status=status_code)
         response.headers["Content-Type"] = content_type
@@ -1258,17 +1261,11 @@ def proxy():
 
         if download:
             response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
-            response.headers["Content-Type"] = "audio/mpeg"
         else:
             response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
             response.headers["Access-Control-Expose-Headers"] = "Content-Range, Content-Length, Accept-Ranges"
-
-        for k, v in r.headers.items():
-            lk = k.lower()
-            if lk in ['content-encoding', 'transfer-encoding', 'connection', 'access-control-allow-origin', 'content-disposition', 'content-type', 'accept-ranges', 'content-length', 'content-range']:
-                continue
-            response.headers[k] = v
+            response.headers["Cache-Control"] = "no-cache"
 
         return response
     except Exception as e:

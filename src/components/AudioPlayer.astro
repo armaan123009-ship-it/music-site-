@@ -914,7 +914,7 @@ import {
         if (!lrcText) return [];
         const lines = lrcText.split(/\r?\n/);
         const lyrics: LyricLine[] = [];
-        const stampRegex = /\[\s*(\d+)\s*:\s*(\d+)(?:[\.,:]\s*(\d+))?\s*\]/g;
+        const stampRegex = /\[\s*(\d+)\s*[:\.]\s*(\d+)(?:[,\.:]\s*(\d+))?\s*\]/g;
 
         for (const line of lines) {
             const trimmed = line.trim();
@@ -934,7 +934,7 @@ import {
 
                 const time = minutes * 60 + seconds + fractionalSeconds;
 
-                if (isFinite(time)) {
+                if (isFinite(time) && !isNaN(time)) {
                     lyrics.push({ time, text });
                 }
             }
@@ -1172,6 +1172,84 @@ import {
         if (immDurationEl) immDurationEl.textContent = formatTime(duration);
     }
 
+    async function preFetchTrackById(track: any) {
+        if (!track || !track.id) return;
+        state.streamUrlCache = state.streamUrlCache || {};
+        if (state.streamUrlCache[track.id]) return;
+
+        console.log(
+            `[Stream Pre-fetch] Pre-fetching stream details for: ${track.title}`,
+        );
+        try {
+            const data = await apiFetch(`/stream/${track.id}`);
+            if (data && data.url) {
+                const proxyUrl = data.proxy_url.startsWith("http")
+                    ? data.proxy_url
+                    : `${API_BASE}${data.proxy_url}`;
+                state.streamUrlCache[track.id] = {
+                    streamUrl: data.url,
+                    proxyUrl: proxyUrl,
+                };
+                console.log(
+                    `[Stream Pre-fetch] Successfully pre-fetched stream for: ${track.title}`,
+                );
+                return;
+            }
+            throw new Error("Invalid stream data");
+        } catch (e) {
+            console.warn(
+                `Failed to pre-fetch stream URL for ${track.title}:`,
+                e,
+            );
+            // Try client-side Cobalt pre-fetch fallback across multiple instances
+            const cobaltInstances = [
+                "https://rue-cobalt.xenon.zone",
+                "https://api.cobalt.tools",
+                "https://cobalt.foxtrot-omega.me",
+                "https://cobalt.willy.lol",
+                "https://cobalt.k6.dev",
+                "https://cobalt-api.lunar.icu",
+                "https://cobalt.col1g3.de",
+                "https://cobalt.projectsegfau.lt",
+            ];
+            for (const instance of cobaltInstances) {
+                try {
+                    const cobaltRes = await fetch(
+                        instance.endsWith("/") ? instance : `${instance}/`,
+                        {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                            },
+                            body: JSON.stringify({
+                                url: `https://www.youtube.com/watch?v=${track.id}`,
+                                downloadMode: "audio",
+                                audioFormat: "mp3"
+                            }),
+                        },
+                    );
+                    if (cobaltRes.ok) {
+                        const cobaltData = await cobaltRes.json();
+                        const sUrl = cobaltData.url || cobaltData.picker;
+                        if (sUrl) {
+                            state.streamUrlCache[track.id] = {
+                                streamUrl: sUrl,
+                                proxyUrl: sUrl,
+                            };
+                            console.log(
+                                `[Stream Pre-fetch] Successfully pre-fetched client-side stream via ${instance} for: ${track.title}`,
+                            );
+                            break;
+                        }
+                    }
+                } catch (prefErr) {
+                    // continue to next instance
+                }
+            }
+        }
+    }
+
     async function preFetchNextTrack() {
         if (state.currentIndex === -1) return;
         const currentTrack = state.currentQueue[state.currentIndex];
@@ -1229,7 +1307,7 @@ import {
                 }
             }
 
-            // 2. Identify index of the next track
+            // 2. Identify index of the next track and the track after that
             let nextIndex = -1;
             if (state.currentIndex < state.currentQueue.length - 1) {
                 nextIndex = state.currentIndex + 1;
@@ -1240,84 +1318,26 @@ import {
                 nextIndex = 0;
             }
 
-            // 3. Pre-fetch the next track stream details
+            let oneAfterIndex = -1;
+            if (nextIndex !== -1) {
+                if (nextIndex < state.currentQueue.length - 1) {
+                    oneAfterIndex = nextIndex + 1;
+                } else if (
+                    state.repeatMode === "all" &&
+                    state.currentQueue.length > 0
+                ) {
+                    oneAfterIndex = 0;
+                }
+            }
+
+            // 3. Pre-fetch both next track and one after track stream details
             if (nextIndex !== -1) {
                 const nextTrack = state.currentQueue[nextIndex];
-                state.streamUrlCache = state.streamUrlCache || {};
-                if (!state.streamUrlCache[nextTrack.id]) {
-                    console.log(
-                        `[Stream Pre-fetch] Pre-fetching stream details for: ${nextTrack.title}`,
-                    );
-                    try {
-                        const data = await apiFetch(`/stream/${nextTrack.id}`);
-                        if (data && data.url) {
-                            const proxyUrl = data.proxy_url.startsWith("http")
-                                ? data.proxy_url
-                                : `${API_BASE}${data.proxy_url}`;
-                            state.streamUrlCache[nextTrack.id] = {
-                                streamUrl: data.url,
-                                proxyUrl: proxyUrl,
-                            };
-                            console.log(
-                                `[Stream Pre-fetch] Successfully pre-fetched stream for: ${nextTrack.title}`,
-                            );
-                        } else {
-                            throw new Error("Invalid stream data");
-                        }
-                    } catch (e) {
-                        console.warn(
-                            `Failed to pre-fetch stream URL for ${nextTrack.title}:`,
-                            e,
-                        );
-                        // Try client-side Cobalt pre-fetch fallback across multiple instances
-                        const cobaltInstances = [
-                            "https://rue-cobalt.xenon.zone",
-                            "https://api.cobalt.tools",
-                            "https://cobalt.foxtrot-omega.me",
-                            "https://cobalt.willy.lol",
-                            "https://cobalt.k6.dev",
-                            "https://cobalt-api.lunar.icu",
-                            "https://cobalt.col1g3.de",
-                            "https://cobalt.projectsegfau.lt",
-                        ];
-                        for (const instance of cobaltInstances) {
-                            try {
-                                const cobaltRes = await fetch(
-                                    instance.endsWith("/")
-                                        ? instance
-                                        : `${instance}/`,
-                                    {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                            Accept: "application/json",
-                                        },
-                                        body: JSON.stringify({
-                                            url: `https://www.youtube.com/watch?v=${nextTrack.id}`,
-                                        }),
-                                    },
-                                );
-                                if (cobaltRes.ok) {
-                                    const cobaltData = await cobaltRes.json();
-                                    const sUrl =
-                                        cobaltData.url || cobaltData.picker;
-                                    if (sUrl) {
-                                        state.streamUrlCache[nextTrack.id] = {
-                                            streamUrl: sUrl,
-                                            proxyUrl: sUrl,
-                                        };
-                                        console.log(
-                                            `[Stream Pre-fetch] Successfully pre-fetched client-side stream via ${instance} for: ${nextTrack.title}`,
-                                        );
-                                        break;
-                                    }
-                                }
-                            } catch (prefErr) {
-                                // continue to next instance
-                            }
-                        }
-                    }
-                }
+                await preFetchTrackById(nextTrack);
+            }
+            if (oneAfterIndex !== -1) {
+                const oneAfterTrack = state.currentQueue[oneAfterIndex];
+                await preFetchTrackById(oneAfterTrack);
             }
 
             // Mark pre-fetch sequence as successful for this track
@@ -1327,7 +1347,6 @@ import {
                 `[Pre-fetch] Pre-fetch attempt failed for ${currentTrack.title}:`,
                 e,
             );
-            // Do not set preFetchedTrackId, allowing retry on next trigger window
         } finally {
             state.isPreFetching = false;
         }
@@ -1460,9 +1479,25 @@ import {
                         const resolved = await resolveStreamClientSide(track.id);
                         if (resolved) {
                             streamUrl = resolved.streamUrl;
-                            proxyUrl = resolved.proxyUrl;
-                            state.streamUrlCache[track.id] = resolved;
-                            currentPlayUrl = resolved.streamUrl || resolved.proxyUrl;
+                            try {
+                                const signRes = await fetch(`${API_BASE}/api/sign`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ url: resolved.streamUrl, id: track.id })
+                                });
+                                if (signRes.ok) {
+                                    const signData = await signRes.json();
+                                    proxyUrl = signData.proxy_url.startsWith("http")
+                                        ? signData.proxy_url
+                                        : `${API_BASE}${signData.proxy_url}`;
+                                } else {
+                                    proxyUrl = resolved.proxyUrl;
+                                }
+                            } catch (e) {
+                                proxyUrl = resolved.proxyUrl;
+                            }
+                            state.streamUrlCache[track.id] = { streamUrl, proxyUrl };
+                            currentPlayUrl = proxyUrl || streamUrl || "";
                         }
                     }
 
@@ -1670,10 +1705,13 @@ import {
 
         let activeIdx = -1;
         for (let i = 0; i < state.parsedLyrics.length; i++) {
-            if (currentTime >= state.parsedLyrics[i].time) {
-                activeIdx = i;
-            } else {
-                break;
+            const lyric = state.parsedLyrics[i];
+            if (lyric && isFinite(lyric.time) && !isNaN(lyric.time)) {
+                if (currentTime >= lyric.time) {
+                    activeIdx = i;
+                } else {
+                    break;
+                }
             }
         }
 
