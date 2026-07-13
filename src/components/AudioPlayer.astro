@@ -845,8 +845,8 @@ import {
         }
     }
 
-    async function resolveStreamClientSide(trackId: string): Promise<{ streamUrl: string; proxyUrl: string } | null> {
-        console.log(`[Client Resolver] Resolving stream for ${trackId} in parallel...`);
+    async function resolveStreamClientSide(trackId: string, timeoutMs: number = 4000): Promise<{ streamUrl: string; proxyUrl: string } | null> {
+        console.log(`[Client Resolver] Resolving stream for ${trackId} in parallel (timeout: ${timeoutMs}ms)...`);
 
         const pipedInstances = [
             "https://api-piped.mha.fi",
@@ -878,9 +878,9 @@ import {
 
         const promises: Promise<{ streamUrl: string; proxyUrl: string }>[] = [];
 
-        const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 4000) => {
+        const fetchWithTimeout = (url: string, options: RequestInit, timeoutLimit = 4000) => {
             return new Promise<Response>((resolve, reject) => {
-                const timer = setTimeout(() => reject(new Error("Timeout")), timeoutMs);
+                const timer = setTimeout(() => reject(new Error("Timeout")), timeoutLimit);
                 fetch(url, options)
                     .then(res => {
                         clearTimeout(timer);
@@ -896,7 +896,7 @@ import {
         // 1. Piped candidates
         pipedInstances.forEach(instance => {
             promises.push(
-                fetchWithTimeout(`${instance}/streams/${trackId}`, {}, 4000)
+                fetchWithTimeout(`${instance}/streams/${trackId}`, {}, timeoutMs)
                     .then(async res => {
                         if (!res.ok) throw new Error("Status " + res.status);
                         const data = await res.json();
@@ -912,7 +912,7 @@ import {
         // 2. Invidious candidates (local=true forces Invidious proxying)
         invidiousInstances.forEach(instance => {
             promises.push(
-                fetchWithTimeout(`${instance}/api/v1/videos/${trackId}?local=true`, {}, 4000)
+                fetchWithTimeout(`${instance}/api/v1/videos/${trackId}?local=true`, {}, timeoutMs)
                     .then(async res => {
                         if (!res.ok) throw new Error("Status " + res.status);
                         const data = await res.json();
@@ -948,7 +948,7 @@ import {
                         audioFormat: "mp3",
                         alwaysProxy: true
                     })
-                }, 4000)
+                }, timeoutMs)
                     .then(async res => {
                         if (!res.ok) throw new Error("Status " + res.status);
                         const data = await res.json();
@@ -974,7 +974,7 @@ import {
                         aFormat: "mp3",
                         alwaysProxy: true
                     })
-                }, 4000)
+                }, timeoutMs)
                     .then(async res => {
                         if (!res.ok) throw new Error("Status " + res.status);
                         const data = await res.json();
@@ -2683,18 +2683,12 @@ import {
             // This completely bypasses Vercel's backend payload response limits and IP blocks.
             if (!isLocalhost || isCapacitor) {
                 try {
-                    const resolved = await resolveStreamClientSide(track.id);
-                    if (resolved && resolved.streamUrl && resolved.streamUrl.includes("/tunnel")) {
+                    const resolved = await resolveStreamClientSide(track.id, 10000); // 10s timeout for download streams
+                    if (resolved && resolved.streamUrl) {
                         if (isCapacitor) {
                             window.open(resolved.streamUrl, "_system");
                         } else {
-                            const link = document.createElement("a");
-                            link.href = resolved.streamUrl;
-                            link.target = "_blank";
-                            link.download = `${track.title}.mp3`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            window.open(resolved.streamUrl, "_blank");
                         }
                         updateDownloadProgress("Downloading...", false);
                         showToast("Download started!");
@@ -2704,14 +2698,9 @@ import {
                     console.error("[Client Download] Failed to resolve Cobalt tunnel:", e);
                 }
 
-                // Fallback: Open the direct Vercel download endpoint in external browser
-                const fallbackUrl = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                if (isCapacitor) {
-                    window.open(fallbackUrl, "_system");
-                } else {
-                    window.location.href = fallbackUrl;
-                }
-                updateDownloadProgress("Downloading...", false);
+                // If resolution fails, show a clean user-facing error message instead of navigating to the broken error page
+                updateDownloadProgress("Failed", false);
+                showToast("Download failed. The download servers are currently rate-limited. Please try again later.");
                 return;
             }
 
