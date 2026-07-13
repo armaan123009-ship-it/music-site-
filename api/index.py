@@ -713,9 +713,9 @@ def check_cobalt_instance(instance, headers, video_id):
     url = f"https://www.youtube.com/watch?v={video_id}"
     schemas = [
         # Schema v10
-        {"url": url, "downloadMode": "audio", "audioFormat": "mp3"},
+        {"url": url, "downloadMode": "audio", "audioFormat": "mp3", "alwaysProxy": True},
         # Schema v7
-        {"url": url, "audioOnly": True, "aFormat": "mp3"}
+        {"url": url, "audioOnly": True, "aFormat": "mp3", "alwaysProxy": True}
     ]
     target = instance.rstrip('/') + '/'
     for schema in schemas:

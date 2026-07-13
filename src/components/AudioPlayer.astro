@@ -813,7 +813,8 @@ import {
                     body: JSON.stringify({
                         url: `https://www.youtube.com/watch?v=${trackId}`,
                         downloadMode: "audio",
-                        audioFormat: "mp3"
+                        audioFormat: "mp3",
+                        alwaysProxy: true
                     })
                 }, 4000)
                     .then(async res => {
@@ -838,7 +839,8 @@ import {
                     body: JSON.stringify({
                         url: `https://www.youtube.com/watch?v=${trackId}`,
                         audioOnly: true,
-                        aFormat: "mp3"
+                        aFormat: "mp3",
+                        alwaysProxy: true
                     })
                 }, 4000)
                     .then(async res => {
@@ -1225,7 +1227,8 @@ import {
                             body: JSON.stringify({
                                 url: `https://www.youtube.com/watch?v=${track.id}`,
                                 downloadMode: "audio",
-                                audioFormat: "mp3"
+                                audioFormat: "mp3",
+                                alwaysProxy: true
                             }),
                         },
                     );
@@ -1479,25 +1482,9 @@ import {
                         const resolved = await resolveStreamClientSide(track.id);
                         if (resolved) {
                             streamUrl = resolved.streamUrl;
-                            try {
-                                const signRes = await fetch(`${API_BASE}/api/sign`, {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ url: resolved.streamUrl, id: track.id })
-                                });
-                                if (signRes.ok) {
-                                    const signData = await signRes.json();
-                                    proxyUrl = signData.proxy_url.startsWith("http")
-                                        ? signData.proxy_url
-                                        : `${API_BASE}${signData.proxy_url}`;
-                                } else {
-                                    proxyUrl = resolved.proxyUrl;
-                                }
-                            } catch (e) {
-                                proxyUrl = resolved.proxyUrl;
-                            }
-                            state.streamUrlCache[track.id] = { streamUrl, proxyUrl };
-                            currentPlayUrl = proxyUrl || streamUrl || "";
+                            proxyUrl = resolved.proxyUrl;
+                            state.streamUrlCache[track.id] = resolved;
+                            currentPlayUrl = resolved.streamUrl || resolved.proxyUrl || "";
                         }
                     }
 
