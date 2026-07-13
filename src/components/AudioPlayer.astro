@@ -2674,30 +2674,46 @@ import {
                 window.location.protocol === 'capacitor:' ||
                 (window.location.hostname === 'localhost' && !window.location.port);
 
-            if (isCapacitor) {
-                // In mobile app WebView, resolve a Cobalt tunnel URL client-side and open it in the native browser.
-                // Standard Blob downloads (<a download>) are blocked/ignored by the WebView container.
-                try {
-                    const resolved = await resolveStreamClientSide(track.id);
-                    if (resolved && resolved.streamUrl && resolved.streamUrl.includes("/tunnel")) {
-                        window.open(resolved.streamUrl, "_system");
-                        updateDownloadProgress("Downloading...", false);
-                        return;
-                    }
-                } catch (e) {
-                    console.error("[App Download] Failed to resolve Cobalt tunnel URL:", e);
-                }
-                
-                // Fallback: Open the direct Vercel download endpoint in the native browser
-                const fallbackUrl = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                window.open(fallbackUrl, "_system");
-                updateDownloadProgress("Downloading...", false);
-                return;
-            }
-
             const isLocalhost =
                 window.location.hostname === "localhost" ||
                 window.location.hostname === "127.0.0.1";
+
+            // For production Vercel deployment (non-localhost) OR mobile Capacitor apps,
+            // we resolve a Cobalt tunnel URL client-side and trigger a native download.
+            // This completely bypasses Vercel's backend payload response limits and IP blocks.
+            if (!isLocalhost || isCapacitor) {
+                try {
+                    const resolved = await resolveStreamClientSide(track.id);
+                    if (resolved && resolved.streamUrl && resolved.streamUrl.includes("/tunnel")) {
+                        if (isCapacitor) {
+                            window.open(resolved.streamUrl, "_system");
+                        } else {
+                            const link = document.createElement("a");
+                            link.href = resolved.streamUrl;
+                            link.target = "_blank";
+                            link.download = `${track.title}.mp3`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        }
+                        updateDownloadProgress("Downloading...", false);
+                        showToast("Download started!");
+                        return;
+                    }
+                } catch (e) {
+                    console.error("[Client Download] Failed to resolve Cobalt tunnel:", e);
+                }
+
+                // Fallback: Open the direct Vercel download endpoint in external browser
+                const fallbackUrl = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                if (isCapacitor) {
+                    window.open(fallbackUrl, "_system");
+                } else {
+                    window.location.href = fallbackUrl;
+                }
+                updateDownloadProgress("Downloading...", false);
+                return;
+            }
 
             try {
                 let streamUrl = state.currentStreamUrl;
