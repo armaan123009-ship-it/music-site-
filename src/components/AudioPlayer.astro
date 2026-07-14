@@ -902,7 +902,11 @@ import {
                         const data = await res.json();
                         const audioStreams = data.audioStreams || [];
                         if (audioStreams.length > 0 && audioStreams[0].url) {
-                            return { streamUrl: audioStreams[0].url, proxyUrl: audioStreams[0].url };
+                            const url = audioStreams[0].url;
+                            if (url.includes("googlevideo.com")) {
+                                throw new Error("GoogleVideo URL is IP-locked");
+                            }
+                            return { streamUrl: url, proxyUrl: url };
                         }
                         throw new Error("No audio stream");
                     })
@@ -922,6 +926,9 @@ import {
                             let sUrl = audioFormats[0].url;
                             if (sUrl.startsWith("/")) {
                                 sUrl = `${instance}${sUrl}`;
+                            }
+                            if (sUrl.includes("googlevideo.com")) {
+                                throw new Error("GoogleVideo URL is IP-locked");
                             }
                             return { streamUrl: sUrl, proxyUrl: sUrl };
                         }
@@ -1703,11 +1710,13 @@ import {
                 try {
                     let currentPlayUrl = "";
                     if (playbackAttempts === 0) {
-                        currentPlayUrl = proxyUrl || streamUrl || "";
-                        console.log(`[Playback] Attempt 1: Playing through /play endpoint: ${currentPlayUrl}`);
+                        // On production, try direct stream URL first (since it is a fast proxied Invidious/Cobalt stream).
+                        // On localhost, try backend proxy first.
+                        currentPlayUrl = !isLocalhost ? (streamUrl || proxyUrl || "") : (proxyUrl || streamUrl || "");
+                        console.log(`[Playback] Attempt 1: ${!isLocalhost ? "Playing direct stream" : "Playing through /play endpoint"}: ${currentPlayUrl}`);
                     } else if (playbackAttempts === 1) {
-                        currentPlayUrl = streamUrl || "";
-                        console.log(`[Playback] Attempt 2: Playing direct stream fallback: ${currentPlayUrl}`);
+                        currentPlayUrl = !isLocalhost ? (proxyUrl || "") : (streamUrl || "");
+                        console.log(`[Playback] Attempt 2: ${!isLocalhost ? "Playing through /play endpoint fallback" : "Playing direct stream fallback"}: ${currentPlayUrl}`);
                     } else if (playbackAttempts === 2) {
                         console.log(`[Playback] Attempt 3: Resolving and playing client-side fallback...`);
                         showToast("Resolving backup stream...");
@@ -2787,7 +2796,7 @@ import {
             // This completely bypasses Vercel's backend payload response limits and IP blocks.
             if (!isLocalhost || isCapacitor) {
                 try {
-                    const resolvedUrl = await resolveDownloadClientSide(track.id, 10000); // 10s timeout for download streams
+                    const resolvedUrl = await resolveDownloadClientSide(track.id, 8000); // 8s timeout for download streams
                     if (resolvedUrl) {
                         if (isCapacitor) {
                             window.open(resolvedUrl, "_system");
@@ -2802,11 +2811,8 @@ import {
                     console.error("[Client Download] Failed to resolve Cobalt download URL:", e);
                 }
 
-                // Fall back to backend redirect download if client-side Cobalt fails
-                console.log("[Client Download] Client-side Cobalt failed. Falling back to backend redirect download...");
-                window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                updateDownloadProgress("Downloading...", false);
-                return;
+                // If Cobalt fails on production, we fall back to the chunk downloader right below to download the song in chunks
+                console.log("[Client Download] Client-side Cobalt failed. Falling back to chunk downloader...");
             }
 
             try {
