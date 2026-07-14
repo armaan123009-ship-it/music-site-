@@ -68,6 +68,15 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 			applyTheme();
 			document.addEventListener('astro:after-swap', applyTheme);
 			document.addEventListener('astro:page-load', applyTheme);
+
+			// Register service worker for PWA foreground capabilities
+			if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+				window.addEventListener('load', () => {
+					navigator.serviceWorker.register('/sw.js')
+						.then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+						.catch(err => console.error('[PWA] Service Worker registration failed:', err));
+				});
+			}
 		</script>
 	</head>
 	<body class="bg-background text-foreground selection:bg-primary/30 antialiased overflow-hidden">

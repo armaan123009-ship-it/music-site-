@@ -1074,12 +1074,22 @@ def play(video_id):
             print(f"[Play] fetch error for {url[:60]}: {e}")
             return None
 
+    # Strategy 0: Cache Lookup
+    cached_url = get_cached_stream_url(video_id)
+    result = None
+    if cached_url:
+        print(f"[Play] Cache hit, trying: {cached_url[:60]}...")
+        result = try_fetch(cached_url)
+        if result:
+            print(f"[Play] Cache hit succeeded for {video_id}")
+
     # Strategy 1: yt-dlp fast (android client only — resolves + fetches from same IP)
-    print(f"[Play] Trying yt-dlp for {video_id}...")
-    ytdlp_url = extract_stream_url_fast(video_id)
-    result = try_fetch(ytdlp_url)
-    if result:
-        print(f"[Play] yt-dlp succeeded for {video_id}")
+    if not result:
+        print(f"[Play] Trying yt-dlp for {video_id}...")
+        ytdlp_url = extract_stream_url_fast(video_id)
+        result = try_fetch(ytdlp_url)
+        if result:
+            print(f"[Play] yt-dlp succeeded for {video_id}")
     
     # Strategy 2: Piped instances
     if not result:
@@ -1292,8 +1302,18 @@ def image_proxy():
             return redirect(f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg")
         return str(e), 500
 
-@app.route("/api/download/<video_id>")
+@app.route("/api/download/<video_id>", methods=["GET", "OPTIONS"])
+@app.route("/download/<video_id>", methods=["GET", "OPTIONS"])
 def download_audio(video_id):
+    if request.method == 'OPTIONS':
+        res = Response()
+        origin = request.headers.get("Origin") or "https://music-site-red.vercel.app"
+        res.headers["Access-Control-Allow-Origin"] = origin
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+        res.headers["Access-Control-Allow-Headers"] = "Range, Content-Type"
+        res.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return res
+
     title = request.args.get('title', 'audio')
     # Clean filename
     safe_title = "".join([c for c in title if c.isalnum() or c in ' -_']).strip()
@@ -1340,7 +1360,7 @@ def download_audio(video_id):
                 print("[Download Stream] Stream generator finished")
                 
         response = Response(stream_with_context(generate()), status=200)
-        response.headers["Content-Type"] = "audio/mpeg"
+        response.headers["Content-Type"] = "application/octet-stream"
         response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
         
         # Explicit CORS headers for cross-origin downloads

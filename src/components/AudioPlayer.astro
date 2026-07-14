@@ -1738,7 +1738,12 @@ import {
                     if (currentPlayUrl && currentPlayUrl !== window.location.href && !triedUrls.has(currentPlayUrl)) {
                         triedUrls.add(currentPlayUrl);
                         audio.src = currentPlayUrl;
-                        await audio.play();
+                        try {
+                            await audio.play();
+                        } catch (playErr) {
+                            console.warn("[Playback] Play promise interrupted:", playErr);
+                            throw playErr; // propagate to trigger fallback attempts
+                        }
                         syncPlayPauseUI(true);
                         requestWakeLock();
                         state.isPreFetching = false;
@@ -2589,7 +2594,7 @@ import {
         audio.onended = () => {
             if (state.repeatMode === "one") {
                 audio.currentTime = 0;
-                audio.play();
+                audio.play().catch((e) => console.warn("[Playback] Repeat play interrupted:", e));
             } else {
                 playNextTrack();
             }
@@ -2620,6 +2625,37 @@ import {
             const progress = (audio.currentTime / duration) * 100;
             updateProgressUI(audio.currentTime, duration, progress);
         };
+
+        // Visibility Change listener to re-acquire screen wake lock on tab return
+        if (typeof document !== 'undefined') {
+            document.addEventListener("visibilitychange", async () => {
+                if (document.visibilityState === "visible" && state.isPlaying) {
+                    await requestWakeLock();
+                }
+            });
+        }
+
+        // Media Session PWA Heartbeat to prevent Android process suspension
+        setInterval(() => {
+            if (state.isPlaying && "mediaSession" in navigator) {
+                try {
+                    updatePlaybackPosition();
+                    if (state.currentIndex !== -1 && state.currentQueue[state.currentIndex]) {
+                        const track = state.currentQueue[state.currentIndex];
+                        navigator.mediaSession.metadata = new MediaMetadata({
+                            title: track.title,
+                            artist: track.artist,
+                            album: "Premium Music",
+                            artwork: [
+                                { src: track.image || "/favicon.svg", sizes: "512x512", type: "image/png" }
+                            ]
+                        });
+                    }
+                } catch (e) {
+                    console.warn("[PWA Heartbeat] Failed to pulse:", e);
+                }
+            }
+        }, 10000);
 
         // Attach event listeners to player controls
         const togglePlay = () => {
@@ -2922,8 +2958,8 @@ import {
                 console.error("[Chunk Downloader] Download failed:", err);
                 updateDownloadProgress("Retrying...", true);
                 try {
-                    // Clean single-request cross-origin fetch downloader
-                    const downloadUrl = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                    // Clean single-request cross-origin fetch downloader (using explicit download route)
+                    const downloadUrl = `${API_BASE}/download/${track.id}?title=${encodeURIComponent(track.title)}`;
                     const response = await fetch(downloadUrl);
                     if (!response.ok) throw new Error("Server returned status " + response.status);
                     
