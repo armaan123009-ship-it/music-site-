@@ -2920,8 +2920,31 @@ import {
                 console.log("[Chunk Downloader] Download complete!");
             } catch (err) {
                 console.error("[Chunk Downloader] Download failed:", err);
-                updateDownloadProgress("Failed", false);
-                window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                updateDownloadProgress("Retrying...", true);
+                try {
+                    // Clean single-request cross-origin fetch downloader
+                    const downloadUrl = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                    const response = await fetch(downloadUrl);
+                    if (!response.ok) throw new Error("Server returned status " + response.status);
+                    
+                    const blob = await response.blob();
+                    const objectUrl = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement("a");
+                    a.href = objectUrl;
+                    a.download = `${track.title}.mp3`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(objectUrl);
+                    
+                    updateDownloadProgress("Download complete", false);
+                    showToast("Download started!");
+                } catch (fetchErr) {
+                    console.error("[Single Fetch Downloader] Download failed:", fetchErr);
+                    updateDownloadProgress("Failed", false);
+                    showToast("Download failed. Please try again later.");
+                }
             }
         };
 

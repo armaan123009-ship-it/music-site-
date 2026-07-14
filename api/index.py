@@ -1304,24 +1304,6 @@ def download_audio(video_id):
     is_production = os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production'
     
     try:
-        if is_production:
-            # On production Vercel, bypass the 4.5MB serverless response payload limits
-            # by resolving a Cobalt download stream and redirecting directly to it.
-            # If Cobalt fails, we fall back to standard stream resolution.
-            print(f"[Download] Production mode: Resolving Cobalt stream for download...")
-            cobalt_url = fetch_cobalt_stream_url(video_id)
-            if cobalt_url:
-                print(f"[Download] Redirecting directly to Cobalt stream URL: {cobalt_url}")
-                return redirect(cobalt_url)
-            else:
-                if video_id in stream_cache:
-                    del stream_cache[video_id]
-                url = resolve_stream_url(video_id)
-                if not url:
-                    raise Exception("Failed to resolve stream URL from all sources")
-                print(f"[Download] Cobalt failed, redirecting directly to fallback stream URL: {url}")
-                return redirect(url)
-
         # Force fresh resolution for downloads to guarantee high-quality audio-only format
         if video_id in stream_cache:
             del stream_cache[video_id]
@@ -1360,6 +1342,11 @@ def download_audio(video_id):
         response = Response(stream_with_context(generate()), status=200)
         response.headers["Content-Type"] = "audio/mpeg"
         response.headers["Content-Disposition"] = f'attachment; filename="{safe_title}.mp3"'
+        
+        # Explicit CORS headers for cross-origin downloads
+        origin = request.headers.get("Origin") or "https://music-site-red.vercel.app"
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Expose-Headers"] = "Content-Disposition"
         
         if 'content-length' in r.headers:
             response.headers["Content-Length"] = r.headers['content-length']
