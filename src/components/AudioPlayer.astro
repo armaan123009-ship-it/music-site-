@@ -712,6 +712,13 @@ import {
             console.log("[YouTube API] Global ready hook triggered. Initializing player...");
             try {
                 ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
+                    playerVars: {
+                        rel: 0,
+                        autoplay: 1,
+                        controls: 0,
+                        showinfo: 0,
+                        ecver: 2
+                    },
                     events: {
                         onStateChange: onPlayerStateChange,
                         onError: onPlayerError
@@ -756,6 +763,13 @@ import {
             if ((window as any).YT && (window as any).YT.Player) {
                 try {
                     ytPlayer = new (window as any).YT.Player("youtube-player-frame", {
+                        playerVars: {
+                            rel: 0,
+                            autoplay: 1,
+                            controls: 0,
+                            showinfo: 0,
+                            ecver: 2
+                        },
                         events: {
                             onStateChange: onPlayerStateChange,
                             onError: onPlayerError
@@ -897,7 +911,7 @@ import {
             });
         };
 
-        // 1. Piped candidates
+        // 1. Piped candidates (Transform Google Video link to Piped instance's /videoplayback proxy endpoint)
         pipedInstances.forEach(instance => {
             promises.push(
                 fetchWithTimeout(`${instance}/streams/${trackId}`, {}, timeoutMs)
@@ -907,36 +921,37 @@ import {
                         const audioStreams = data.audioStreams || [];
                         if (audioStreams.length > 0 && audioStreams[0].url) {
                             const url = audioStreams[0].url;
-                            if (url.includes("googlevideo.com")) {
-                                throw new Error("GoogleVideo URL is IP-locked");
-                            }
-                            return { streamUrl: url, proxyUrl: url };
+                            const urlObj = new URL(url);
+                            const proxiedUrl = `${instance}/videoplayback${urlObj.search}`;
+                            return { streamUrl: proxiedUrl, proxyUrl: proxiedUrl };
                         }
                         throw new Error("No audio stream");
                     })
             );
         });
 
-        // 2. Invidious candidates (local=true forces Invidious proxying)
+        // 2. Invidious candidates (Route through Invidious's /latest_version proxy endpoint)
         invidiousInstances.forEach(instance => {
+            // Check standard AAC format (itag 140)
+            const proxiedAacUrl = `${instance}/latest_version?id=${trackId}&itag=140&local=true`;
             promises.push(
-                fetchWithTimeout(`${instance}/api/v1/videos/${trackId}?local=true`, {}, timeoutMs)
-                    .then(async res => {
-                        if (!res.ok) throw new Error("Status " + res.status);
-                        const data = await res.json();
-                        const formats = data.adaptiveFormats || [];
-                        const audioFormats = formats.filter((f: any) => f.type && f.type.startsWith("audio/"));
-                        if (audioFormats.length > 0 && audioFormats[0].url) {
-                            let sUrl = audioFormats[0].url;
-                            if (sUrl.startsWith("/")) {
-                                sUrl = `${instance}${sUrl}`;
-                            }
-                            if (sUrl.includes("googlevideo.com")) {
-                                throw new Error("GoogleVideo URL is IP-locked");
-                            }
-                            return { streamUrl: sUrl, proxyUrl: sUrl };
+                fetchWithTimeout(proxiedAacUrl, { method: "HEAD" }, timeoutMs)
+                    .then(res => {
+                        if (res.ok) {
+                            return { streamUrl: proxiedAacUrl, proxyUrl: proxiedAacUrl };
                         }
-                        throw new Error("No audio stream");
+                        throw new Error("Invidious proxy AAC check failed");
+                    })
+            );
+            // Check backup Opus format (itag 251)
+            const proxiedOpusUrl = `${instance}/latest_version?id=${trackId}&itag=251&local=true`;
+            promises.push(
+                fetchWithTimeout(proxiedOpusUrl, { method: "HEAD" }, timeoutMs)
+                    .then(res => {
+                        if (res.ok) {
+                            return { streamUrl: proxiedOpusUrl, proxyUrl: proxiedOpusUrl };
+                        }
+                        throw new Error("Invidious proxy Opus check failed");
                     })
             );
         });
