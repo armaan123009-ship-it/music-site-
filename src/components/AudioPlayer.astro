@@ -3367,21 +3367,49 @@ import {
 
         // Define and bind new listeners for this page load
         (window as any).playTrackListener = async (e: CustomEvent) => {
-            const track = e.detail;
-            const existingIdx = state.currentQueue.findIndex(
-                (t: any) => t.id === track.id,
-            );
-            if (existingIdx === -1) {
-                state.currentQueue.push(track);
-                state.currentIndex = state.currentQueue.length - 1;
+            let track = e.detail;
+            let queue = null;
+            
+            // Support detailed payload format { track, queue }
+            if (e.detail && e.detail.track) {
+                track = e.detail.track;
+                queue = e.detail.queue;
+            }
+            
+            if (!track || !track.id) return;
+
+            if (queue && Array.isArray(queue) && queue.length > 0) {
+                // Load the entire list/playlist context into the queue
+                state.currentQueue = [...queue];
+                const existingIdx = state.currentQueue.findIndex(
+                    (t: any) => t.id === track.id,
+                );
+                state.currentIndex = existingIdx !== -1 ? existingIdx : 0;
             } else {
-                state.currentIndex = existingIdx;
+                // Single song click (search results / home screen): clear old queue to prevent random playback
+                state.currentQueue = [track];
+                state.currentIndex = 0;
             }
+
             if (state.isShuffle) {
-                if (!state.originalQueue.some((t: any) => t.id === track.id)) {
-                    state.originalQueue.push(track);
+                // If shuffle is active, shuffle the remaining tracks while keeping the selected track playing first
+                state.originalQueue = [...state.currentQueue];
+                const currentTrack = state.currentQueue[state.currentIndex];
+                const remaining = state.currentQueue.filter(
+                    (_: any, idx: number) => idx !== state.currentIndex,
+                );
+                for (let i = remaining.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
                 }
+                state.currentQueue = [currentTrack, ...remaining];
+                state.currentIndex = 0;
+            } else {
+                state.originalQueue = [...state.currentQueue];
             }
+
+            updateQueueUI();
+            saveState();
             fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
         };
 

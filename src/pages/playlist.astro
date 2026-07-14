@@ -99,6 +99,27 @@ import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
                         <div class="w-12 text-right text-xs font-bold text-muted-foreground">${track.duration || '3:45'}</div>
                     </div>
                 `).join('');
+
+                // Event delegation for song clicks to load the entire playlist as queue context
+                if (!list.dataset.clicksBound) {
+                    list.dataset.clicksBound = "true";
+                    list.addEventListener('click', (e) => {
+                        const target = e.target as HTMLElement;
+                        const trigger = target.closest('.track-trigger') as HTMLElement;
+                        if (trigger) {
+                            const trackId = trigger.dataset.id;
+                            const clickedTrack = data.songs.find((s: any) => s.id === trackId);
+                            if (clickedTrack) {
+                                window.dispatchEvent(new CustomEvent('play-track', {
+                                    detail: {
+                                        track: clickedTrack,
+                                        queue: data.songs
+                                    }
+                                }));
+                            }
+                        }
+                    });
+                }
             }
 
             const playAllBtn = document.getElementById('play-all-btn');
@@ -107,7 +128,10 @@ import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
                 playAllBtn.addEventListener('click', () => {
                     if (data.songs.length > 0) {
                         window.dispatchEvent(new CustomEvent('play-track', {
-                            detail: data.songs[0]
+                            detail: {
+                                track: data.songs[0],
+                                queue: data.songs
+                            }
                         }));
                     }
                 });
