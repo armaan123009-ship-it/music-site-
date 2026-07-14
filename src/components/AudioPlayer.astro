@@ -614,6 +614,7 @@ import {
     (window as any).playerState = state;
 
     let audio: HTMLAudioElement;
+    let playbackSessionId = 0;
     let miniPlayer: HTMLElement | null;
     let immersivePlayer: HTMLElement | null;
 
@@ -1599,6 +1600,8 @@ import {
 
     async function fetchStreamAndPlay(track: any) {
         if (!track) return;
+        playbackSessionId++;
+        const currentSessionId = playbackSessionId;
         try {
             // Update UI details immediately for instant feedback
             titleEls().forEach((el) => el && (el.textContent = track.title));
@@ -1694,6 +1697,7 @@ import {
                             throw new Error("Client resolve failed");
                         })
                     ]);
+                    if (currentSessionId !== playbackSessionId) return;
                     if (result) {
                         streamUrl = result.streamUrl;
                         proxyUrl = result.proxyUrl;
@@ -1713,6 +1717,10 @@ import {
             let triedUrls = new Set<string>();
 
             const attemptPlayback = async () => {
+                if (currentSessionId !== playbackSessionId) {
+                    console.log("[Playback] Aborting obsolete playback attempt");
+                    return;
+                }
                 try {
                     let currentPlayUrl = "";
                     if (playbackAttempts === 0) {
@@ -1740,8 +1748,16 @@ import {
                         audio.src = currentPlayUrl;
                         try {
                             await audio.play();
-                        } catch (playErr) {
+                        } catch (playErr: any) {
                             console.warn("[Playback] Play promise interrupted:", playErr);
+                            // Do not retry on aborts/autoplay blocks (handled by visibility change or new click)
+                            if (playErr && (playErr.name === "AbortError" || playErr.name === "NotAllowedError")) {
+                                if (playErr.name === "NotAllowedError") {
+                                    console.log("Autoplay blocked by browser. Awaiting user interaction.");
+                                    syncPlayPauseUI(false);
+                                }
+                                return;
+                            }
                             throw playErr; // propagate to trigger fallback attempts
                         }
                         syncPlayPauseUI(true);
@@ -1776,6 +1792,10 @@ import {
             };
 
             audio.onerror = async () => {
+                if (currentSessionId !== playbackSessionId) {
+                    console.log("[Playback] Obsolete session error, ignoring");
+                    return;
+                }
                 console.warn("[Playback] Browser triggered audio.onerror");
                 playbackAttempts++;
                 if (playbackAttempts <= 2) {
