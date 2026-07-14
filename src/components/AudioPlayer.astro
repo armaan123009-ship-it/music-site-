@@ -571,6 +571,9 @@ import {
     } from "../lib/api";
     import { navigate } from "astro:transitions/client";
 
+    // Tiny silent WAV data URI to keep the mobile browser audio context "warm" during track transitions.
+    const SILENT_DATA_URI = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+
     // Premium gradients for background glows
     const GLOW_GRADIENTS = [
         "linear-gradient(137deg, var(--primary) 0%, #7c7c7c 100%)",
@@ -1624,10 +1627,13 @@ import {
             // Unregister previous error handlers and pause immediately to prevent false playback abort error toasts
             audio.onerror = null;
             audio.pause();
-            audio.src = "";
+
+            // Set silent data URI to keep background context warm during the async fetch
+            audio.src = SILENT_DATA_URI;
             stopYoutubeEmbed();
             try {
                 audio.load();
+                audio.play().catch(() => {});
             } catch (e) {}
 
             // The old production path tried to turn third-party YouTube URLs
