@@ -616,8 +616,8 @@ import {
 
     // Enable YouTube embed player on production Vercel to bypass IP blocks, keeping it local on dev
     const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-    const useYoutubeEmbed = !isLocalhost;
-    state.usingYoutubeEmbed = state.usingYoutubeEmbed || !isLocalhost;
+    const useYoutubeEmbed = false;
+    state.usingYoutubeEmbed = state.usingYoutubeEmbed || false;
     let ytPlayer: any = null;
     let ytProgressInterval: any = null;
 
@@ -993,6 +993,100 @@ import {
             return result;
         } catch (err) {
             console.warn("[Client Resolver] All parallel stream resolution attempts failed:", err);
+            return null;
+        }
+    }
+
+    async function resolveDownloadClientSide(trackId: string, timeoutMs: number = 10000): Promise<string | null> {
+        console.log(`[Client Download Resolver] Resolving stream for ${trackId} via Cobalt (timeout: ${timeoutMs}ms)...`);
+
+        const cobaltInstances = [
+            "https://rue-cobalt.xenon.zone",
+            "https://api.cobalt.tools",
+            "https://cobalt.foxtrot-omega.me",
+            "https://cobalt.willy.lol",
+            "https://cobalt.k6.dev",
+            "https://cobalt-api.lunar.icu",
+            "https://cobalt.col1g3.de",
+            "https://cobalt.projectsegfau.lt"
+        ];
+
+        const promises: Promise<string>[] = [];
+
+        const fetchWithTimeout = (url: string, options: RequestInit, timeoutLimit = 10000) => {
+            return new Promise<Response>((resolve, reject) => {
+                const timer = setTimeout(() => reject(new Error("Timeout")), timeoutLimit);
+                fetch(url, options)
+                    .then(res => {
+                        clearTimeout(timer);
+                        resolve(res);
+                    })
+                    .catch(err => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+            });
+        };
+
+        // Cobalt candidates (both v10 and v7 schemas in parallel)
+        cobaltInstances.forEach(instance => {
+            const target = instance.endsWith("/") ? instance : `${instance}/`;
+            
+            // Schema v10
+            promises.push(
+                fetchWithTimeout(target, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: `https://www.youtube.com/watch?v=${trackId}`,
+                        downloadMode: "audio",
+                        audioFormat: "mp3",
+                        alwaysProxy: true
+                    })
+                }, timeoutMs)
+                    .then(async res => {
+                        if (!res.ok) throw new Error("Status " + res.status);
+                        const data = await res.json();
+                        const sUrl = data.url || data.picker;
+                        if (sUrl) return sUrl;
+                        throw new Error("No stream URL");
+                    })
+            );
+
+            // Schema v7
+            promises.push(
+                fetchWithTimeout(target, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json"
+                    },
+                    body: JSON.stringify({
+                        url: `https://www.youtube.com/watch?v=${trackId}`,
+                        audioOnly: true,
+                        aFormat: "mp3",
+                        alwaysProxy: true
+                    })
+                }, timeoutMs)
+                    .then(async res => {
+                        if (!res.ok) throw new Error("Status " + res.status);
+                        const data = await res.json();
+                        const sUrl = data.url || data.picker;
+                        if (sUrl) return sUrl;
+                        throw new Error("No stream URL");
+                    })
+            );
+        });
+
+        try {
+            const result = await Promise.any(promises);
+            console.log("[Client Download Resolver] Successfully resolved Cobalt stream:", result);
+            return result;
+        } catch (err) {
+            console.warn("[Client Download Resolver] All Cobalt download stream resolution attempts failed:", err);
             return null;
         }
     }
@@ -1649,9 +1743,14 @@ import {
                     if (playbackAttempts <= 2) {
                         await attemptPlayback();
                     } else {
-                        syncPlayPauseUI(false);
-                        releaseWakeLock();
-                        showToast("Playback failed.");
+                        console.log("[Playback] HTML5 Audio failed. Falling back to YouTube Embed...");
+                        showToast("HTML5 playback failed. Using YouTube fallback...");
+                        state.usingYoutubeEmbed = true;
+                        if (!playWithYoutubeEmbed(track)) {
+                            syncPlayPauseUI(false);
+                            releaseWakeLock();
+                            showToast("Playback failed on both HTML5 and YouTube.");
+                        }
                     }
                 }
             };
@@ -1662,9 +1761,14 @@ import {
                 if (playbackAttempts <= 2) {
                     await attemptPlayback();
                 } else {
-                    syncPlayPauseUI(false);
-                    releaseWakeLock();
-                    showToast("Playback failed.");
+                    console.log("[Playback] HTML5 Audio failed. Falling back to YouTube Embed...");
+                    showToast("HTML5 playback failed. Using YouTube fallback...");
+                    state.usingYoutubeEmbed = true;
+                    if (!playWithYoutubeEmbed(track)) {
+                        syncPlayPauseUI(false);
+                        releaseWakeLock();
+                        showToast("Playback failed on both HTML5 and YouTube.");
+                    }
                 }
             };
 
@@ -2089,7 +2193,7 @@ import {
         state.currentIndex = nextIndex;
         const track = state.currentQueue[state.currentIndex];
 
-        if (useYoutubeEmbed) {
+        if (useYoutubeEmbed || state.usingYoutubeEmbed) {
             fetchStreamAndPlay(track);
             return;
         }
@@ -2683,24 +2787,25 @@ import {
             // This completely bypasses Vercel's backend payload response limits and IP blocks.
             if (!isLocalhost || isCapacitor) {
                 try {
-                    const resolved = await resolveStreamClientSide(track.id, 10000); // 10s timeout for download streams
-                    if (resolved && resolved.streamUrl) {
+                    const resolvedUrl = await resolveDownloadClientSide(track.id, 10000); // 10s timeout for download streams
+                    if (resolvedUrl) {
                         if (isCapacitor) {
-                            window.open(resolved.streamUrl, "_system");
+                            window.open(resolvedUrl, "_system");
                         } else {
-                            window.open(resolved.streamUrl, "_blank");
+                            window.open(resolvedUrl, "_blank");
                         }
                         updateDownloadProgress("Downloading...", false);
                         showToast("Download started!");
                         return;
                     }
                 } catch (e) {
-                    console.error("[Client Download] Failed to resolve Cobalt tunnel:", e);
+                    console.error("[Client Download] Failed to resolve Cobalt download URL:", e);
                 }
 
-                // If resolution fails, show a clean user-facing error message instead of navigating to the broken error page
-                updateDownloadProgress("Failed", false);
-                showToast("Download failed. The download servers are currently rate-limited. Please try again later.");
+                // Fall back to backend redirect download if client-side Cobalt fails
+                console.log("[Client Download] Client-side Cobalt failed. Falling back to backend redirect download...");
+                window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
+                updateDownloadProgress("Downloading...", false);
                 return;
             }
 
