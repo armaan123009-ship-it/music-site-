@@ -599,7 +599,7 @@ import {
         currentIndex: -1,
         isShuffle: false,
         repeatMode: "none", // 'none' | 'all' | 'one'
-        isAutoplay: true,
+        isAutoplay: false,
         currentUser: null,
         activeTab: "queue",
         currentStreamUrl: null,
@@ -1521,37 +1521,7 @@ import {
         );
 
         try {
-            // 1. If Autoplay is enabled and we are playing the last track of the queue, fetch suggestions in advance.
-            if (
-                state.isAutoplay &&
-                state.currentIndex === state.currentQueue.length - 1
-            ) {
-                console.log(
-                    `[Autoplay Pre-fetch] Fetching recommendations in advance for: ${currentTrack.title}`,
-                );
-                const suggestions = await fetchSuggestions(currentTrack.id);
-                if (suggestions && suggestions.length > 0) {
-                    const newTracks = suggestions.filter(
-                        (s: any) =>
-                            !state.currentQueue.some((t: any) => t.id === s.id),
-                    );
-                    if (newTracks.length > 0) {
-                        state.currentQueue.push(...newTracks);
-                    } else {
-                        const fallbackTrack =
-                            suggestions.find(
-                                (s: any) => s.id !== currentTrack.id,
-                            ) || suggestions[0];
-                        if (fallbackTrack) {
-                            state.currentQueue.push(fallbackTrack);
-                        }
-                    }
-                    updateQueueUI();
-                    saveState();
-                }
-            }
-
-            // 2. Identify index of the next track and the track after that
+            // Identify index of the next track and the track after that
             let nextIndex = -1;
             if (state.currentIndex < state.currentQueue.length - 1) {
                 nextIndex = state.currentIndex + 1;
