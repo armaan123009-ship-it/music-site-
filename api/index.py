@@ -1502,5 +1502,11 @@ def user_data():
         })
     return jsonify({"logged_in": False})
 
+@app.after_request
+def add_cache_headers(response):
+    if request.method == 'GET' and request.path in ['/api/home', '/api/trending']:
+        response.headers['Cache-Control'] = 'public, max-age=60, s-maxage=300, stale-while-revalidate=3600'
+    return response
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
