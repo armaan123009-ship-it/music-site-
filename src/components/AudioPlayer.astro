@@ -624,6 +624,7 @@ import {
     state.usingYoutubeEmbed = state.usingYoutubeEmbed || false;
     let ytPlayer: any = null;
     let ytProgressInterval: any = null;
+    let ytHasError = false;
 
     function youtubeCommand(command: "playVideo" | "pauseVideo" | "stopVideo") {
         const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
@@ -635,6 +636,7 @@ import {
 
     function stopYoutubeEmbed() {
         state.usingYoutubeEmbed = false;
+        ytHasError = false;
         if (ytProgressInterval) {
             clearInterval(ytProgressInterval);
             ytProgressInterval = null;
@@ -651,6 +653,7 @@ import {
         const YT_ENDED = 0;
 
         if (playerState === YT_PLAYING) {
+            ytHasError = false;
             state.isPlaying = true;
             syncPlayPauseUI(true);
             requestWakeLock();
@@ -687,6 +690,11 @@ import {
                 state.isPlaying = false;
                 syncPlayPauseUI(false);
                 releaseWakeLock();
+                if (ytHasError) {
+                    ytHasError = false;
+                    console.warn("[YouTube API] Video ended due to embed restriction error. Stopping auto-advance.");
+                    return;
+                }
                 if (state.repeatMode === "one") {
                     try {
                         ytPlayer.seekTo(0);
@@ -701,9 +709,10 @@ import {
 
     function onPlayerError(event: any) {
         console.error("YouTube Player Error:", event.data);
-        showToast("Playback failed on YouTube.");
+        ytHasError = true;
         syncPlayPauseUI(false);
         releaseWakeLock();
+        showToast("This track cannot be embedded. Please select another song.");
     }
 
     // Register global onYouTubeIframeAPIReady callback immediately
