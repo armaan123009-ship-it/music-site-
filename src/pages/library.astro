@@ -60,6 +60,8 @@ const stats = [
     import { createPlaylist, API_BASE } from '../lib/api';
     import { navigate } from 'astro:transitions/client';
 
+    const escapeAttr = (str: any) => str ? String(str).replace(/"/g, '&quot;') : '';
+
     async function loadLibraryData() {
         try {
             const res = await fetch(`${API_BASE}/api/user_data`);
@@ -80,7 +82,7 @@ const stats = [
             if (likedList) {
                 likedList.innerHTML = data.liked_songs.map((track: any) => `
                     <div class="track-trigger flex items-center justify-between p-3 rounded-2xl hover:bg-white/10 group transition-all cursor-pointer"
-                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                         data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist)}" data-artwork="${escapeAttr(track.image)}">
                         <div class="flex items-center gap-4">
                             <img src="${track.image}" referrerpolicy="no-referrer" class="w-12 h-12 rounded-xl object-cover transition-opacity duration-300 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
                             <div>

@@ -959,7 +959,7 @@ def resolve_stream_url(video_id):
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(resolvers)) as executor:
         future_to_resolver = {executor.submit(func, video_id): name for name, func in resolvers}
         try:
-            for future in concurrent.futures.as_completed(future_to_resolver, timeout=5.0):
+            for future in concurrent.futures.as_completed(future_to_resolver, timeout=2.0):
                 name = future_to_resolver[future]
                 try:
                     res = future.result()
@@ -995,7 +995,7 @@ def resolve_direct_url(video_id):
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(resolvers)) as executor:
         future_to_name = {executor.submit(func, video_id): name for name, func in resolvers}
         try:
-            for future in concurrent.futures.as_completed(future_to_name, timeout=5.0):
+            for future in concurrent.futures.as_completed(future_to_name, timeout=2.0):
                 name = future_to_name[future]
                 try:
                     res = future.result()

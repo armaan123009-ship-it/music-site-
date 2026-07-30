@@ -60,6 +60,8 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
     import { navigate } from 'astro:transitions/client';
     import { API_BASE } from '../lib/api';
 
+    const escapeAttr = (str: any) => str ? String(str).replace(/"/g, '&quot;') : '';
+
     async function loadExploreData() {
         try {
             const res = await fetch(`${API_BASE}/api/trending`);
@@ -67,7 +69,7 @@ const genres = ["Pop", "Hip-Hop", "Rock", "Electronic", "Jazz", "Classical", "R&
             const grid = document.getElementById('explore-grid');
             if (grid && tracks.length > 0) {
                 grid.innerHTML = tracks.slice(0, 18).map((track: any) => `
-                    <div class="track-trigger group space-y-3 cursor-pointer" data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                    <div class="track-trigger group space-y-3 cursor-pointer" data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist)}" data-artwork="${escapeAttr(track.image)}">
                         <div class="relative aspect-square rounded-2xl overflow-hidden border border-white/5 shadow-xl bg-white/5">
                             <img src="${track.image}" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-110 transition-all duration-700 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
                             <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
