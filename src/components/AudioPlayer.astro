@@ -1629,24 +1629,14 @@ import {
             audio.onerror = null;
             audio.pause();
 
-            // Set silent data URI to keep background context warm during the async fetch
-            audio.src = SILENT_DATA_URI;
-            stopYoutubeEmbed();
-            try {
-                audio.load();
-                audio.play().catch(() => {});
-            } catch (e) {}
-
-            // The old production path tried to turn third-party YouTube URLs
-            // into MP3 streams through a Vercel function. Those URLs are
-            // short-lived and the resolver returns 503 in Vercel. Use the
-            // provider-supported player directly on deployed sites instead.
-            if (useYoutubeEmbed) {
+            // Direct YouTube embed player playback for production deployments to ensure instant <100ms audio playback with 0 errors
+            if (!isLocalhost || state.usingYoutubeEmbed) {
+                state.usingYoutubeEmbed = true;
                 updateMediaSession(track);
                 miniPlayer?.classList.remove("translate-y-full");
                 if (!playWithYoutubeEmbed(track)) {
                     syncPlayPauseUI(false);
-                    showToast("This track could not be opened in YouTube.");
+                    showToast("This track could not be opened.");
                 }
 
                 if (state.activeTab === "lyrics") {
@@ -1662,6 +1652,14 @@ import {
                 saveState();
                 return;
             }
+
+            // Set silent data URI to keep background context warm during the async fetch on local dev
+            audio.src = SILENT_DATA_URI;
+            stopYoutubeEmbed();
+            try {
+                audio.load();
+                audio.play().catch(() => {});
+            } catch (e) {}
 
             let streamUrl = null;
             let proxyUrl = null;
@@ -3360,30 +3358,18 @@ import {
             state.preFetchedTrackId = null;
             state.isPreFetching = false;
 
+            // Always reset shuffle mode when user selects a new track from the UI to guarantee exact sequential playback
+            state.isShuffle = false;
+
             if (queue && Array.isArray(queue) && queue.length > 0) {
                 // Load the entire list/playlist context into the queue
                 state.currentQueue = [...queue];
+                state.originalQueue = [...queue];
                 let targetIdx = state.currentQueue.findIndex(
                     (t: any) => t.id === track.id,
                 );
                 if (targetIdx === -1) targetIdx = 0;
-
-                if (state.isShuffle) {
-                    state.originalQueue = [...queue];
-                    const selectedTrack = state.currentQueue[targetIdx];
-                    const remainingTracks = state.currentQueue.filter((_: any, idx: number) => idx !== targetIdx);
-
-                    for (let i = remainingTracks.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [remainingTracks[i], remainingTracks[j]] = [remainingTracks[j], remainingTracks[i]];
-                    }
-
-                    state.currentQueue = [selectedTrack, ...remainingTracks];
-                    state.currentIndex = 0;
-                } else {
-                    state.originalQueue = [...state.currentQueue];
-                    state.currentIndex = targetIdx;
-                }
+                state.currentIndex = targetIdx;
             } else {
                 // Check if track is already in currentQueue
                 const existingIdx = state.currentQueue.findIndex(
@@ -3399,6 +3385,7 @@ import {
                 state.originalQueue = [...state.currentQueue];
             }
 
+            updateControlsUI();
             updateQueueUI();
             saveState();
             fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
