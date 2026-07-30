@@ -872,7 +872,6 @@ import {
             "https://pipedapi.kavin.rocks",
             "https://pipedapi.privacydev.net",
             "https://pipedapi.col1g3.de",
-            "https://piped-api.garudalinux.org",
             "https://pipedapi.lunar.icu"
         ];
 
@@ -881,8 +880,8 @@ import {
             "https://invidious.nerdvpn.de",
             "https://invidious.projectsegfau.lt",
             "https://invidious.privacydev.net",
-            "https://invidious.lunar.icu",
-            "https://invidious.tiekoetter.com"
+            "https://invidious.tiekoetter.com",
+            "https://invidious.lunar.icu"
         ];
 
         const cobaltInstances = [
@@ -911,7 +910,21 @@ import {
             });
         };
 
-        // 1. Piped candidates (Transform Google Video link to Piped instance's /videoplayback proxy endpoint)
+        // 1. Invidious candidates (Route through Invidious's /latest_version proxy endpoint with byte range probe)
+        invidiousInstances.forEach(instance => {
+            const proxiedAacUrl = `${instance}/latest_version?id=${trackId}&itag=140`;
+            promises.push(
+                fetchWithTimeout(proxiedAacUrl, { headers: { Range: "bytes=0-100" } }, timeoutMs)
+                    .then(res => {
+                        if (res.ok || res.status === 206) {
+                            return { streamUrl: proxiedAacUrl, proxyUrl: proxiedAacUrl };
+                        }
+                        throw new Error("Invidious proxy AAC check failed: " + res.status);
+                    })
+            );
+        });
+
+        // 2. Piped candidates (Transform Google Video link to Piped instance's /videoplayback proxy endpoint)
         pipedInstances.forEach(instance => {
             promises.push(
                 fetchWithTimeout(`${instance}/streams/${trackId}`, {}, timeoutMs)
@@ -926,32 +939,6 @@ import {
                             return { streamUrl: proxiedUrl, proxyUrl: proxiedUrl };
                         }
                         throw new Error("No audio stream");
-                    })
-            );
-        });
-
-        // 2. Invidious candidates (Route through Invidious's /latest_version proxy endpoint)
-        invidiousInstances.forEach(instance => {
-            // Check standard AAC format (itag 140)
-            const proxiedAacUrl = `${instance}/latest_version?id=${trackId}&itag=140&local=true`;
-            promises.push(
-                fetchWithTimeout(proxiedAacUrl, { method: "HEAD" }, timeoutMs)
-                    .then(res => {
-                        if (res.ok) {
-                            return { streamUrl: proxiedAacUrl, proxyUrl: proxiedAacUrl };
-                        }
-                        throw new Error("Invidious proxy AAC check failed");
-                    })
-            );
-            // Check backup Opus format (itag 251)
-            const proxiedOpusUrl = `${instance}/latest_version?id=${trackId}&itag=251&local=true`;
-            promises.push(
-                fetchWithTimeout(proxiedOpusUrl, { method: "HEAD" }, timeoutMs)
-                    .then(res => {
-                        if (res.ok) {
-                            return { streamUrl: proxiedOpusUrl, proxyUrl: proxiedOpusUrl };
-                        }
-                        throw new Error("Invidious proxy Opus check failed");
                     })
             );
         });
@@ -3378,6 +3365,10 @@ import {
             
             if (!track || !track.id) return;
 
+            // Reset prefetch state for previous song
+            state.preFetchedTrackId = null;
+            state.isPreFetching = false;
+
             if (queue && Array.isArray(queue) && queue.length > 0) {
                 // Load the entire list/playlist context into the queue
                 state.currentQueue = [...queue];
@@ -3386,28 +3377,20 @@ import {
                 );
                 state.currentIndex = existingIdx !== -1 ? existingIdx : 0;
             } else {
-                // Single song click (search results / home screen): clear old queue to prevent random playback
-                state.currentQueue = [track];
-                state.currentIndex = 0;
-            }
-
-            if (state.isShuffle) {
-                // If shuffle is active, shuffle the remaining tracks while keeping the selected track playing first
-                state.originalQueue = [...state.currentQueue];
-                const currentTrack = state.currentQueue[state.currentIndex];
-                const remaining = state.currentQueue.filter(
-                    (_: any, idx: number) => idx !== state.currentIndex,
+                // Check if track is already in currentQueue
+                const existingIdx = state.currentQueue.findIndex(
+                    (t: any) => t.id === track.id
                 );
-                for (let i = remaining.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+                if (existingIdx !== -1) {
+                    state.currentIndex = existingIdx;
+                } else {
+                    // Append or set as active song
+                    state.currentQueue.push(track);
+                    state.currentIndex = state.currentQueue.length - 1;
                 }
-                state.currentQueue = [currentTrack, ...remaining];
-                state.currentIndex = 0;
-            } else {
-                state.originalQueue = [...state.currentQueue];
             }
 
+            state.originalQueue = [...state.currentQueue];
             updateQueueUI();
             saveState();
             fetchStreamAndPlay(state.currentQueue[state.currentIndex]);
@@ -3441,11 +3424,13 @@ import {
             document.addEventListener("click", (e) => {
                 const target = e.target as HTMLElement;
 
+                if (e.defaultPrevented) return;
+
                 // Playlist click routing
                 const plTrigger = target.closest(".playlist-trigger");
                 if (plTrigger) {
                     const id = (plTrigger as HTMLElement).dataset.id;
-                    navigate(`/playlist?id=${id}`);
+                    if (id) navigate(`/playlist?id=${id}`);
                     return;
                 }
 
@@ -3456,29 +3441,56 @@ import {
                     const track = queueBtn.closest(
                         ".track-trigger",
                     ) as HTMLElement;
-                    window.dispatchEvent(
-                        new CustomEvent("add-to-queue", {
-                            detail: { ...track.dataset },
-                        }),
-                    );
+                    if (track && track.dataset.id) {
+                        window.dispatchEvent(
+                            new CustomEvent("add-to-queue", {
+                                detail: { ...track.dataset },
+                            }),
+                        );
+                    }
                     return;
                 }
 
                 // Play track trigger
                 const trigger = target.closest(".track-trigger");
                 if (trigger) {
+                    if ((trigger as HTMLElement).dataset.customPlay === "true") return;
+
                     syncUnlockAudio();
-                    const { id, title, artist, artwork } = (
-                        trigger as HTMLElement
-                    ).dataset;
+                    const ds = (trigger as HTMLElement).dataset;
+                    const clickedTrack = {
+                        id: ds.id,
+                        title: ds.title,
+                        artist: ds.artist,
+                        artwork: ds.artwork,
+                        image: ds.artwork,
+                    };
+
+                    let queueTracks: any[] = [];
+                    const parentSection = trigger.closest("section") || trigger.parentElement;
+                    if (parentSection) {
+                        const siblings = parentSection.querySelectorAll(".track-trigger");
+                        if (siblings.length > 1) {
+                            siblings.forEach((sib) => {
+                                const sDs = (sib as HTMLElement).dataset;
+                                if (sDs.id) {
+                                    queueTracks.push({
+                                        id: sDs.id,
+                                        title: sDs.title,
+                                        artist: sDs.artist,
+                                        artwork: sDs.artwork,
+                                        image: sDs.artwork,
+                                    });
+                                }
+                            });
+                        }
+                    }
+
                     window.dispatchEvent(
                         new CustomEvent("play-track", {
                             detail: {
-                                id,
-                                title,
-                                artist,
-                                artwork,
-                                image: artwork,
+                                track: clickedTrack,
+                                queue: queueTracks.length > 0 ? queueTracks : undefined,
                             },
                         }),
                     );

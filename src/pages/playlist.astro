@@ -87,7 +87,7 @@ import { Play, ArrowLeft, MoreHorizontal, Clock, Music } from 'lucide-react';
             if (list) {
                 list.innerHTML = data.songs.map((track: any, i: number) => `
                     <div class="track-trigger grid grid-cols-[auto_1fr_auto] gap-4 px-4 py-3 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer items-center"
-                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
+                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}" data-custom-play="true">
                         <div class="w-8 text-center text-sm font-bold text-muted-foreground group-hover:text-primary">${i + 1}</div>
                         <div class="flex items-center gap-4 min-w-0">
                             <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-lg object-cover transition-opacity duration-300 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />

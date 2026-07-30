@@ -120,9 +120,10 @@ if db_url:
         db_url = db_url.replace("postgres://", "postgresql://", 1)
     app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 else:
-    # Use writeable /tmp path on Vercel serverless environment, otherwise local instance
+    import tempfile
+    tmp_db_path = os.path.join(tempfile.gettempdir(), 'users.db').replace('\\', '/')
     if os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production':
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/users.db'
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{tmp_db_path}'
     else:
         # Resolve to instance directory in the parent folder
         instance_dir = os.path.join(base_dir, 'instance')
@@ -579,7 +580,13 @@ def search():
 
 
 # Helper functions for resolving stream URLs with fallbacks to bypass blocks
+IS_PRODUCTION_ENV = bool(os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production')
+
 def extract_stream_url(video_id):
+    if IS_PRODUCTION_ENV:
+        print("[yt-dlp] Skipping yt-dlp on Vercel production to prevent IP block hang")
+        return None
+
     clients = [
         ['android'],
         ['ios'],
@@ -649,6 +656,8 @@ def extract_stream_url(video_id):
 
 def extract_stream_url_fast(video_id):
     """Fast yt-dlp extraction: android client only, single attempt. Used in /play for speed."""
+    if IS_PRODUCTION_ENV:
+        return None
     ydl_opts = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
         'quiet': True,
@@ -657,7 +666,7 @@ def extract_stream_url_fast(video_id):
         'ignoreerrors': True,
         'cachedir': False,
         'noconfig': True,
-        'socket_timeout': 8,
+        'socket_timeout': 5,
         'extractor_args': {'youtube': {'client': ['android']}}
     }
     try:
@@ -720,7 +729,7 @@ def check_cobalt_instance(instance, headers, video_id):
     target = instance.rstrip('/') + '/'
     for schema in schemas:
         try:
-            r = requests.post(target, headers=headers, json=schema, timeout=2.5)
+            r = requests.post(target, headers=headers, json=schema, timeout=2.0)
             if r.status_code == 200:
                 res_data = r.json()
                 stream_url = res_data.get("url") or res_data.get("picker")
@@ -784,7 +793,7 @@ def fetch_cobalt_stream_url(video_id):
 def check_piped_instance(instance, video_id):
     url = f"{instance}/streams/{video_id}"
     try:
-        r = requests.get(url, timeout=2.0)
+        r = requests.get(url, timeout=1.8)
         if r.status_code == 200:
             data = r.json()
             audio_streams = data.get("audioStreams", [])
@@ -830,9 +839,18 @@ def fetch_piped_stream_url(video_id):
     return None
 
 def check_invidious_instance(instance, video_id):
+    # Fast direct audio stream probe
+    direct_aac = f"{instance}/latest_version?id={video_id}&itag=140"
+    try:
+        r = requests.get(direct_aac, headers={"Range": "bytes=0-100"}, timeout=1.5, stream=True)
+        if r.status_code in (200, 206):
+            return instance, direct_aac
+    except Exception:
+        pass
+
     url = f"{instance}/api/v1/videos/{video_id}?local=true"
     try:
-        r = requests.get(url, timeout=2.0)
+        r = requests.get(url, timeout=1.5)
         if r.status_code == 200:
             data = r.json()
             formats = data.get("adaptiveFormats", [])
@@ -891,12 +909,9 @@ def fetch_invidious_stream_url(video_id):
     static_fallbacks = [
         "https://inv.nadeko.net",
         "https://invidious.nerdvpn.de",
-        "https://invidious.f5.si",
-        "https://yt.chocolatemoo53.com",
-        "https://inv.zoomerville.com",
-        "https://invidious.tiekoetter.com",
         "https://invidious.projectsegfau.lt",
         "https://invidious.privacydev.net",
+        "https://invidious.tiekoetter.com",
         "https://invidious.lunar.icu"
     ]
     for fallback in static_fallbacks:
@@ -930,26 +945,32 @@ def resolve_stream_url(video_id):
     print(f"[Resolver] Resolving stream for {video_id} using parallel fallbacks...")
     import concurrent.futures
     
-    resolvers = [
-        ("yt-dlp", extract_stream_url),
-        ("Cobalt", fetch_cobalt_stream_url),
+    resolvers = []
+    if not IS_PRODUCTION_ENV:
+        resolvers.append(("yt-dlp", extract_stream_url))
+
+    resolvers.extend([
+        ("Invidious", fetch_invidious_stream_url),
         ("Piped", fetch_piped_stream_url),
-        ("Invidious", fetch_invidious_stream_url)
-    ]
+        ("Cobalt", fetch_cobalt_stream_url),
+    ])
     
     resolved_url = None
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(resolvers)) as executor:
         future_to_resolver = {executor.submit(func, video_id): name for name, func in resolvers}
-        for future in concurrent.futures.as_completed(future_to_resolver):
-            name = future_to_resolver[future]
-            try:
-                res = future.result()
-                if res:
-                    print(f"[Parallel Resolver] Success from {name}: {res}")
-                    resolved_url = res
-                    break
-            except Exception as e:
-                print(f"[Parallel Resolver] {name} exception: {e}")
+        try:
+            for future in concurrent.futures.as_completed(future_to_resolver, timeout=5.0):
+                name = future_to_resolver[future]
+                try:
+                    res = future.result()
+                    if res:
+                        print(f"[Parallel Resolver] Success from {name}: {res[:80]}")
+                        resolved_url = res
+                        break
+                except Exception as e:
+                    print(f"[Parallel Resolver] {name} exception: {e}")
+        except concurrent.futures.TimeoutError:
+            print("[Parallel Resolver] as_completed loop timed out waiting for slower resolvers")
                 
     if resolved_url:
         set_cached_stream_url(video_id, resolved_url)
@@ -965,24 +986,28 @@ def resolve_direct_url(video_id):
     print(f"[Direct Resolver] Resolving durable URL for {video_id}...")
 
     resolvers = [
-        ("Piped", fetch_piped_stream_url),
         ("Invidious", fetch_invidious_stream_url),
-        ("yt-dlp", extract_stream_url),
+        ("Piped", fetch_piped_stream_url),
     ]
+    if not IS_PRODUCTION_ENV:
+        resolvers.append(("yt-dlp", extract_stream_url))
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(resolvers)) as executor:
         future_to_name = {executor.submit(func, video_id): name for name, func in resolvers}
-        for future in concurrent.futures.as_completed(future_to_name):
-            name = future_to_name[future]
-            try:
-                res = future.result()
-                if res and "/tunnel" not in res:
-                    print(f"[Direct Resolver] Got durable URL from {name}: {res[:80]}...")
-                    return res
-                elif res:
-                    print(f"[Direct Resolver] Skipping tunnel URL from {name}")
-            except Exception as e:
-                print(f"[Direct Resolver] {name} exception: {e}")
+        try:
+            for future in concurrent.futures.as_completed(future_to_name, timeout=5.0):
+                name = future_to_name[future]
+                try:
+                    res = future.result()
+                    if res and "/tunnel" not in res:
+                        print(f"[Direct Resolver] Got durable URL from {name}: {res[:80]}...")
+                        return res
+                    elif res:
+                        print(f"[Direct Resolver] Skipping tunnel URL from {name}")
+                except Exception as e:
+                    print(f"[Direct Resolver] {name} exception: {e}")
+        except concurrent.futures.TimeoutError:
+            print("[Direct Resolver] as_completed loop timed out")
 
     # Last resort: try Cobalt but only accept non-tunnel redirect URLs
     try:
