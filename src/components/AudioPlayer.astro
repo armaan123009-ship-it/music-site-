@@ -3333,32 +3333,47 @@ import {
             
             if (!track || !track.id) return;
 
-            // Reset prefetch state for previous song
+            // Reset prefetch state and error flag for new track selection
             state.preFetchedTrackId = null;
             state.isPreFetching = false;
+            ytHasError = false;
 
             // Always reset shuffle mode when user selects a new track from the UI to guarantee exact sequential playback
             state.isShuffle = false;
 
+            const trackIdStr = String(track.id).trim();
+            const trackTitleStr = String(track.title || "").trim();
+
             if (queue && Array.isArray(queue) && queue.length > 0) {
-                // Load the entire list/playlist context into the queue
-                state.currentQueue = [...queue];
-                state.originalQueue = [...queue];
+                state.currentQueue = queue.map((t: any) => ({
+                    ...t,
+                    id: String(t.id).trim(),
+                    title: String(t.title || "").trim(),
+                }));
+                state.originalQueue = [...state.currentQueue];
+
                 let targetIdx = state.currentQueue.findIndex(
-                    (t: any) => t.id === track.id,
+                    (t: any) => t.id === trackIdStr
                 );
-                if (targetIdx === -1) targetIdx = 0;
+                if (targetIdx === -1 && trackTitleStr) {
+                    targetIdx = state.currentQueue.findIndex(
+                        (t: any) => t.title === trackTitleStr
+                    );
+                }
+                if (targetIdx === -1) {
+                    state.currentQueue.unshift({ ...track, id: trackIdStr, title: trackTitleStr });
+                    state.originalQueue = [...state.currentQueue];
+                    targetIdx = 0;
+                }
                 state.currentIndex = targetIdx;
             } else {
-                // Check if track is already in currentQueue
                 const existingIdx = state.currentQueue.findIndex(
-                    (t: any) => t.id === track.id
+                    (t: any) => String(t.id).trim() === trackIdStr
                 );
                 if (existingIdx !== -1) {
                     state.currentIndex = existingIdx;
                 } else {
-                    // Append or set as active song
-                    state.currentQueue.push(track);
+                    state.currentQueue.push({ ...track, id: trackIdStr, title: trackTitleStr });
                     state.currentIndex = state.currentQueue.length - 1;
                 }
                 state.originalQueue = [...state.currentQueue];
