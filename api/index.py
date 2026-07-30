@@ -584,74 +584,35 @@ IS_PRODUCTION_ENV = bool(os.environ.get('VERCEL') or os.environ.get('FLASK_ENV')
 
 def extract_stream_url(video_id):
     if IS_PRODUCTION_ENV:
-        print("[yt-dlp] Skipping yt-dlp on Vercel production to prevent IP block hang")
         return None
 
-    clients = [
-        ['android'],
-        ['ios'],
-        ['mweb'],
-        ['tv']
-    ]
-    
-    for client in clients:
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'no_warnings': True,
-            'nocheckcertificate': True,
-            'ignoreerrors': True,
-            'cachedir': False,
-            'noconfig': True,
-            'extractor_args': {
-                'youtube': {
-                    'client': client
-                }
-            }
-        }
-        
-        if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 0:
-            try:
-                with open(cookies_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    content = f.read()
-                    if '# Netscape' in content or 'domain' in content:
-                        ydl_opts['cookiefile'] = cookies_path
-            except: pass
-            
+    ydl_opts = {
+        'format': 'bestaudio[ext=m4a]/bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+        'nocheckcertificate': True,
+        'ignoreerrors': True,
+        'cachedir': False,
+        'noconfig': True,
+        'socket_timeout': 2,
+        'extractor_args': {'youtube': {'client': ['android']}}
+    }
+    if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 0:
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
-                if info and 'url' in info:
-                    return info['url']
-                    
-                search_info = ydl.extract_info(f"ytsearch:{video_id}", download=False)
-                if search_info and 'entries' in search_info and len(search_info['entries']) > 0:
-                    first_entry = search_info['entries'][0]
-                    if first_entry and 'url' in first_entry:
-                        return first_entry['url']
-        except Exception as e:
-            print(f"Extraction failed for client {client}: {e}")
-            
+            with open(cookies_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+                if '# Netscape' in content or 'domain' in content:
+                    ydl_opts['cookiefile'] = cookies_path
+        except: pass
+
     try:
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'quiet': True,
-            'no_warnings': True,
-            'nocheckcertificate': True,
-            'ignoreerrors': True,
-            'cachedir': False,
-            'noconfig': True,
-        }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
             if info and 'url' in info:
                 return info['url']
-            search_info = ydl.extract_info(f"ytsearch:{video_id}", download=False)
-            if search_info and 'entries' in search_info and len(search_info['entries']) > 0:
-                return search_info['entries'][0]['url']
     except Exception as e:
-        print(f"Fallback extraction failed: {e}")
-        
+        print(f"[yt-dlp fast] Extraction failed for {video_id}: {e}")
+
     return None
 
 def extract_stream_url_fast(video_id):

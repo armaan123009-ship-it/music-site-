@@ -859,7 +859,7 @@ import {
         }
     }
 
-    async function resolveStreamClientSide(trackId: string, timeoutMs: number = 4000): Promise<{ streamUrl: string; proxyUrl: string } | null> {
+    async function resolveStreamClientSide(trackId: string, timeoutMs: number = 1200): Promise<{ streamUrl: string; proxyUrl: string } | null> {
         console.log(`[Client Resolver] Resolving stream for ${trackId} in parallel (timeout: ${timeoutMs}ms)...`);
 
         const pipedInstances = [
