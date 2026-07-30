@@ -2438,6 +2438,7 @@ import {
             return;
         }
 
+        state.isShuffle = false;
         const saved = localStorage.getItem("premium_music_state");
         if (saved) {
             try {
@@ -2445,7 +2446,7 @@ import {
                 state.currentQueue = loadedState.queue || [];
                 state.originalQueue = loadedState.originalQueue || [];
                 state.currentIndex = loadedState.index || -1;
-                state.isShuffle = loadedState.shuffle || false;
+                state.isShuffle = false;
                 state.repeatMode = loadedState.repeat || "none";
                 if (
                     state.currentIndex !== -1 &&
@@ -3367,16 +3368,10 @@ import {
                 }
                 state.currentIndex = targetIdx;
             } else {
-                const existingIdx = state.currentQueue.findIndex(
-                    (t: any) => String(t.id).trim() === trackIdStr
-                );
-                if (existingIdx !== -1) {
-                    state.currentIndex = existingIdx;
-                } else {
-                    state.currentQueue.push({ ...track, id: trackIdStr, title: trackTitleStr });
-                    state.currentIndex = state.currentQueue.length - 1;
-                }
+                // For single track selection, replace currentQueue cleanly so stale historical queues are never retained
+                state.currentQueue = [{ ...track, id: trackIdStr, title: trackTitleStr }];
                 state.originalQueue = [...state.currentQueue];
+                state.currentIndex = 0;
             }
 
             updateControlsUI();
