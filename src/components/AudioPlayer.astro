@@ -548,7 +548,7 @@ import {
         uses YouTube's own public embed player and never handles user cookies
         or temporary Googlevideo stream URLs.
     -->
-    <div id="youtube-player-fallback" class="fixed top-0 left-[-9999px] w-[200px] h-[150px] opacity-[0.01] pointer-events-none z-[-100]">
+    <div id="youtube-player-fallback" class="fixed bottom-0 right-0 w-[1px] h-[1px] opacity-[0.01] pointer-events-none z-[-100] overflow-hidden">
         <div class="relative mx-auto flex h-full max-w-4xl items-center">
             <button id="youtube-player-close" type="button" class="absolute right-2 top-2 z-10 rounded-full bg-black/70 px-3 py-1.5 text-sm font-bold text-white hover:bg-black hidden" aria-label="Close YouTube player">Close</button>
             <div
@@ -726,7 +726,10 @@ import {
                         autoplay: 1,
                         controls: 0,
                         showinfo: 0,
-                        ecver: 2
+                        ecver: 2,
+                        playsinline: 1,
+                        enablejsapi: 1,
+                        origin: typeof window !== 'undefined' ? window.location.origin : ''
                     },
                     events: {
                         onStateChange: onPlayerStateChange,
@@ -777,7 +780,10 @@ import {
                             autoplay: 1,
                             controls: 0,
                             showinfo: 0,
-                            ecver: 2
+                            ecver: 2,
+                            playsinline: 1,
+                            enablejsapi: 1,
+                            origin: typeof window !== 'undefined' ? window.location.origin : ''
                         },
                         events: {
                             onReady: (event: any) => {
@@ -806,9 +812,14 @@ import {
     function syncUnlockAudio() {
         if (audio) {
             try {
-                audio.play().catch(() => {});
-                audio.pause();
+                audio.load();
+                audio.play().then(() => audio.pause()).catch(() => {});
             } catch (e) {}
+        }
+        if (ytPlayer && typeof ytPlayer.playVideo === "function") {
+            try {
+                ytPlayer.playVideo();
+            } catch(e) {}
         }
     }
 
