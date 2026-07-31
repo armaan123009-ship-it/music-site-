@@ -1290,6 +1290,36 @@ import {
                     { src: track.image, sizes: "512x512", type: "image/png" },
                 ],
             });
+
+            try {
+                navigator.mediaSession.setActionHandler("play", () => {
+                    if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.playVideo === "function") {
+                        ytPlayer.playVideo();
+                    } else if (audio) {
+                        audio.play().catch(() => {});
+                    }
+                    syncPlayPauseUI(true);
+                });
+                navigator.mediaSession.setActionHandler("pause", () => {
+                    if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.pauseVideo === "function") {
+                        ytPlayer.pauseVideo();
+                    } else if (audio) {
+                        audio.pause();
+                    }
+                    syncPlayPauseUI(false);
+                });
+                navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
+                navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
+                navigator.mediaSession.setActionHandler("seekto", (details) => {
+                    if (details.seekTime !== undefined) {
+                        if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.seekTo === "function") {
+                            ytPlayer.seekTo(details.seekTime, true);
+                        } else if (audio) {
+                            audio.currentTime = details.seekTime;
+                        }
+                    }
+                });
+            } catch (e) {}
         }
     }
 

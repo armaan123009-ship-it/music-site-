@@ -16,30 +16,23 @@ const getApiBase = () => {
     } catch (e) { }
 
     if (typeof window !== 'undefined') {
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
         // Detect if running under Capacitor (mobile app WebView)
-        const isCapacitor = (window as any).Capacitor ||
-            window.location.protocol === 'capacitor:' ||
-            (window.location.hostname === 'localhost' && !window.location.port);
+        const isCapacitor = (window as any).Capacitor || window.location.protocol === 'capacitor:';
 
-        if (isCapacitor) {
-            // For emulator/ADB reverse proxy, point to local Flask backend
+        if (isCapacitor && isLocalhost) {
+            // For emulator/ADB reverse proxy on dev, point to local Flask backend
             return 'http://127.0.0.1:5000';
         }
 
-        // Frontend dev server ports commonly used in this project
-        // (Astro default in some setups is often 4321, but allow others safely)
+        // Frontend dev server ports commonly used in local dev
         const devFrontPorts = new Set(['4321', '4320', '3000', '5173']);
-        if (devFrontPorts.has(window.location.port)) {
+        if (isLocalhost && devFrontPorts.has(window.location.port)) {
             return 'http://127.0.0.1:5000';
         }
 
-        // If we are running the backend (Flask) itself, keep same origin
-        // Otherwise prefer local backend when frontend isn't clearly on production.
-        if (window.location.port === '5000') {
-            return window.location.origin;
-        }
-
-        // Production default: use current origin (can be overridden by PUBLIC_API_URL)
+        // Production / Mobile Web: use current origin (same host) to ensure mobile requests work without 127.0.0.1 connection failures
         return window.location.origin;
     }
 
@@ -60,12 +53,47 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     }
 }
 
+function getCache(key: string, ttlMs: number = 300000) {
+    if (typeof window === 'undefined') return null;
+    try {
+        const itemStr = localStorage.getItem(`cache_${key}`);
+        if (!itemStr) return null;
+        const item = JSON.parse(itemStr);
+        if (Date.now() - item.ts < ttlMs) {
+            return item.data;
+        }
+    } catch (e) { }
+    return null;
+}
+
+function setCache(key: string, data: any) {
+    if (typeof window === 'undefined' || !data) return;
+    try {
+        localStorage.setItem(`cache_${key}`, JSON.stringify({ ts: Date.now(), data }));
+    } catch (e) { }
+}
+
 export async function fetchHome() {
-    return await apiFetch('/api/home') || [];
+    const cached = getCache('home', 600000); // 10 mins cache
+    if (cached) {
+        // Refresh in background silently for instant UI rendering
+        apiFetch('/api/home').then(data => data && setCache('home', data)).catch(() => {});
+        return cached;
+    }
+    const data = await apiFetch('/api/home');
+    if (data) setCache('home', data);
+    return data || [];
 }
 
 export async function fetchTrending() {
-    return await apiFetch('/api/trending') || [];
+    const cached = getCache('trending', 900000); // 15 mins cache
+    if (cached) {
+        apiFetch('/api/trending').then(data => data && setCache('trending', data)).catch(() => {});
+        return cached;
+    }
+    const data = await apiFetch('/api/trending');
+    if (data) setCache('trending', data);
+    return data || [];
 }
 
 export async function searchSongs(query: string) {
