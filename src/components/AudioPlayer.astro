@@ -625,6 +625,7 @@ import {
     let ytPlayer: any = null;
     let ytProgressInterval: any = null;
     let ytHasError = false;
+    let trackStartedAt = 0;
 
     function youtubeCommand(command: "playVideo" | "pauseVideo" | "stopVideo") {
         const frame = document.getElementById("youtube-player-frame") as HTMLIFrameElement | null;
@@ -690,9 +691,12 @@ import {
                 state.isPlaying = false;
                 syncPlayPauseUI(false);
                 releaseWakeLock();
-                if (ytHasError) {
+                const playbackDurationMs = Date.now() - trackStartedAt;
+                const isPrematureEnd = playbackDurationMs < 4000;
+                if (ytHasError || isPrematureEnd) {
                     ytHasError = false;
-                    console.warn("[YouTube API] Video ended due to embed restriction error. Stopping auto-advance.");
+                    console.warn(`[YouTube API] Video ended due to error/restriction (${playbackDurationMs}ms). Stopping auto-advance.`);
+                    showToast("This track is unavailable or restricted from embedded playback.");
                     return;
                 }
                 if (state.repeatMode === "one") {
@@ -712,7 +716,7 @@ import {
         ytHasError = true;
         syncPlayPauseUI(false);
         releaseWakeLock();
-        showToast("This track cannot be embedded. Please select another song.");
+        showToast("This track is unavailable or restricted from embedded playback.");
     }
 
     // Register global onYouTubeIframeAPIReady callback immediately
@@ -755,6 +759,9 @@ import {
         const fallback = document.getElementById("youtube-player-fallback");
         const frame = document.getElementById("youtube-player-frame");
         if (!fallback || !frame || !track?.id) return false;
+
+        trackStartedAt = Date.now();
+        ytHasError = false;
 
         if (ytPlayer && typeof ytPlayer.loadVideoById === "function") {
             try {
@@ -879,34 +886,22 @@ import {
         }
     }
 
-    async function resolveStreamClientSide(trackId: string, timeoutMs: number = 1200): Promise<{ streamUrl: string; proxyUrl: string } | null> {
+    async function resolveStreamClientSide(trackId: string, timeoutMs: number = 1000): Promise<{ streamUrl: string; proxyUrl: string } | null> {
         console.log(`[Client Resolver] Resolving stream for ${trackId} in parallel (timeout: ${timeoutMs}ms)...`);
 
         const pipedInstances = [
             "https://api-piped.mha.fi",
-            "https://api.piped.private.coffee",
-            "https://pipedapi.kavin.rocks",
-            "https://pipedapi.privacydev.net",
-            "https://pipedapi.col1g3.de",
-            "https://pipedapi.lunar.icu"
+            "https://api.piped.private.coffee"
         ];
 
         const invidiousInstances = [
             "https://inv.nadeko.net",
-            "https://invidious.nerdvpn.de",
-            "https://invidious.projectsegfau.lt",
-            "https://invidious.privacydev.net",
-            "https://invidious.tiekoetter.com",
-            "https://invidious.lunar.icu"
+            "https://invidious.nerdvpn.de"
         ];
 
         const cobaltInstances = [
             "https://rue-cobalt.xenon.zone",
-            "https://cobalt.foxtrot-omega.me",
-            "https://cobalt.willy.lol",
-            "https://cobalt.k6.dev",
-            "https://cobalt-api.lunar.icu",
-            "https://cobalt.col1g3.de"
+            "https://api.cobalt.tools"
         ];
 
         const promises: Promise<{ streamUrl: string; proxyUrl: string }>[] = [];
