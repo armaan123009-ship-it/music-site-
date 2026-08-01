@@ -6,176 +6,197 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
 <Layout title="Your Profile | Premium Music" activeNav="profile">
     <!-- Profile Header -->
     <header class="relative h-64 bg-gradient-to-br from-primary to-blue-600">
-            <div class="absolute inset-0 bg-black/20"></div>
-            <div class="absolute -bottom-16 left-8 md:left-16 flex items-end gap-6">
-                <div class="w-32 h-32 rounded-3xl bg-card border-4 border-background flex items-center justify-center shadow-2xl overflow-hidden">
-                    <User className="w-16 h-16 text-muted-foreground" />
-                </div>
-                <div class="pb-4 space-y-1">
-                    <h1 id="profile-username" class="text-4xl font-black tracking-tight text-white drop-shadow-md">Loading...</h1>
-                    <p class="text-white/80 font-medium">Premium Member</p>
-                </div>
+        <div class="absolute inset-0 bg-black/20"></div>
+        <div class="absolute -bottom-16 left-8 md:left-16 flex items-end gap-6">
+            <div class="w-32 h-32 rounded-3xl bg-card border-4 border-background flex items-center justify-center shadow-2xl overflow-hidden relative">
+                <img id="profile-avatar" src="" alt="Profile" class="w-full h-full object-cover hidden" />
+                <User id="profile-avatar-placeholder" className="w-16 h-16 text-muted-foreground" />
             </div>
-            <div class="absolute top-8 left-8">
-                <a href="/" class="p-3 bg-black/20 backdrop-blur-md rounded-full text-white hover:bg-black/40 transition-all flex items-center gap-2">
-                    <ArrowLeft className="w-5 h-5" />
-                </a>
-            </div>
-        </header>
-
-        <div class="mt-20 px-4 sm:px-8 md:px-16 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
-            <!-- Sidebar Stats -->
-            <div class="space-y-8">
-                <div class="p-6 rounded-3xl bg-muted/30 border border-border space-y-6">
-                    <h2 class="text-xl font-bold flex items-center gap-2 text-white">
-                        <Settings className="w-5 h-5" /> Account Actions
-                    </h2>
-                    <div class="flex flex-col gap-3">
-                        <button id="logout-btn" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-destructive/10 text-destructive font-bold hover:bg-destructive hover:text-white transition-all">
-                            <LogOut className="w-5 h-5" /> Sign Out
-                        </button>
-                    </div>
-                </div>
-
-                <div class="p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
-                    <h2 class="text-lg font-bold text-white">Your Stats</h2>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="bg-background/50 p-4 rounded-2xl border border-border">
-                            <span id="liked-count" class="text-2xl font-black block text-white">0</span>
-                            <span class="text-xs text-muted-foreground uppercase font-bold tracking-wider">Liked Songs</span>
-                        </div>
-                        <div class="bg-background/50 p-4 rounded-2xl border border-border">
-                            <span id="playlist-count" class="text-2xl font-black block text-white">0</span>
-                            <span class="text-xs text-muted-foreground uppercase font-bold tracking-wider">Playlists</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Content Area -->
-            <div class="lg:col-span-2 space-y-12">
-                <!-- Liked Songs Section -->
-                <section>
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-2xl font-bold flex items-center gap-3 text-white">
-                            <Heart className="w-6 h-6 text-primary fill-current" /> Liked Songs
-                        </h2>
-                        <button class="text-sm font-bold text-primary hover:underline">Play All</button>
-                    </div>
-                    <div id="liked-songs-list" class="space-y-2">
-                        <!-- Dynamic content -->
-                    </div>
-                </section>
-
-                <!-- Playlists Section -->
-                <section>
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-2xl font-bold flex items-center gap-3 text-white">
-                            <ListMusic className="w-6 h-6 text-blue-500" /> Your Playlists
-                        </h2>
-                        <button id="profile-create-playlist-btn" class="px-4 py-2 bg-muted hover:bg-border/60 rounded-full text-xs font-bold transition-all text-white">+ New Playlist</button>
-                    </div>
-                    <div id="playlists-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <!-- Dynamic content -->
-                    </div>
-                </section>
+            <div class="pb-4 space-y-1">
+                <h1 id="profile-username" class="text-4xl font-black tracking-tight text-white drop-shadow-md">Loading...</h1>
+                <p id="profile-email" class="text-white/80 font-medium">Premium Member</p>
             </div>
         </div>
+        <div class="absolute top-8 left-8">
+            <a href="/" class="p-3 bg-black/20 backdrop-blur-md rounded-full text-white hover:bg-black/40 transition-all flex items-center gap-2">
+                <ArrowLeft className="w-5 h-5" />
+            </a>
+        </div>
+    </header>
+
+    <div class="mt-20 px-4 sm:px-8 md:px-16 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
+        <!-- Sidebar Stats -->
+        <div class="space-y-8">
+            <div class="p-6 rounded-3xl bg-muted/30 border border-border space-y-6">
+                <h2 class="text-xl font-bold flex items-center gap-2 text-white">
+                    <Settings className="w-5 h-5" /> Account Actions
+                </h2>
+                <div class="flex flex-col gap-3">
+                    <button id="logout-btn" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-destructive/10 text-destructive font-bold hover:bg-destructive hover:text-white transition-all">
+                        <LogOut className="w-5 h-5" /> Sign Out
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-6 rounded-3xl bg-primary/5 border border-primary/10 space-y-4">
+                <h2 class="text-lg font-bold text-white">Your Stats</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-background/50 p-4 rounded-2xl border border-border">
+                        <span id="liked-count" class="text-2xl font-black block text-white">0</span>
+                        <span class="text-xs text-muted-foreground uppercase font-bold tracking-wider">Liked Songs</span>
+                    </div>
+                    <div class="bg-background/50 p-4 rounded-2xl border border-border">
+                        <span id="playlist-count" class="text-2xl font-black block text-white">0</span>
+                        <span class="text-xs text-muted-foreground uppercase font-bold tracking-wider">Playlists</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Area -->
+        <div class="lg:col-span-2 space-y-12">
+            <!-- Liked Songs Section -->
+            <section>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3 text-white">
+                        <Heart className="w-6 h-6 text-primary fill-current" /> Liked Songs
+                    </h2>
+                </div>
+                <div id="liked-songs-list" class="space-y-2">
+                    <p class="text-sm text-muted-foreground">Loading Firestore items...</p>
+                </div>
+            </section>
+
+            <!-- Playlists Section -->
+            <section>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3 text-white">
+                        <ListMusic className="w-6 h-6 text-blue-500" /> Your Playlists
+                    </h2>
+                    <button id="profile-create-playlist-btn" class="px-4 py-2 bg-muted hover:bg-border/60 rounded-full text-xs font-bold transition-all text-white">+ New Playlist</button>
+                </div>
+                <div id="playlists-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p class="text-sm text-muted-foreground">Loading playlists...</p>
+                </div>
+            </section>
+        </div>
+    </div>
 </Layout>
 
 <script>
-    import { createPlaylist, API_BASE } from '../lib/api';
     import { navigate } from 'astro:transitions/client';
+    import { onAuthStateChanged, signOut } from 'firebase/auth';
+    import { auth } from '../lib/firebase';
+    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist } from '../lib/firestore';
 
-    async function loadProfile() {
+    let currentUid: string | null = null;
+
+    async function loadProfileData(user: any) {
+        currentUid = user.uid;
+
+        const usernameEl = document.getElementById('profile-username');
+        const emailEl = document.getElementById('profile-email');
+        const avatarEl = document.getElementById('profile-avatar') as HTMLImageElement;
+        const avatarPlaceholder = document.getElementById('profile-avatar-placeholder');
+        const lkCountEl = document.getElementById('liked-count');
+        const plCountEl = document.getElementById('playlist-count');
+
+        if (usernameEl) usernameEl.textContent = user.displayName || user.email?.split('@')[0] || 'Firebase User';
+        if (emailEl) emailEl.textContent = user.email || 'Premium Member';
+
+        if (user.photoURL && avatarEl && avatarPlaceholder) {
+            avatarEl.src = user.photoURL;
+            avatarEl.classList.remove('hidden');
+            avatarPlaceholder.classList.add('hidden');
+        }
+
         try {
-            const res = await fetch(`${API_BASE}/api/user_data`);
-            const data = await res.json();
-            
-            if (!data.logged_in) {
-                navigate('/login');
-                return;
-            }
+            const [likedSongs, playlists] = await Promise.all([
+                getLikedSongs(user.uid),
+                getUserPlaylists(user.uid)
+            ]);
 
-            const usernameEl = document.getElementById('profile-username');
-            const lkCountEl = document.getElementById('liked-count');
-            const plCountEl = document.getElementById('playlist-count');
-
-            if (usernameEl) usernameEl.textContent = data.username;
-            if (lkCountEl) lkCountEl.textContent = data.liked_songs.length;
-            if (plCountEl) plCountEl.textContent = data.playlists.length;
+            if (lkCountEl) lkCountEl.textContent = likedSongs.length.toString();
+            if (plCountEl) plCountEl.textContent = playlists.length.toString();
 
             const likedList = document.getElementById('liked-songs-list');
             if (likedList) {
-                likedList.innerHTML = data.liked_songs.map((track: any) => `
-                    <div class="track-trigger flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 group transition-all cursor-pointer"
-                         data-id="${track.id}" data-title="${track.title}" data-artist="${track.artist}" data-artwork="${track.image}">
-                        <div class="flex items-center gap-4 pointer-events-none">
-                            <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-lg object-cover" />
-                            <div>
-                                <h3 class="font-bold text-sm text-white">${track.title}</h3>
-                                <p class="text-xs text-muted-foreground">${track.artist}</p>
+                if (likedSongs.length === 0) {
+                    likedList.innerHTML = '<p class="text-sm text-muted-foreground">No liked songs in your Firestore library yet.</p>';
+                } else {
+                    likedList.innerHTML = likedSongs.map((track: any) => `
+                        <div class="track-trigger flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 group transition-all cursor-pointer"
+                             data-id="${track.id}" data-title="${track.title || ''}" data-artist="${track.artist || ''}" data-artwork="${track.thumbnail || track.image || ''}">
+                            <div class="flex items-center gap-4 pointer-events-none">
+                                <img src="${track.thumbnail || track.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-lg object-cover bg-muted" />
+                                <div>
+                                    <h3 class="font-bold text-sm text-white">${track.title}</h3>
+                                    <p class="text-xs text-muted-foreground">${track.artist || 'Unknown Artist'}</p>
+                                </div>
                             </div>
+                            <button class="opacity-0 group-hover:opacity-100 p-2 bg-primary text-primary-foreground rounded-full transition-all pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            </button>
                         </div>
-                        <button class="opacity-0 group-hover:opacity-100 p-2 bg-primary text-primary-foreground rounded-full transition-all pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                        </button>
-                    </div>
-                `).join('') || '<p class="text-sm text-muted-foreground">No liked songs yet.</p>';
+                    `).join('');
+                }
             }
 
             const playlistGrid = document.getElementById('playlists-grid');
             if (playlistGrid) {
-                playlistGrid.innerHTML = data.playlists.map((pl: any) => `
-                    <div class="playlist-trigger bg-muted/20 border border-border p-5 rounded-2xl hover:bg-muted/40 transition-all cursor-pointer group" data-id="${pl.id}">
-                        <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4 text-blue-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
+                if (playlists.length === 0) {
+                    playlistGrid.innerHTML = '<p class="text-sm text-muted-foreground col-span-2">No playlists created yet.</p>';
+                } else {
+                    playlistGrid.innerHTML = playlists.map((pl: any) => `
+                        <div class="playlist-trigger bg-muted/20 border border-border p-5 rounded-2xl hover:bg-muted/40 transition-all cursor-pointer group" data-id="${pl.id}">
+                            <div class="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mb-4 text-blue-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
+                            </div>
+                            <h3 class="font-black text-lg text-white">${pl.name}</h3>
+                            <p class="text-sm text-muted-foreground">${(pl.songs || []).length} tracks</p>
                         </div>
-                        <h3 class="font-black text-lg text-white">${pl.name}</h3>
-                        <p class="text-sm text-muted-foreground">${pl.songs.length} tracks</p>
-                    </div>
-                `).join('');
-            }
-
-            // Bind profile playlist creation
-            const createBtn = document.getElementById('profile-create-playlist-btn');
-            if (createBtn && !createBtn.dataset.bound) {
-                createBtn.dataset.bound = "true";
-                createBtn.addEventListener('click', async () => {
-                    const name = prompt("Enter playlist name:", "New Playlist");
-                    if (name) {
-                        const res = await createPlaylist(name);
-                        if (res && res.success) {
-                            loadProfile();
-                            window.dispatchEvent(new CustomEvent('reload-sidebar-playlists'));
-                        }
-                    }
-                });
+                    `).join('');
+                }
             }
 
         } catch (err) {
-            console.error('Failed to load profile:', err);
+            console.error('Error loading Firestore user data:', err);
         }
     }
 
     document.addEventListener('astro:page-load', () => {
         if (window.location.pathname === '/profile') {
-            loadProfile();
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    loadProfileData(user);
+                } else {
+                    navigate('/login');
+                }
+            });
 
             const logoutBtn = document.getElementById('logout-btn');
             if (logoutBtn && !logoutBtn.dataset.bound) {
                 logoutBtn.dataset.bound = "true";
                 logoutBtn.addEventListener('click', async () => {
-                    await fetch(`${API_BASE}/api/logout`);
-                    navigate('/');
+                    await signOut(auth);
+                    navigate('/login');
                 });
             }
-        }
-    });
 
-    window.addEventListener('reload-profile-data', () => {
-        if (window.location.pathname === '/profile') {
-            loadProfile();
+            const createBtn = document.getElementById('profile-create-playlist-btn');
+            if (createBtn && !createBtn.dataset.bound) {
+                createBtn.dataset.bound = "true";
+                createBtn.addEventListener('click', async () => {
+                    if (!auth.currentUser) return;
+                    const name = prompt("Enter playlist name:", "My Playlist");
+                    if (name) {
+                        const newPl = await createFirestorePlaylist(auth.currentUser.uid, name);
+                        if (newPl && auth.currentUser) {
+                            loadProfileData(auth.currentUser);
+                        }
+                    }
+                });
+            }
         }
     });
 </script>

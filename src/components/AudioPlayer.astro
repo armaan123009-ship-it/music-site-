@@ -2662,7 +2662,35 @@ import {
             });
         }
 
-        // Media Session PWA Heartbeat to prevent Android process suspension
+        // Media Session PWA Heartbeat & Android lockscreen background controls
+        if ("mediaSession" in navigator) {
+            try {
+                navigator.mediaSession.setActionHandler("play", () => {
+                    if (!state.isPlaying) togglePlay();
+                });
+                navigator.mediaSession.setActionHandler("pause", () => {
+                    if (state.isPlaying) togglePlay();
+                });
+                navigator.mediaSession.setActionHandler("previoustrack", () => {
+                    playPrevTrack();
+                });
+                navigator.mediaSession.setActionHandler("nexttrack", () => {
+                    playNextTrack();
+                });
+                navigator.mediaSession.setActionHandler("seekto", (details: any) => {
+                    if (details.seekTime !== undefined) {
+                        if (state.usingYoutubeEmbed && ytPlayer && typeof ytPlayer.seekTo === "function") {
+                            try { ytPlayer.seekTo(details.seekTime, true); } catch(e) {}
+                        } else {
+                            audio.currentTime = details.seekTime;
+                        }
+                    }
+                });
+            } catch (e) {
+                console.warn("[MediaSession] Failed to set action handlers:", e);
+            }
+        }
+
         setInterval(() => {
             if (state.isPlaying && "mediaSession" in navigator) {
                 try {
@@ -2671,10 +2699,10 @@ import {
                         const track = state.currentQueue[state.currentIndex];
                         navigator.mediaSession.metadata = new MediaMetadata({
                             title: track.title,
-                            artist: track.artist,
+                            artist: track.artist || "Unknown Artist",
                             album: "Premium Music",
                             artwork: [
-                                { src: track.image || "/favicon.svg", sizes: "512x512", type: "image/png" }
+                                { src: track.image || track.artwork || "/favicon.svg", sizes: "512x512", type: "image/png" }
                             ]
                         });
                     }

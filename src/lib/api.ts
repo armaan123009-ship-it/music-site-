@@ -1,39 +1,38 @@
 const getApiBase = () => {
     // Priority 1: build-time Vite environment variables
     if (import.meta.env.PUBLIC_API_URL) {
-        return import.meta.env.PUBLIC_API_URL;
+        return import.meta.env.PUBLIC_API_URL.replace(/\/$/, '');
     }
     if (import.meta.env.PUBLIC_SITE_URL) {
-        return import.meta.env.PUBLIC_SITE_URL;
+        return import.meta.env.PUBLIC_SITE_URL.replace(/\/$/, '');
     }
 
     // Priority 2: Safe process.env fallback for node/SSR contexts
     try {
         if (typeof process !== 'undefined' && process.env) {
-            if (process.env.PUBLIC_API_URL) return process.env.PUBLIC_API_URL;
-            if (process.env.PUBLIC_SITE_URL) return process.env.PUBLIC_SITE_URL;
+            if (process.env.PUBLIC_API_URL) return process.env.PUBLIC_API_URL.replace(/\/$/, '');
+            if (process.env.PUBLIC_SITE_URL) return process.env.PUBLIC_SITE_URL.replace(/\/$/, '');
         }
     } catch (e) { }
 
     if (typeof window !== 'undefined') {
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const isCapacitor = (window as any).Capacitor || window.location.protocol === 'capacitor:' || window.location.origin.includes('capacitor');
 
-        // Detect if running under Capacitor (mobile app WebView)
-        const isCapacitor = (window as any).Capacitor || window.location.protocol === 'capacitor:';
-
-        if (isCapacitor && isLocalhost) {
-            // For emulator/ADB reverse proxy on dev, point to local Flask backend
-            return 'http://127.0.0.1:5000';
-        }
-
-        // Frontend dev server ports commonly used in local dev
+        // Dev environment ports
         const devFrontPorts = new Set(['4321', '4320', '3000', '5173']);
+
         if (isLocalhost && devFrontPorts.has(window.location.port)) {
             return 'http://127.0.0.1:5000';
         }
 
-        // Production / Mobile Web: use current origin (same host) to ensure mobile requests work without 127.0.0.1 connection failures
-        return window.location.origin;
+        // Production / Mobile Web: fallback to current origin if standard HTTP/S
+        if (window.location.protocol.startsWith('http') && !isCapacitor) {
+            return window.location.origin;
+        }
+
+        // Fallback for Capacitor APK when no PUBLIC_API_URL is supplied:
+        return 'http://127.0.0.1:5000';
     }
 
     return 'http://127.0.0.1:5000'; // Fallback for SSR
@@ -123,6 +122,21 @@ export async function fetchLyrics(videoId: string) {
 }
 
 export async function toggleLike(song: any, action: 'add' | 'remove') {
+    try {
+        const { auth } = await import('./firebase');
+        const { saveLikedSong, removeLikedSong } = await import('./firestore');
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            if (action === 'add') {
+                await saveLikedSong(currentUser.uid, song);
+            } else {
+                await removeLikedSong(currentUser.uid, song.id);
+            }
+        }
+    } catch (e) {
+        console.error('Firestore toggleLike error:', e);
+    }
+
     return await apiFetch('/api/like', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,10 +145,43 @@ export async function toggleLike(song: any, action: 'add' | 'remove') {
 }
 
 export async function getUserData() {
+    try {
+        const { auth } = await import('./firebase');
+        const { getLikedSongs, getUserPlaylists } = await import('./firestore');
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            const [liked_songs, playlists] = await Promise.all([
+                getLikedSongs(currentUser.uid),
+                getUserPlaylists(currentUser.uid)
+            ]);
+            return {
+                logged_in: true,
+                username: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+                email: currentUser.email,
+                liked_songs,
+                playlists
+            };
+        }
+    } catch (e) {
+        console.error('Firestore getUserData error:', e);
+    }
     return await apiFetch('/api/user_data') || { logged_in: false };
 }
 
 export async function createPlaylist(name: string) {
+    try {
+        const { auth } = await import('./firebase');
+        const { createFirestorePlaylist } = await import('./firestore');
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            const playlist = await createFirestorePlaylist(currentUser.uid, name);
+            if (playlist) {
+                return { success: true, playlist };
+            }
+        }
+    } catch (e) {
+        console.error('Firestore createPlaylist error:', e);
+    }
     return await apiFetch('/api/playlists/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,9 +190,21 @@ export async function createPlaylist(name: string) {
 }
 
 export async function addToPlaylist(playlistId: string, song: any) {
+    try {
+        const { auth } = await import('./firebase');
+        const { addSongToPlaylist } = await import('./firestore');
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            const success = await addSongToPlaylist(currentUser.uid, playlistId, song);
+            if (success) return { success: true };
+        }
+    } catch (e) {
+        console.error('Firestore addToPlaylist error:', e);
+    }
     return await apiFetch('/api/playlists/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playlist_id: playlistId, song })
     });
 }
+

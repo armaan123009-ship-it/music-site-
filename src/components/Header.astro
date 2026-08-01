@@ -247,26 +247,23 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
         if (searchInput) bindSearch(searchInput);
         if (mobileSearchInput) bindSearch(mobileSearchInput);
 
-        // Auth labels
-        const updateAuth = async () => {
-            try {
-                const data = await getUserData();
-                if (authLabel) {
-                    authLabel.textContent = data.logged_in ? (data.username || 'Account') : 'Sign In';
-                }
-            } catch (err) {}
-        };
-        updateAuth();
+        // Firebase Auth labels & status
+        let isUserLoggedIn = false;
+        import('../lib/firebase').then(({ auth }) => {
+            import('firebase/auth').then(({ onAuthStateChanged }) => {
+                onAuthStateChanged(auth, (user) => {
+                    isUserLoggedIn = !!user;
+                    if (authLabel) {
+                        authLabel.textContent = user ? (user.displayName || user.email?.split('@')[0] || 'Account') : 'Sign In';
+                    }
+                });
+            });
+        });
 
         if (authBtn && !authBtn.dataset.bound) {
             authBtn.dataset.bound = "true";
-            authBtn.addEventListener('click', async () => {
-                try {
-                    const data = await getUserData();
-                    navigate(data.logged_in ? '/profile' : '/login');
-                } catch (err) {
-                    navigate('/login');
-                }
+            authBtn.addEventListener('click', () => {
+                navigate(isUserLoggedIn ? '/profile' : '/login');
             });
         }
     }

@@ -2,25 +2,12 @@ services:
   - type: web
     name: youtube-music-app
     runtime: python
-    buildCommand: ./build.sh
-    startCommand: gunicorn app:app
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4
     envVars:
       - key: SECRET_KEY
         generateValue: true
-      - key: DATABASE_URL
-        fromDatabase:
-          name: ytmusic-db
-          property: connectionString
       - key: FLASK_ENV
         value: production
-    secretFiles:
-      - name: cookies
-        file: cookies.txt
-      - name: browser
-        file: browser.json
-
-databases:
-  - name: ytmusic-db
-    databaseName: ytmusic
-    user: ytmusic_user
-    plan: free
+      - key: PYTHON_VERSION
+        value: 3.11.0
