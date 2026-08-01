@@ -1,0 +1,11 @@
+node_modules
+.astro
+dist
+.venv
+.git
+.idea
+android
+firebase-debug.log
+*.apk
+instance
+users.db
