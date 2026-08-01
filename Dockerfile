@@ -2,7 +2,7 @@
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
@@ -25,8 +25,8 @@ COPY --from=frontend-builder /app/dist /app/dist
 # Copy backend files
 COPY . .
 
-# Expose the Flask port
-EXPOSE 5000
+# Expose default port
+EXPOSE 10000
 
-# Start Flask with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
+# Start Flask with gunicorn bound to $PORT
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-10000} --workers 2 --threads 4 app:app"]
