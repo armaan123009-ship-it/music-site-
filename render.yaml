@@ -2,7 +2,7 @@ services:
   - type: web
     name: youtube-music-app
     runtime: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: ./build.sh
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4
     envVars:
       - key: SECRET_KEY
