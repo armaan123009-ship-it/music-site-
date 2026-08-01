@@ -1,5 +1,5 @@
 # Stage 1: Build the Astro frontend
-FROM node:20-alpine AS frontend-builder
+FROM node:20-slim AS frontend-builder
 WORKDIR /app
 COPY package*.json ./
 RUN npm install
@@ -10,10 +10,11 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including ffmpeg for audio processing
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
