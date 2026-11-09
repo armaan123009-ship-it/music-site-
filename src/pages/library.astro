@@ -102,17 +102,27 @@ const stats = [
             const playlistGrid = document.getElementById('lib-playlists-grid');
             if (playlistGrid) {
                 if (playlists.length === 0) {
-                    playlistGrid.innerHTML = '<p class="text-sm text-muted-foreground col-span-2">No playlists created yet.</p>';
+                    playlistGrid.innerHTML = '<p class="text-sm text-muted-foreground col-span-2">No playlists created yet. Tap "+ New Playlist" to create one!</p>';
                 } else {
                     playlistGrid.innerHTML = playlists.map((pl: any) => `
-                        <div class="playlist-trigger p-5 md:p-6 rounded-2xl md:rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/[0.08] transition-all cursor-pointer group" data-id="${pl.id}">
-                            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4 text-blue-500">
+                        <div class="playlist-trigger p-5 md:p-6 rounded-2xl md:rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/[0.08] hover:border-primary/30 transition-all cursor-pointer group" data-id="${pl.id}">
+                            <div class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-4 text-blue-500 group-hover:scale-110 group-hover:bg-primary/20 group-hover:text-primary transition-all">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M21 15V6"/><path d="M18.5 18a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/><path d="M12 12H3"/><path d="M16 6H3"/><path d="M12 18H3"/></svg>
                             </div>
-                            <h3 class="font-black text-xl text-white">${pl.name}</h3>
+                            <h3 class="font-black text-xl text-white group-hover:text-primary transition-colors">${pl.name}</h3>
                             <p class="text-sm text-muted-foreground font-bold uppercase tracking-widest">${(pl.songs || []).length} tracks</p>
                         </div>
                     `).join('');
+                }
+
+                if (!playlistGrid.dataset.clicksBound) {
+                    playlistGrid.dataset.clicksBound = "true";
+                    playlistGrid.addEventListener('click', (e) => {
+                        const trigger = (e.target as HTMLElement).closest('.playlist-trigger') as HTMLElement;
+                        if (trigger && trigger.dataset.id) {
+                            navigate(`/playlist?id=${trigger.dataset.id}`);
+                        }
+                    });
                 }
             }
 

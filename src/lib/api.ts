@@ -1,5 +1,8 @@
 const getApiBase = () => {
-    // Priority 1: build-time Vite environment variables
+    // Priority 1: Render backend URL or custom API URL
+    if (import.meta.env.PUBLIC_RENDER_API_URL) {
+        return import.meta.env.PUBLIC_RENDER_API_URL.replace(/\/$/, '');
+    }
     if (import.meta.env.PUBLIC_API_URL) {
         return import.meta.env.PUBLIC_API_URL.replace(/\/$/, '');
     }
@@ -10,6 +13,7 @@ const getApiBase = () => {
     // Priority 2: Safe process.env fallback for node/SSR contexts
     try {
         if (typeof process !== 'undefined' && process.env) {
+            if (process.env.PUBLIC_RENDER_API_URL) return process.env.PUBLIC_RENDER_API_URL.replace(/\/$/, '');
             if (process.env.PUBLIC_API_URL) return process.env.PUBLIC_API_URL.replace(/\/$/, '');
             if (process.env.PUBLIC_SITE_URL) return process.env.PUBLIC_SITE_URL.replace(/\/$/, '');
         }

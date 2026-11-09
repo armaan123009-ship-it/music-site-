@@ -128,6 +128,100 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 			<!-- Mobile Bottom Navigation Bar -->
 			{showNav && <BottomNav active={activeNav} />}
 		</div>
+
+		<!-- Native Android App Permission Prompt Modal -->
+		<div id="android-permissions-modal" class="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md hidden flex items-end sm:items-center justify-center p-4">
+			<div class="bg-card border border-white/10 w-full max-w-md rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl animate-in fade-in slide-in-from-bottom duration-300">
+				<div class="flex items-center gap-3">
+					<div class="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/30 flex items-center justify-center text-primary shrink-0">
+						<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+					</div>
+					<div>
+						<h3 class="text-xl font-black text-white">Music App Permissions</h3>
+						<p class="text-xs text-muted-foreground">Enable system features for full mobile playback</p>
+					</div>
+				</div>
+
+				<div class="space-y-3.5 text-sm">
+					<div class="flex items-start gap-3 p-3 rounded-2xl bg-white/5 border border-white/5">
+						<span class="text-lg">🎧</span>
+						<div>
+							<h4 class="font-bold text-white text-xs">Background Playback & Wake Lock</h4>
+							<p class="text-[11px] text-muted-foreground">Keep songs streaming uninterrupted when your screen locks or when switching apps.</p>
+						</div>
+					</div>
+					<div class="flex items-start gap-3 p-3 rounded-2xl bg-white/5 border border-white/5">
+						<span class="text-lg">📁</span>
+						<div>
+							<h4 class="font-bold text-white text-xs">Local Device Storage</h4>
+							<p class="text-[11px] text-muted-foreground">Download and store high-quality audio tracks directly on your internal storage.</p>
+						</div>
+					</div>
+					<div class="flex items-start gap-3 p-3 rounded-2xl bg-white/5 border border-white/5">
+						<span class="text-lg">🔔</span>
+						<div>
+							<h4 class="font-bold text-white text-xs">Media Controls & Notifications</h4>
+							<p class="text-[11px] text-muted-foreground">Show active song info, lock screen playback buttons, and headphone controls.</p>
+						</div>
+					</div>
+				</div>
+
+				<div class="flex flex-col gap-2 pt-2">
+					<button id="grant-permissions-btn" class="w-full py-4 bg-primary text-primary-foreground font-black text-sm rounded-2xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl shadow-primary/25 cursor-pointer">
+						Grant All Permissions
+					</button>
+					<button id="skip-permissions-btn" class="w-full py-2.5 text-xs text-muted-foreground hover:text-white font-semibold transition-colors cursor-pointer">
+						Later / Continue
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<script is:inline>
+			function checkAppPermissions() {
+				const isConfigured = localStorage.getItem('app_permissions_configured');
+				const modal = document.getElementById('android-permissions-modal');
+				const isMobileOrCapacitor = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.Capacitor;
+				if (!isConfigured && isMobileOrCapacitor && modal) {
+					setTimeout(() => {
+						modal.classList.remove('hidden');
+					}, 1200);
+				}
+
+				const grantBtn = document.getElementById('grant-permissions-btn');
+				const skipBtn = document.getElementById('skip-permissions-btn');
+
+				if (grantBtn && !grantBtn.dataset.bound) {
+					grantBtn.dataset.bound = "true";
+					grantBtn.addEventListener('click', async () => {
+						localStorage.setItem('app_permissions_configured', 'true');
+						modal?.classList.add('hidden');
+
+						// Request notification permission
+						if ('Notification' in window && Notification.permission !== 'granted') {
+							try { await Notification.requestPermission(); } catch (e) {}
+						}
+
+						// Request WakeLock
+						if ('wakeLock' in navigator) {
+							try {
+								await navigator.wakeLock.request('screen');
+							} catch (e) {}
+						}
+					});
+				}
+
+				if (skipBtn && !skipBtn.dataset.bound) {
+					skipBtn.dataset.bound = "true";
+					skipBtn.addEventListener('click', () => {
+						localStorage.setItem('app_permissions_configured', 'true');
+						modal?.classList.add('hidden');
+					});
+				}
+			}
+
+			document.addEventListener('astro:page-load', checkAppPermissions);
+		</script>
 	</body>
 </html>
 

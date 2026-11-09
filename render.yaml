@@ -1,13 +1,18 @@
 services:
   - type: web
-    name: youtube-music-app
+    name: music-backend-api
     runtime: python
-    buildCommand: ./build.sh
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 4
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api.index:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --timeout 120
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
       - key: SECRET_KEY
         generateValue: true
       - key: FLASK_ENV
         value: production
-      - key: PYTHON_VERSION
-        value: 3.11.0
+      - key: CORS_ORIGINS
+        value: "*"
