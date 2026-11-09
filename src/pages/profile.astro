@@ -73,7 +73,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
                     </p>
                     <p class="flex justify-between">
                         <span>Cloud Storage:</span>
-                        <strong class="text-emerald-400">Firestore Cloud Sync Active</strong>
+                        <strong class="text-emerald-400">Supabase Cloud Sync Active</strong>
                     </p>
                 </div>
             </div>
@@ -114,7 +114,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
                     </h2>
                 </div>
                 <div id="liked-songs-list" class="space-y-2">
-                    <p class="text-sm text-muted-foreground">Loading Firestore items...</p>
+                    <p class="text-sm text-muted-foreground">Loading liked songs...</p>
                 </div>
             </section>
 
@@ -267,7 +267,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
             const likedList = document.getElementById('liked-songs-list');
             if (likedList) {
                 if (likedSongs.length === 0) {
-                    likedList.innerHTML = '<p class="text-sm text-muted-foreground">No liked songs in your Firestore library yet.</p>';
+                    likedList.innerHTML = '<p class="text-sm text-muted-foreground">No liked songs in your library yet.</p>';
                 } else {
                     likedList.innerHTML = likedSongs.map((track: any) => `
                         <div class="track-trigger flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 group transition-all cursor-pointer"
@@ -305,7 +305,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
             }
 
         } catch (err) {
-            console.error('Error loading Firestore user data:', err);
+            console.error('Error loading user data:', err);
         }
     }
 

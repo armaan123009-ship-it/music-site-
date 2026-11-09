@@ -74,13 +74,27 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 			document.addEventListener('astro:after-swap', applyTheme);
 			document.addEventListener('astro:page-load', applyTheme);
 
-			// Register service worker for PWA foreground capabilities
-			if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-				window.addEventListener('load', () => {
-					navigator.serviceWorker.register('/sw.js')
-						.then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
-						.catch(err => console.error('[PWA] Service Worker registration failed:', err));
-				});
+			// Register service worker for PWA foreground capabilities & clear legacy cache
+			if (typeof window !== 'undefined') {
+				if ('caches' in window) {
+					caches.keys().then(keys => {
+						keys.forEach(k => {
+							if (k === 'premium-music-cache-v1' || k === 'premium-music-cache-v2') {
+								caches.delete(k);
+							}
+						});
+					});
+				}
+				if ('serviceWorker' in navigator) {
+					window.addEventListener('load', () => {
+						navigator.serviceWorker.register('/sw.js')
+							.then(reg => {
+								reg.update();
+								console.log('[PWA] Service Worker registered & updated:', reg.scope);
+							})
+							.catch(err => console.error('[PWA] Service Worker registration failed:', err));
+					});
+				}
 			}
 		</script>
 	</head>
