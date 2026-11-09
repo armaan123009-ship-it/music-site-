@@ -16,7 +16,7 @@ import { Music, ArrowLeft } from 'lucide-react';
                     </div>
                 </div>
                 <h1 class="text-3xl font-bold tracking-tight">Welcome Back</h1>
-                <p class="text-muted-foreground">Log in with your Firebase account</p>
+                <p class="text-muted-foreground">Log in with your account</p>
             </div>
 
             <form id="login-form" class="space-y-6">
@@ -85,9 +85,8 @@ import { Music, ArrowLeft } from 'lucide-react';
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { signInWithEmailAndPassword, getRedirectResult, sendEmailVerification } from 'firebase/auth';
-    import { auth } from '../lib/firebase';
-    import { syncUserProfile } from '../lib/firestore';
+    import { signInWithEmail, getCurrentUser } from '../lib/supabase';
+    import { syncUserProfile } from '../lib/supabaseDb';
     import { performGoogleSignIn, checkGoogleRedirectHash, initGoogleAuth, renderGoogleButton, signInWithGoogleRedirectFlow } from '../lib/googleAuth';
 
     const form = document.getElementById('login-form') as HTMLFormElement;
@@ -101,23 +100,16 @@ import { Music, ArrowLeft } from 'lucide-react';
     const redirectGoogleBtn = document.getElementById('redirect-google-btn') as HTMLButtonElement;
     const quickLoginBtn = document.getElementById('quick-login-btn') as HTMLButtonElement;
 
-    // Check if user just returned from Google OAuth redirect (hash token or Firebase redirect)
+    // Check if session exists or user returned from Google OAuth redirect
+    getCurrentUser().then(user => {
+        if (user) navigate('/profile');
+    });
+
     checkGoogleRedirectHash().then((user) => {
         if (user) {
             navigate('/profile');
         }
     }).catch(console.error);
-
-    try {
-        getRedirectResult(auth).then(async (result) => {
-            if (result && result.user) {
-                await syncUserProfile(result.user);
-                navigate('/profile');
-            }
-        }).catch((err) => {
-            console.warn('Redirect result notice:', err);
-        });
-    } catch {}
 
     // Initialize Google Identity Services eagerly on page load
     initGoogleAuth((user) => {
@@ -140,7 +132,7 @@ import { Music, ArrowLeft } from 'lucide-react';
             displayName: 'Music Explorer',
             emailVerified: true,
             photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
-            providerData: [{ providerId: 'google.com' }]
+            provider: 'supabase'
         };
         await syncUserProfile(testUser);
         navigate('/profile');
@@ -152,28 +144,24 @@ import { Music, ArrowLeft } from 'lucide-react';
         if (noticeMsg) noticeMsg.classList.add('hidden');
         if (submitBtn) submitBtn.disabled = true;
 
-        const email = (document.getElementById('email') as HTMLInputElement).value;
+        const email = (document.getElementById('email') as HTMLInputElement).value.trim();
         const password = (document.getElementById('password') as HTMLInputElement).value;
 
         try {
-            const userCred = await signInWithEmailAndPassword(auth, email, password);
-            if (userCred.user) {
-                await syncUserProfile(userCred.user);
+            const user = await signInWithEmail(email, password);
+            if (user) {
+                await syncUserProfile(user);
                 
-                if (!userCred.user.emailVerified) {
+                if (!user.emailVerified) {
                     if (noticeMsg) {
-                        noticeMsg.innerHTML = `Signed in. Security notice: Please verify your email. <button id="resend-verify" class="underline font-bold text-white ml-1 cursor-pointer">Send Verification Link</button>`;
+                        noticeMsg.innerHTML = `Signed in. Security notice: Please verify your email for full access.`;
                         noticeMsg.classList.remove('hidden');
-                        document.getElementById('resend-verify')?.addEventListener('click', async () => {
-                            await sendEmailVerification(userCred.user);
-                            alert('Verification email dispatched to ' + userCred.user.email);
-                        });
                     }
                 }
             }
             setTimeout(() => navigate('/profile'), 600);
         } catch (err: any) {
-            console.error('Firebase Login error:', err);
+            console.error('Login error:', err);
             if (errorMsg) {
                 if (errorText) errorText.textContent = err.message || 'Failed to sign in. Please check your credentials.';
                 if (errorActions) errorActions.classList.add('hidden');

@@ -1,6 +1,7 @@
-import { signInWithPopup } from 'firebase/auth';
-import { auth, googleProvider, GOOGLE_CLIENT_ID, hasValidFirebaseApiKey } from './firebase';
-import { syncUserProfile } from './firestore';
+import { syncUserProfile } from './supabaseDb';
+import { signInWithGoogle as supabaseSignInWithGoogle } from './supabase';
+
+export const GOOGLE_CLIENT_ID = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID || "161268743227-d1dtao524e18tur2ilh6h7jmh6evujsj.apps.googleusercontent.com";
 
 let tokenClientInstance: any = null;
 let googleAuthInitialized = false;
@@ -258,22 +259,18 @@ export async function checkGoogleRedirectHash(): Promise<any> {
 
 /**
  * Unified Google Sign-in:
- * - If genuine Firebase API key is present: uses Firebase Auth popup.
- * - Otherwise: skips Firebase completely to avoid 'auth/api-key-not-valid' and directly uses GIS.
+ * - Uses Direct Google Identity Services with Google Client ID.
+ * - If blocked by browser popup restrictions, falls back to Supabase OAuth.
  */
 export async function performGoogleSignIn(): Promise<any> {
-    if (hasValidFirebaseApiKey) {
+    try {
+        return await signInWithGoogleDirect();
+    } catch (err: any) {
+        console.warn('Direct Google Sign-In notice, attempting Supabase OAuth flow:', err?.message || err);
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            if (result && result.user) {
-                await syncUserProfile(result.user);
-                return result.user;
-            }
-        } catch (err: any) {
-            console.warn('Firebase Auth popup failed, proceeding to Direct Google Identity:', err?.code || err?.message);
+            await supabaseSignInWithGoogle();
+        } catch (supabaseErr) {
+            throw err;
         }
     }
-
-    // Direct Google Identity Services with user's Google Client ID
-    return await signInWithGoogleDirect();
 }

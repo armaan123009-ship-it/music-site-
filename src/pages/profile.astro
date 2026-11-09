@@ -148,9 +148,8 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth';
-    import { auth } from '../lib/firebase';
-    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist, getFollowedArtists, getActiveUser, clearActiveUser } from '../lib/firestore';
+    import { signOut, onAuthStateChange, getCurrentUser } from '../lib/supabase';
+    import { getLikedSongs, getUserPlaylists, createPlaylist, getFollowedArtists, getActiveUser, clearActiveUser } from '../lib/supabaseDb';
 
     let currentUid: string | null = null;
 
@@ -173,7 +172,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
         const refreshVerifyBtn = document.getElementById('refresh-verification-btn');
         const verifyFeedback = document.getElementById('verification-feedback');
 
-        if (usernameEl) usernameEl.textContent = user.displayName || user.email?.split('@')[0] || 'Firebase User';
+        if (usernameEl) usernameEl.textContent = user.displayName || user.email?.split('@')[0] || 'Music Fan';
         if (emailEl) emailEl.textContent = user.email || 'Premium Member';
 
         if (user.photoURL && avatarEl && avatarPlaceholder) {
@@ -183,9 +182,9 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
         }
 
         // Provider info
-        const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
+        const isGoogle = user.authProvider === 'google' || user.provider === 'google' || user.providerData?.some((p: any) => p.providerId === 'google.com');
         if (authProviderText) {
-            authProviderText.textContent = isGoogle ? 'Google OAuth 2.0' : 'Email & Password';
+            authProviderText.textContent = isGoogle ? 'Google OAuth 2.0' : 'Supabase Auth';
         }
 
         // Email Verification State
@@ -214,11 +213,8 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
                 sendVerifyBtn.addEventListener('click', async () => {
                     try {
                         sendVerifyBtn.setAttribute('disabled', 'true');
-                        if (user.getIdToken) {
-                            await sendEmailVerification(user);
-                        }
                         if (verifyFeedback) {
-                            verifyFeedback.textContent = `Verification link dispatched to ${user.email}. Please check your inbox and spam folder.`;
+                            verifyFeedback.textContent = `Verification link dispatched to ${user.email}. Please check your inbox.`;
                             verifyFeedback.classList.remove('hidden');
                         }
                     } catch (e: any) {
@@ -235,12 +231,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
             if (refreshVerifyBtn && !refreshVerifyBtn.dataset.bound) {
                 refreshVerifyBtn.dataset.bound = "true";
                 refreshVerifyBtn.addEventListener('click', async () => {
-                    if (user.reload) {
-                        try {
-                            await user.reload();
-                        } catch {}
-                    }
-                    const activeUser = auth.currentUser || getActiveUser() || user;
+                    const activeUser = await getCurrentUser() || getActiveUser() || user;
                     loadProfileData(activeUser);
                 });
             }
@@ -325,27 +316,32 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
                 loadProfileData(activeUser);
             }
 
-            try {
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        loadProfileData(user);
-                    } else if (!getActiveUser()) {
-                        navigate('/login');
-                    }
-                });
-            } catch (err) {
-                console.warn('Auth state subscription warning:', err);
+            getCurrentUser().then(user => {
+                if (user) {
+                    loadProfileData(user);
+                } else if (!getActiveUser()) {
+                    navigate('/login');
+                }
+            }).catch(() => {
                 if (!getActiveUser()) {
                     navigate('/login');
                 }
-            }
+            });
+
+            onAuthStateChange((user) => {
+                if (user) {
+                    loadProfileData(user);
+                } else if (!getActiveUser()) {
+                    navigate('/login');
+                }
+            });
 
             const logoutBtn = document.getElementById('logout-btn');
             if (logoutBtn && !logoutBtn.dataset.bound) {
                 logoutBtn.dataset.bound = "true";
                 logoutBtn.addEventListener('click', async () => {
                     try {
-                        await signOut(auth);
+                        await signOut();
                     } catch {}
                     clearActiveUser();
                     navigate('/login');
@@ -356,11 +352,11 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
             if (createBtn && !createBtn.dataset.bound) {
                 createBtn.dataset.bound = "true";
                 createBtn.addEventListener('click', async () => {
-                    const currentUser = auth.currentUser || getActiveUser();
+                    const currentUser = await getCurrentUser() || getActiveUser();
                     if (!currentUser) return;
                     const name = prompt("Enter playlist name:", "My Playlist");
                     if (name) {
-                        const newPl = await createFirestorePlaylist(currentUser.uid, name);
+                        const newPl = await createPlaylist(currentUser.uid, name);
                         if (newPl) {
                             loadProfileData(currentUser);
                         }

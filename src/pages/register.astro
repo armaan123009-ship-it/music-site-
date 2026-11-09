@@ -16,7 +16,7 @@ import { Music, ArrowLeft } from 'lucide-react';
                     </div>
                 </div>
                 <h1 class="text-3xl font-bold tracking-tight">Create Account</h1>
-                <p class="text-muted-foreground">Join with Firebase Authentication</p>
+                <p class="text-muted-foreground">Join with your account</p>
             </div>
 
             <form id="register-form" class="space-y-6">
@@ -47,7 +47,7 @@ import { Music, ArrowLeft } from 'lucide-react';
                 <div id="success-msg" class="hidden text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20"></div>
 
                 <button type="submit" id="submit-btn" class="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all shadow-lg shadow-primary/20 cursor-pointer">
-                    Create Firebase Account
+                    Create Account
                 </button>
             </form>
 
@@ -89,9 +89,8 @@ import { Music, ArrowLeft } from 'lucide-react';
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, getRedirectResult } from 'firebase/auth';
-    import { auth } from '../lib/firebase';
-    import { syncUserProfile } from '../lib/firestore';
+    import { signUpWithEmail, getCurrentUser } from '../lib/supabase';
+    import { syncUserProfile } from '../lib/supabaseDb';
     import { performGoogleSignIn, checkGoogleRedirectHash, initGoogleAuth, renderGoogleButton, signInWithGoogleRedirectFlow } from '../lib/googleAuth';
 
     const form = document.getElementById('register-form') as HTMLFormElement;
@@ -105,23 +104,16 @@ import { Music, ArrowLeft } from 'lucide-react';
     const redirectGoogleBtn = document.getElementById('redirect-google-btn') as HTMLButtonElement;
     const quickLoginBtn = document.getElementById('quick-login-btn') as HTMLButtonElement;
 
-    // Check if user just returned from Google OAuth redirect (hash token or Firebase redirect)
+    // Check if session exists or user returned from Google OAuth redirect
+    getCurrentUser().then(user => {
+        if (user) navigate('/profile');
+    });
+
     checkGoogleRedirectHash().then((user) => {
         if (user) {
             navigate('/profile');
         }
     }).catch(console.error);
-
-    try {
-        getRedirectResult(auth).then(async (result) => {
-            if (result && result.user) {
-                await syncUserProfile(result.user);
-                navigate('/profile');
-            }
-        }).catch((err) => {
-            console.warn('Redirect result notice:', err);
-        });
-    } catch {}
 
     // Initialize Google Identity Services eagerly on page load
     initGoogleAuth((user) => {
@@ -144,7 +136,7 @@ import { Music, ArrowLeft } from 'lucide-react';
             displayName: 'Music Explorer',
             emailVerified: true,
             photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
-            providerData: [{ providerId: 'google.com' }]
+            provider: 'supabase'
         };
         await syncUserProfile(testUser);
         navigate('/profile');
@@ -161,28 +153,18 @@ import { Music, ArrowLeft } from 'lucide-react';
         const password = (document.getElementById('password') as HTMLInputElement).value;
 
         try {
-            const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-            if (userCredential.user) {
-                if (username) {
-                    await updateProfile(userCredential.user, { displayName: username });
-                }
-                // Send email verification security layer
-                try {
-                    await sendEmailVerification(userCredential.user);
-                } catch (verifyErr) {
-                    console.warn('Verification email dispatch warning:', verifyErr);
-                }
-
-                await syncUserProfile(userCredential.user);
+            const user = await signUpWithEmail(email, password, username);
+            if (user) {
+                await syncUserProfile(user);
 
                 if (successMsg) {
-                    successMsg.textContent = `Account created! Verification link sent to ${email}. Redirecting...`;
+                    successMsg.textContent = `Account created! Please check your email to confirm registration. Redirecting...`;
                     successMsg.classList.remove('hidden');
                 }
             }
             setTimeout(() => navigate('/profile'), 1500);
         } catch (err: any) {
-            console.error('Firebase Registration error:', err);
+            console.error('Registration error:', err);
             if (errorMsg) {
                 if (errorText) errorText.textContent = err.message || 'Registration failed. Please check your inputs.';
                 if (errorActions) errorActions.classList.add('hidden');

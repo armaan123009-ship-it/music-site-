@@ -147,9 +147,9 @@ export async function getDownloadDetails(videoId: string, title: string = '') {
 
 export async function toggleLike(song: any, action: 'add' | 'remove') {
     try {
-        const { auth } = await import('./firebase');
-        const { saveLikedSong, removeLikedSong } = await import('./firestore');
-        const currentUser = auth.currentUser;
+        const { getCurrentUser } = await import('./supabase');
+        const { saveLikedSong, removeLikedSong, getActiveUser } = await import('./supabaseDb');
+        const currentUser = await getCurrentUser() || getActiveUser();
         if (currentUser) {
             if (action === 'add') {
                 await saveLikedSong(currentUser.uid, song);
@@ -158,7 +158,7 @@ export async function toggleLike(song: any, action: 'add' | 'remove') {
             }
         }
     } catch (e) {
-        console.error('Firestore toggleLike error:', e);
+        console.error('Supabase toggleLike error:', e);
     }
 
     return await apiFetch('/api/like', {
@@ -170,9 +170,9 @@ export async function toggleLike(song: any, action: 'add' | 'remove') {
 
 export async function getUserData() {
     try {
-        const { auth } = await import('./firebase');
-        const { getLikedSongs, getUserPlaylists } = await import('./firestore');
-        const currentUser = auth.currentUser;
+        const { getCurrentUser } = await import('./supabase');
+        const { getLikedSongs, getUserPlaylists, getActiveUser } = await import('./supabaseDb');
+        const currentUser = await getCurrentUser() || getActiveUser();
         if (currentUser) {
             const [liked_songs, playlists] = await Promise.all([
                 getLikedSongs(currentUser.uid),
@@ -187,24 +187,24 @@ export async function getUserData() {
             };
         }
     } catch (e) {
-        console.error('Firestore getUserData error:', e);
+        console.error('Supabase getUserData error:', e);
     }
     return await apiFetch('/api/user_data') || { logged_in: false };
 }
 
 export async function createPlaylist(name: string) {
     try {
-        const { auth } = await import('./firebase');
-        const { createFirestorePlaylist } = await import('./firestore');
-        const currentUser = auth.currentUser;
+        const { getCurrentUser } = await import('./supabase');
+        const { createPlaylist: createSupabasePlaylist, getActiveUser } = await import('./supabaseDb');
+        const currentUser = await getCurrentUser() || getActiveUser();
         if (currentUser) {
-            const playlist = await createFirestorePlaylist(currentUser.uid, name);
+            const playlist = await createSupabasePlaylist(currentUser.uid, name);
             if (playlist) {
                 return { success: true, playlist };
             }
         }
     } catch (e) {
-        console.error('Firestore createPlaylist error:', e);
+        console.error('Supabase createPlaylist error:', e);
     }
     return await apiFetch('/api/playlists/create', {
         method: 'POST',
@@ -215,15 +215,15 @@ export async function createPlaylist(name: string) {
 
 export async function addToPlaylist(playlistId: string, song: any) {
     try {
-        const { auth } = await import('./firebase');
-        const { addSongToPlaylist } = await import('./firestore');
-        const currentUser = auth.currentUser;
+        const { getCurrentUser } = await import('./supabase');
+        const { addSongToPlaylist, getActiveUser } = await import('./supabaseDb');
+        const currentUser = await getCurrentUser() || getActiveUser();
         if (currentUser) {
             const success = await addSongToPlaylist(currentUser.uid, playlistId, song);
             if (success) return { success: true };
         }
     } catch (e) {
-        console.error('Firestore addToPlaylist error:', e);
+        console.error('Supabase addToPlaylist error:', e);
     }
     return await apiFetch('/api/playlists/add', {
         method: 'POST',
@@ -238,9 +238,9 @@ export async function fetchArtistDetails(artistId: string) {
 
 export async function toggleFollowArtist(artist: { id: string, name: string, image?: string }, action: 'follow' | 'unfollow') {
     try {
-        const { auth } = await import('./firebase');
-        const { followArtist, unfollowArtist } = await import('./firestore');
-        const currentUser = auth.currentUser;
+        const { getCurrentUser } = await import('./supabase');
+        const { followArtist, unfollowArtist, getActiveUser } = await import('./supabaseDb');
+        const currentUser = await getCurrentUser() || getActiveUser();
         if (currentUser) {
             if (action === 'follow') {
                 await followArtist(currentUser.uid, artist);
@@ -250,7 +250,7 @@ export async function toggleFollowArtist(artist: { id: string, name: string, ima
             return { success: true };
         }
     } catch (e) {
-        console.error('Firestore toggleFollowArtist error:', e);
+        console.error('Supabase toggleFollowArtist error:', e);
     }
     return { success: false };
 }

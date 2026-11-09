@@ -106,9 +106,8 @@ import { Play, ArrowLeft, Award, Heart, Sparkles, Clock, Music } from 'lucide-re
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { auth } from '../lib/firebase';
-    import { onAuthStateChanged } from 'firebase/auth';
-    import { isFollowingArtist } from '../lib/firestore';
+    import { getCurrentUser, onAuthStateChange } from '../lib/supabase';
+    import { isFollowingArtist, getActiveUser } from '../lib/supabaseDb';
     import { fetchArtistDetails, toggleFollowArtist } from '../lib/api';
 
     const escapeAttr = (str: any) => str ? String(str).replace(/"/g, '&quot;') : '';
@@ -264,7 +263,7 @@ import { Play, ArrowLeft, Award, Heart, Sparkles, Clock, Music } from 'lucide-re
         const followBtn = document.getElementById('artist-follow-btn');
         if (!followBtn) return;
 
-        const user = auth.currentUser;
+        const user = await getCurrentUser() || getActiveUser();
         if (!user) {
             followBtn.classList.add('hidden');
             return;
@@ -289,7 +288,8 @@ import { Play, ArrowLeft, Award, Heart, Sparkles, Clock, Music } from 'lucide-re
     }
 
     async function handleFollowToggle() {
-        if (!currentArtist || !auth.currentUser) return;
+        const user = await getCurrentUser() || getActiveUser();
+        if (!currentArtist || !user) return;
         const followBtn = document.getElementById('artist-follow-btn');
         if (followBtn) followBtn.setAttribute('disabled', 'true');
 
@@ -312,7 +312,7 @@ import { Play, ArrowLeft, Award, Heart, Sparkles, Clock, Music } from 'lucide-re
         if (window.location.pathname === '/artist') {
             loadArtistProfile();
 
-            const unsubscribe = onAuthStateChanged(auth, (user) => {
+            onAuthStateChange((user) => {
                 const urlParams = new URLSearchParams(window.location.search);
                 const artistId = urlParams.get('id');
                 if (artistId) checkFollowStatus(artistId);

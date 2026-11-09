@@ -247,9 +247,9 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
         if (searchInput) bindSearch(searchInput);
         if (mobileSearchInput) bindSearch(mobileSearchInput);
 
-        // Check active user from dual-tier storage & Firebase Auth
+        // Check active user from Supabase & local session
         let isUserLoggedIn = false;
-        import('../lib/firestore').then(({ getActiveUser }) => {
+        import('../lib/supabaseDb').then(({ getActiveUser }) => {
             const activeUser = getActiveUser();
             if (activeUser) {
                 isUserLoggedIn = true;
@@ -260,17 +260,25 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
         }).catch(() => {});
 
         try {
-            import('../lib/firebase').then(({ auth }) => {
-                import('firebase/auth').then(({ onAuthStateChanged }) => {
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            isUserLoggedIn = true;
-                            if (authLabel) {
-                                authLabel.textContent = user.displayName || user.email?.split('@')[0] || 'Account';
-                            }
+            import('../lib/supabase').then(({ getCurrentUser, onAuthStateChange }) => {
+                getCurrentUser().then(user => {
+                    if (user) {
+                        isUserLoggedIn = true;
+                        if (authLabel) {
+                            authLabel.textContent = user.displayName || user.email?.split('@')[0] || 'Account';
                         }
-                    });
-                }).catch(() => {});
+                    }
+                });
+                onAuthStateChange((user) => {
+                    if (user) {
+                        isUserLoggedIn = true;
+                        if (authLabel) {
+                            authLabel.textContent = user.displayName || user.email?.split('@')[0] || 'Account';
+                        }
+                    } else if (!isUserLoggedIn) {
+                        if (authLabel) authLabel.textContent = 'Sign In';
+                    }
+                });
             }).catch(() => {});
         } catch {}
 

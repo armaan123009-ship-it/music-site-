@@ -58,9 +58,8 @@ const stats = [
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { onAuthStateChanged } from 'firebase/auth';
-    import { auth } from '../lib/firebase';
-    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist } from '../lib/firestore';
+    import { getCurrentUser, onAuthStateChange } from '../lib/supabase';
+    import { getLikedSongs, getUserPlaylists, createPlaylist, getActiveUser } from '../lib/supabaseDb';
 
     const escapeAttr = (str: any) => str ? String(str).replace(/"/g, '&quot;') : '';
 
@@ -122,12 +121,13 @@ const stats = [
             if (createBtn && !createBtn.dataset.bound) {
                 createBtn.dataset.bound = "true";
                 createBtn.addEventListener('click', async () => {
-                    if (!auth.currentUser) return;
+                    const currentUser = await getCurrentUser() || getActiveUser();
+                    if (!currentUser) return;
                     const name = prompt("Enter playlist name:", "New Playlist");
                     if (name) {
-                        const newPl = await createFirestorePlaylist(auth.currentUser.uid, name);
-                        if (newPl && auth.currentUser) {
-                            loadLibraryData(auth.currentUser);
+                        const newPl = await createPlaylist(currentUser.uid, name);
+                        if (newPl) {
+                            loadLibraryData(currentUser);
                         }
                     }
                 });
@@ -139,19 +139,31 @@ const stats = [
 
     document.addEventListener('astro:page-load', () => {
         if (window.location.pathname === '/library') {
-            onAuthStateChanged(auth, (user) => {
+            const activeUser = getActiveUser();
+            if (activeUser) {
+                loadLibraryData(activeUser);
+            }
+            getCurrentUser().then(user => {
                 if (user) {
                     loadLibraryData(user);
-                } else {
+                } else if (!getActiveUser()) {
+                    navigate('/login');
+                }
+            });
+            onAuthStateChange((user) => {
+                if (user) {
+                    loadLibraryData(user);
+                } else if (!getActiveUser()) {
                     navigate('/login');
                 }
             });
         }
     });
 
-    window.addEventListener('reload-library-data', () => {
-        if (window.location.pathname === '/library' && auth.currentUser) {
-            loadLibraryData(auth.currentUser);
+    window.addEventListener('reload-library-data', async () => {
+        if (window.location.pathname === '/library') {
+            const user = await getCurrentUser() || getActiveUser();
+            if (user) loadLibraryData(user);
         }
     });
 </script>
