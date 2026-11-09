@@ -112,13 +112,37 @@ export async function getStreamProxyUrl(videoId: string, options: RequestInit = 
     return null;
 }
 
-export async function fetchSuggestions(videoId: string) {
-    return await apiFetch(`/api/suggestions/${videoId}`) || [];
+export async function fetchSuggestions(videoId: string, title: string = '', artist: string = '') {
+    const params = new URLSearchParams();
+    if (title) params.set('title', title);
+    if (artist) params.set('artist', artist);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return await apiFetch(`/api/suggestions/${videoId}${qs}`) || [];
 }
 
-export async function fetchLyrics(videoId: string) {
-    const data = await apiFetch(`/api/lyrics/${videoId}`);
-    return data ? data.lyrics : null;
+export async function fetchLyrics(videoId: string, title: string = '', artist: string = '', duration: string = '') {
+    const params = new URLSearchParams();
+    if (title) params.set('title', title);
+    if (artist) params.set('artist', artist);
+    if (duration) params.set('duration', duration);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return await apiFetch(`/api/lyrics/${videoId}${qs}`);
+}
+
+export async function fetchExplore(category: string = '') {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+    const cached = getCache(`explore_${category || 'all'}`, 600000);
+    if (cached) {
+        apiFetch(`/api/explore${qs}`).then(data => data && setCache(`explore_${category || 'all'}`, data)).catch(() => {});
+        return cached;
+    }
+    const data = await apiFetch(`/api/explore${qs}`);
+    if (data) setCache(`explore_${category || 'all'}`, data);
+    return data;
+}
+
+export async function getDownloadDetails(videoId: string, title: string = '') {
+    return await apiFetch(`/api/download/${videoId}?mode=json&title=${encodeURIComponent(title)}`);
 }
 
 export async function toggleLike(song: any, action: 'add' | 'remove') {
@@ -206,5 +230,28 @@ export async function addToPlaylist(playlistId: string, song: any) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playlist_id: playlistId, song })
     });
+}
+
+export async function fetchArtistDetails(artistId: string) {
+    return await apiFetch(`/api/artist/${artistId}`);
+}
+
+export async function toggleFollowArtist(artist: { id: string, name: string, image?: string }, action: 'follow' | 'unfollow') {
+    try {
+        const { auth } = await import('./firebase');
+        const { followArtist, unfollowArtist } = await import('./firestore');
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            if (action === 'follow') {
+                await followArtist(currentUser.uid, artist);
+            } else {
+                await unfollowArtist(currentUser.uid, artist.id);
+            }
+            return { success: true };
+        }
+    } catch (e) {
+        console.error('Firestore toggleFollowArtist error:', e);
+    }
+    return { success: false };
 }
 

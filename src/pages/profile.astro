@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-react';
+import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, ShieldAlert, CheckCircle, RefreshCw, Mail } from 'lucide-react';
 ---
 
 <Layout title="Your Profile | Premium Music" activeNav="profile">
@@ -27,12 +27,63 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
     <div class="mt-20 px-4 sm:px-8 md:px-16 pb-12 grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
         <!-- Sidebar Stats -->
         <div class="space-y-8">
+            <!-- Account Security & Verification Card -->
+            <div class="p-6 rounded-3xl bg-muted/30 border border-border space-y-5">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold flex items-center gap-2 text-white">
+                        <ShieldCheck className="w-5 h-5 text-emerald-400" /> Account Security
+                    </h2>
+                    <span id="security-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Protected
+                    </span>
+                </div>
+
+                <!-- Verification Status Box -->
+                <div id="email-verification-box" class="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-muted-foreground flex items-center gap-2">
+                            <Mail className="w-3.5 h-3.5" /> Email Status
+                        </span>
+                        <span id="verification-status-text" class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> Verified
+                        </span>
+                    </div>
+
+                    <div id="unverified-actions" class="hidden pt-2 border-t border-white/5 space-y-2">
+                        <p class="text-[11px] text-amber-300 leading-tight">
+                            Please verify your email address to ensure account recovery and safe playlist sync.
+                        </p>
+                        <div class="flex gap-2">
+                            <button id="send-verification-btn" class="flex-1 py-2 px-3 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer">
+                                Send Verification Email
+                            </button>
+                            <button id="refresh-verification-btn" class="p-2 bg-white/10 text-white rounded-xl hover:bg-white/15 transition-all cursor-pointer" title="Refresh verification status">
+                                <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                        <p id="verification-feedback" class="text-[10px] text-muted-foreground hidden"></p>
+                    </div>
+                </div>
+
+                <!-- Auth Provider & Cloud Sync Info -->
+                <div class="text-[11px] text-muted-foreground space-y-1.5 px-1">
+                    <p class="flex justify-between">
+                        <span>Provider:</span>
+                        <strong id="auth-provider-text" class="text-white">Google OAuth 2.0</strong>
+                    </p>
+                    <p class="flex justify-between">
+                        <span>Cloud Storage:</span>
+                        <strong class="text-emerald-400">Firestore Cloud Sync Active</strong>
+                    </p>
+                </div>
+            </div>
+
             <div class="p-6 rounded-3xl bg-muted/30 border border-border space-y-6">
                 <h2 class="text-xl font-bold flex items-center gap-2 text-white">
                     <Settings className="w-5 h-5" /> Account Actions
                 </h2>
                 <div class="flex flex-col gap-3">
-                    <button id="logout-btn" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-destructive/10 text-destructive font-bold hover:bg-destructive hover:text-white transition-all">
+                    <button id="logout-btn" class="flex items-center gap-3 px-4 py-3 rounded-xl bg-destructive/10 text-destructive font-bold hover:bg-destructive hover:text-white transition-all cursor-pointer">
                         <LogOut className="w-5 h-5" /> Sign Out
                     </button>
                 </div>
@@ -79,15 +130,27 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
                     <p class="text-sm text-muted-foreground">Loading playlists...</p>
                 </div>
             </section>
+
+            <!-- Followed Artists Section -->
+            <section>
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-2xl font-bold flex items-center gap-3 text-white">
+                        <User className="w-6 h-6 text-primary" /> Followed Artists
+                    </h2>
+                </div>
+                <div id="followed-artists-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <p class="text-sm text-muted-foreground">Loading followed artists...</p>
+                </div>
+            </section>
         </div>
     </div>
 </Layout>
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { onAuthStateChanged, signOut } from 'firebase/auth';
+    import { onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth';
     import { auth } from '../lib/firebase';
-    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist } from '../lib/firestore';
+    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist, getFollowedArtists } from '../lib/firestore';
 
     let currentUid: string | null = null;
 
@@ -101,6 +164,15 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
         const lkCountEl = document.getElementById('liked-count');
         const plCountEl = document.getElementById('playlist-count');
 
+        // Security elements
+        const securityBadge = document.getElementById('security-badge');
+        const verificationStatusText = document.getElementById('verification-status-text');
+        const unverifiedActions = document.getElementById('unverified-actions');
+        const authProviderText = document.getElementById('auth-provider-text');
+        const sendVerifyBtn = document.getElementById('send-verification-btn');
+        const refreshVerifyBtn = document.getElementById('refresh-verification-btn');
+        const verifyFeedback = document.getElementById('verification-feedback');
+
         if (usernameEl) usernameEl.textContent = user.displayName || user.email?.split('@')[0] || 'Firebase User';
         if (emailEl) emailEl.textContent = user.email || 'Premium Member';
 
@@ -110,14 +182,89 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
             avatarPlaceholder.classList.add('hidden');
         }
 
+        // Provider info
+        const isGoogle = user.providerData?.some((p: any) => p.providerId === 'google.com');
+        if (authProviderText) {
+            authProviderText.textContent = isGoogle ? 'Google OAuth 2.0' : 'Email & Password';
+        }
+
+        // Email Verification State
+        const isVerified = Boolean(user.emailVerified);
+        if (isVerified) {
+            if (securityBadge) {
+                securityBadge.textContent = 'Enhanced Protection';
+                securityBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+            }
+            if (verificationStatusText) {
+                verificationStatusText.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-emerald-400"></span> Verified`;
+            }
+            unverifiedActions?.classList.add('hidden');
+        } else {
+            if (securityBadge) {
+                securityBadge.textContent = 'Action Required';
+                securityBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-300 border border-amber-500/20';
+            }
+            if (verificationStatusText) {
+                verificationStatusText.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span> Unverified`;
+            }
+            unverifiedActions?.classList.remove('hidden');
+
+            if (sendVerifyBtn && !sendVerifyBtn.dataset.bound) {
+                sendVerifyBtn.dataset.bound = "true";
+                sendVerifyBtn.addEventListener('click', async () => {
+                    try {
+                        sendVerifyBtn.setAttribute('disabled', 'true');
+                        await sendEmailVerification(user);
+                        if (verifyFeedback) {
+                            verifyFeedback.textContent = `Verification link sent to ${user.email}. Please check your inbox and spam folder.`;
+                            verifyFeedback.classList.remove('hidden');
+                        }
+                    } catch (e: any) {
+                        if (verifyFeedback) {
+                            verifyFeedback.textContent = e.message || 'Error sending verification email.';
+                            verifyFeedback.classList.remove('hidden');
+                        }
+                    } finally {
+                        setTimeout(() => sendVerifyBtn.removeAttribute('disabled'), 30000);
+                    }
+                });
+            }
+
+            if (refreshVerifyBtn && !refreshVerifyBtn.dataset.bound) {
+                refreshVerifyBtn.dataset.bound = "true";
+                refreshVerifyBtn.addEventListener('click', async () => {
+                    await user.reload();
+                    loadProfileData(auth.currentUser);
+                });
+            }
+        }
+
         try {
-            const [likedSongs, playlists] = await Promise.all([
+            const [likedSongs, playlists, followedArtists] = await Promise.all([
                 getLikedSongs(user.uid),
-                getUserPlaylists(user.uid)
+                getUserPlaylists(user.uid),
+                getFollowedArtists(user.uid)
             ]);
 
             if (lkCountEl) lkCountEl.textContent = likedSongs.length.toString();
             if (plCountEl) plCountEl.textContent = playlists.length.toString();
+
+            const followedGrid = document.getElementById('followed-artists-grid');
+            if (followedGrid) {
+                if (followedArtists.length === 0) {
+                    followedGrid.innerHTML = '<p class="text-sm text-muted-foreground col-span-2">Not following any artists yet.</p>';
+                } else {
+                    followedGrid.innerHTML = followedArtists.map((art: any) => `
+                        <a href="/artist?id=${art.id}" class="flex items-center gap-4 p-4 bg-muted/20 border border-border rounded-2xl hover:bg-muted/40 transition-all group">
+                            <img src="${art.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-12 h-12 rounded-full object-cover bg-muted shrink-0" onerror="this.src='/favicon.svg';" />
+                            <div class="min-w-0">
+                                <h3 class="font-bold text-sm text-white group-hover:text-primary transition-colors truncate">${art.name}</h3>
+                                <p class="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider mt-0.5">Artist</p>
+                            </div>
+                        </a>
+                    `).join('');
+                }
+            }
 
             const likedList = document.getElementById('liked-songs-list');
             if (likedList) {
@@ -126,7 +273,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings } from 'lucide-reac
                 } else {
                     likedList.innerHTML = likedSongs.map((track: any) => `
                         <div class="track-trigger flex items-center justify-between p-3 rounded-xl hover:bg-muted/50 group transition-all cursor-pointer"
-                             data-id="${track.id}" data-title="${track.title || ''}" data-artist="${track.artist || ''}" data-artwork="${track.thumbnail || track.image || ''}">
+                             data-id="${track.id}" data-title="${track.title || ''}" data-artist="${track.artist || ''}" data-artist-id="${track.artistId || ''}" data-artwork="${track.thumbnail || track.image || ''}">
                             <div class="flex items-center gap-4 pointer-events-none">
                                 <img src="${track.thumbnail || track.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-lg object-cover bg-muted" />
                                 <div>

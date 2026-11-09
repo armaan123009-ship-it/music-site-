@@ -1,0 +1,328 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { Play, ArrowLeft, Award, Heart, Sparkles, Clock, Music } from 'lucide-react';
+---
+
+<Layout title="Artist Profile | Premium Music" activeNav="explore">
+    <!-- Immersive Banner Header -->
+    <header id="artist-header" class="relative h-[45vh] min-h-[350px] flex items-end p-6 sm:p-12 overflow-hidden bg-gradient-to-t from-background via-background/40 to-primary/10">
+        <!-- Banner Background Glow -->
+        <div class="absolute inset-0 z-0">
+            <img id="artist-bg-img" referrerpolicy="no-referrer" src="" class="w-full h-full object-cover blur-3xl opacity-20 scale-110 transition-opacity duration-700 opacity-0" onload="this.classList.remove('opacity-0')" />
+            <div class="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
+        </div>
+
+        <div class="relative z-10 flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-10 w-full max-w-7xl mx-auto">
+            <!-- Artist Circular Photo -->
+            <div class="w-40 h-40 md:w-56 md:h-56 rounded-full overflow-hidden shadow-2xl bg-white/5 border-4 border-white/10 shrink-0 relative group">
+                <img id="artist-avatar" referrerpolicy="no-referrer" src="" class="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 opacity-0" onload="this.classList.remove('opacity-0')" />
+                <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </div>
+
+            <!-- Artist Identity Info -->
+            <div class="flex-1 text-center md:text-left space-y-3">
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black uppercase tracking-wider text-primary">
+                    <Award className="w-3.5 h-3.5" /> Verified Artist
+                </div>
+                <h1 id="artist-name" class="text-4xl sm:text-6xl md:text-7xl font-black tracking-tighter drop-shadow-2xl text-white">Loading...</h1>
+                
+                <div class="flex flex-wrap items-center justify-center md:justify-start gap-4 text-xs sm:text-sm font-bold text-white/60">
+                    <span id="artist-subs">0 subscribers</span>
+                    <span class="hidden sm:inline">•</span>
+                    <span id="artist-listeners">0 monthly listeners</span>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-4">
+                    <button id="artist-play-btn" class="px-8 py-3.5 bg-primary text-primary-foreground font-black rounded-full hover:scale-102 active:scale-98 transition-all shadow-xl shadow-primary/20 flex items-center gap-2 cursor-pointer">
+                        <Play className="w-5 h-5 fill-current" /> Play
+                    </button>
+                    <button id="artist-follow-btn" class="px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-full border border-white/10 transition-all flex items-center gap-2 cursor-pointer">
+                        Follow
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-6 sm:px-12 py-10 space-y-12">
+        
+        <!-- Popular Songs -->
+        <section class="space-y-6">
+            <h2 class="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" /> Popular Tracks
+            </h2>
+            <div class="border border-white/5 rounded-3xl bg-muted/10 backdrop-blur-md overflow-hidden">
+                <div class="grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground border-b border-white/5">
+                    <div class="w-8 text-center">#</div>
+                    <div>Title</div>
+                    <div class="w-12 text-right"><Clock className="w-4.5 h-4.5" /></div>
+                </div>
+                <div id="artist-songs-list" class="divide-y divide-white/5">
+                    <!-- Dynamic Songs -->
+                    <p class="text-sm text-muted-foreground p-6">Loading popular tracks...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Albums & Singles Grids -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Albums Section -->
+            <section class="space-y-6">
+                <h2 class="text-2xl font-black tracking-tight text-white">Albums</h2>
+                <div id="artist-albums-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <p class="text-sm text-muted-foreground col-span-3">Loading albums...</p>
+                </div>
+            </section>
+
+            <!-- Singles Section -->
+            <section class="space-y-6">
+                <h2 class="text-2xl font-black tracking-tight text-white">Singles & EPs</h2>
+                <div id="artist-singles-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <p class="text-sm text-muted-foreground col-span-3">Loading singles...</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- About/Bio -->
+        <section id="artist-about-section" class="space-y-6 hidden">
+            <h2 class="text-2xl font-black tracking-tight text-white">About</h2>
+            <div class="relative p-6 sm:p-8 md:p-10 rounded-[2rem] border border-white/5 bg-gradient-to-br from-white/5 to-transparent overflow-hidden shadow-xl">
+                <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl pointer-events-none"></div>
+                <p id="artist-bio" class="text-sm sm:text-base leading-7 text-white/70 whitespace-pre-line font-medium max-w-4xl">
+                    Bio content goes here...
+                </p>
+            </div>
+        </section>
+
+        <!-- Related Artists -->
+        <section class="space-y-6">
+            <h2 class="text-2xl font-black tracking-tight text-white">Fans Also Like</h2>
+            <div id="artist-related-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <p class="text-sm text-muted-foreground col-span-6">Loading fans also like...</p>
+            </div>
+        </section>
+    </div>
+</Layout>
+
+<script>
+    import { navigate } from 'astro:transitions/client';
+    import { auth } from '../lib/firebase';
+    import { onAuthStateChanged } from 'firebase/auth';
+    import { isFollowingArtist } from '../lib/firestore';
+    import { fetchArtistDetails, toggleFollowArtist } from '../lib/api';
+
+    const escapeAttr = (str: any) => str ? String(str).replace(/"/g, '&quot;') : '';
+
+    let currentArtist: any = null;
+    let isFollowed = false;
+
+    async function loadArtistProfile() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const artistId = urlParams.get('id');
+
+        if (!artistId) {
+            navigate('/');
+            return;
+        }
+
+        const nameEl = document.getElementById('artist-name');
+        const subsEl = document.getElementById('artist-subs');
+        const listenersEl = document.getElementById('artist-listeners');
+        const avatarEl = document.getElementById('artist-avatar') as HTMLImageElement;
+        const bgImgEl = document.getElementById('artist-bg-img') as HTMLImageElement;
+        const songsList = document.getElementById('artist-songs-list');
+        const albumsGrid = document.getElementById('artist-albums-grid');
+        const singlesGrid = document.getElementById('artist-singles-grid');
+        const relatedGrid = document.getElementById('artist-related-grid');
+        const bioEl = document.getElementById('artist-bio');
+        const aboutSec = document.getElementById('artist-about-section');
+        const followBtn = document.getElementById('artist-follow-btn');
+
+        try {
+            const data = await fetchArtistDetails(artistId);
+            if (!data || data.error) throw new Error(data?.error || "Failed to fetch artist details");
+
+            currentArtist = data;
+
+            // Render details
+            if (nameEl) nameEl.textContent = data.name;
+            if (subsEl) subsEl.textContent = `${data.subscribers || 'N/A'} subscribers`;
+            if (listenersEl) listenersEl.textContent = `${data.monthlyListeners || 'N/A'} monthly listeners`;
+            
+            if (avatarEl && data.image) {
+                avatarEl.src = data.image;
+            }
+            if (bgImgEl && data.image) {
+                bgImgEl.src = data.image;
+            }
+
+            // Follow status check
+            checkFollowStatus(artistId);
+
+            // Render popular songs
+            if (songsList) {
+                if (!data.songs || data.songs.length === 0) {
+                    songsList.innerHTML = '<p class="text-sm text-muted-foreground p-6">No tracks available.</p>';
+                } else {
+                    songsList.innerHTML = data.songs.map((track: any, i: number) => `
+                        <div class="track-trigger grid grid-cols-[auto_1fr_auto] gap-4 px-6 py-4 hover:bg-white/5 transition-all cursor-pointer items-center"
+                             data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(data.name)}" data-artist-id="${artistId}" data-artwork="${escapeAttr(track.image)}">
+                            <div class="w-8 text-center text-sm font-bold text-muted-foreground">${i + 1}</div>
+                            <div class="flex items-center gap-4 min-w-0">
+                                <img src="${track.image}" referrerpolicy="no-referrer" class="w-10 h-10 rounded-lg object-cover bg-muted" onerror="this.src='/favicon.svg';" />
+                                <div class="min-w-0">
+                                    <p class="font-bold text-sm truncate text-white">${track.title}</p>
+                                    <p class="text-xs text-muted-foreground truncate">${data.name}</p>
+                                </div>
+                            </div>
+                            <div class="w-12 text-right text-xs font-bold text-muted-foreground">${track.duration || '3:45'}</div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Play all popular songs trigger
+            const playBtn = document.getElementById('artist-play-btn');
+            if (playBtn && !playBtn.dataset.bound) {
+                playBtn.dataset.bound = "true";
+                playBtn.addEventListener('click', () => {
+                    if (data.songs && data.songs.length > 0) {
+                        window.dispatchEvent(new CustomEvent('play-track', {
+                            detail: {
+                                track: data.songs[0],
+                                queue: data.songs
+                            }
+                        }));
+                    }
+                });
+            }
+
+            // Render albums
+            if (albumsGrid) {
+                if (!data.albums || data.albums.length === 0) {
+                    albumsGrid.innerHTML = '<p class="text-sm text-muted-foreground">No albums released yet.</p>';
+                } else {
+                    albumsGrid.innerHTML = data.albums.slice(0, 6).map((album: any) => `
+                        <div class="playlist-trigger bg-muted/20 border border-white/5 p-4 rounded-2xl hover:bg-muted/40 transition-all cursor-pointer group" data-id="${album.id}">
+                            <div class="aspect-square rounded-xl overflow-hidden mb-3 border border-white/5">
+                                <img src="${album.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            </div>
+                            <h3 class="font-bold text-sm text-white truncate">${album.title}</h3>
+                            <p class="text-xs text-muted-foreground mt-1">${album.year || 'Album'}</p>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Render singles
+            if (singlesGrid) {
+                if (!data.singles || data.singles.length === 0) {
+                    singlesGrid.innerHTML = '<p class="text-sm text-muted-foreground">No singles released yet.</p>';
+                } else {
+                    singlesGrid.innerHTML = data.singles.slice(0, 6).map((single: any) => `
+                        <div class="playlist-trigger bg-muted/20 border border-white/5 p-4 rounded-2xl hover:bg-muted/40 transition-all cursor-pointer group" data-id="${single.id}">
+                            <div class="aspect-square rounded-xl overflow-hidden mb-3 border border-white/5">
+                                <img src="${single.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            </div>
+                            <h3 class="font-bold text-sm text-white truncate">${single.title}</h3>
+                            <p class="text-xs text-muted-foreground mt-1">${single.year || 'Single'}</p>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            // Render related artists
+            if (relatedGrid) {
+                if (!data.related || data.related.length === 0) {
+                    relatedGrid.innerHTML = '<p class="text-sm text-muted-foreground col-span-6">No related artists.</p>';
+                } else {
+                    relatedGrid.innerHTML = data.related.slice(0, 6).map((artist: any) => `
+                        <a href="/artist?id=${artist.id}" class="bg-muted/20 border border-white/5 p-4 rounded-2xl hover:bg-muted/40 transition-all text-center flex flex-col items-center group">
+                            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden mb-4 border border-white/5 shadow-md">
+                                <img src="${artist.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                            </div>
+                            <h3 class="font-bold text-sm text-white truncate w-full">${artist.name}</h3>
+                            <p class="text-[10px] text-muted-foreground mt-1 truncate w-full">${artist.subscribers || 'Artist'}</p>
+                        </a>
+                    `).join('');
+                }
+            }
+
+            // Render bio
+            if (bioEl && aboutSec && data.description) {
+                bioEl.textContent = data.description;
+                aboutSec.classList.remove('hidden');
+            }
+
+        } catch (err) {
+            console.error("Error loading artist page details:", err);
+            if (nameEl) nameEl.textContent = "Error Loading Profile";
+        }
+    }
+
+    async function checkFollowStatus(artistId: string) {
+        const followBtn = document.getElementById('artist-follow-btn');
+        if (!followBtn) return;
+
+        const user = auth.currentUser;
+        if (!user) {
+            followBtn.classList.add('hidden');
+            return;
+        }
+
+        followBtn.classList.remove('hidden');
+        isFollowed = await isFollowingArtist(user.uid, artistId);
+        updateFollowBtnUI();
+    }
+
+    function updateFollowBtnUI() {
+        const followBtn = document.getElementById('artist-follow-btn');
+        if (!followBtn) return;
+
+        if (isFollowed) {
+            followBtn.textContent = 'Following';
+            followBtn.className = "px-6 py-3.5 bg-primary text-primary-foreground font-bold rounded-full transition-all flex items-center gap-2 cursor-pointer";
+        } else {
+            followBtn.textContent = 'Follow';
+            followBtn.className = "px-6 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-full border border-white/10 transition-all flex items-center gap-2 cursor-pointer";
+        }
+    }
+
+    async function handleFollowToggle() {
+        if (!currentArtist || !auth.currentUser) return;
+        const followBtn = document.getElementById('artist-follow-btn');
+        if (followBtn) followBtn.setAttribute('disabled', 'true');
+
+        const action = isFollowed ? 'unfollow' : 'follow';
+        const res = await toggleFollowArtist({
+            id: currentArtist.id,
+            name: currentArtist.name,
+            image: currentArtist.image
+        }, action);
+
+        if (res.success) {
+            isFollowed = !isFollowed;
+            updateFollowBtnUI();
+        }
+
+        if (followBtn) followBtn.removeAttribute('disabled');
+    }
+
+    document.addEventListener('astro:page-load', () => {
+        if (window.location.pathname === '/artist') {
+            loadArtistProfile();
+
+            const unsubscribe = onAuthStateChanged(auth, (user) => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const artistId = urlParams.get('id');
+                if (artistId) checkFollowStatus(artistId);
+            });
+
+            const followBtn = document.getElementById('artist-follow-btn');
+            if (followBtn && !followBtn.dataset.bound) {
+                followBtn.dataset.bound = "true";
+                followBtn.addEventListener('click', handleFollowToggle);
+            }
+        }
+    });
+</script>

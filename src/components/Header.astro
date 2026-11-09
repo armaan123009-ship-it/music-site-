@@ -230,10 +230,10 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
                     const homeSearchInput = document.getElementById('global-search-input') as HTMLInputElement;
                     if (homeSearchInput && homeSearchInput !== input) {
                         homeSearchInput.value = val;
+                        // Dispatch input event for the index.astro script
+                        const event = new Event('input', { bubbles: true });
+                        homeSearchInput.dispatchEvent(event);
                     }
-                    // Dispatch input event for the index.astro script
-                    const event = new Event('input', { bubbles: true });
-                    homeSearchInput?.dispatchEvent(event);
                 }
             });
 

@@ -174,3 +174,149 @@ export async function deletePlaylist(userId: string, playlistId: string) {
         return false;
     }
 }
+
+export interface FollowedArtist {
+    id: string;
+    name: string;
+    image?: string;
+    followedAt?: number;
+}
+
+/**
+ * Follow an artist in user's Firestore collection `users/{userId}/following/{artistId}`
+ */
+export async function followArtist(userId: string, artist: FollowedArtist) {
+    if (!userId || !artist || !artist.id) return false;
+    try {
+        const artistRef = doc(db, 'users', userId, 'following', artist.id);
+        await setDoc(artistRef, {
+            ...artist,
+            followedAt: Date.now()
+        }, { merge: true });
+        return true;
+    } catch (error) {
+        console.error('Error following artist in Firestore:', error);
+        return false;
+    }
+}
+
+/**
+ * Unfollow an artist from user's Firestore collection
+ */
+export async function unfollowArtist(userId: string, artistId: string) {
+    if (!userId || !artistId) return false;
+    try {
+        const artistRef = doc(db, 'users', userId, 'following', artistId);
+        await deleteDoc(artistRef);
+        return true;
+    } catch (error) {
+        console.error('Error unfollowing artist in Firestore:', error);
+        return false;
+    }
+}
+
+/**
+ * Fetch all followed artists for a user from Firestore
+ */
+export async function getFollowedArtists(userId: string): Promise<FollowedArtist[]> {
+    if (!userId) return [];
+    try {
+        const followingRef = collection(db, 'users', userId, 'following');
+        const snapshot = await getDocs(followingRef);
+        const artists: FollowedArtist[] = [];
+        snapshot.forEach(docSnap => {
+            artists.push(docSnap.data() as FollowedArtist);
+        });
+        return artists.sort((a, b) => (b.followedAt || 0) - (a.followedAt || 0));
+    } catch (error) {
+        console.error('Error fetching followed artists from Firestore:', error);
+        return [];
+    }
+}
+
+/**
+ * Check if a user is following an artist in Firestore
+ */
+export async function isFollowingArtist(userId: string, artistId: string): Promise<boolean> {
+    if (!userId || !artistId) return false;
+    try {
+        const artistRef = doc(db, 'users', userId, 'following', artistId);
+        const docSnap = await getDoc(artistRef);
+        return docSnap.exists();
+    } catch (error) {
+        console.error('Error checking follow status in Firestore:', error);
+        return false;
+    }
+}
+
+/**
+ * User Security and Personal Profile Interface
+ */
+export interface UserSecurityProfile {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL?: string | null;
+    emailVerified: boolean;
+    authProvider: string;
+    lastLoginAt: number;
+    securityLevel: 'enhanced' | 'standard';
+    verificationSentAt?: number;
+}
+
+/**
+ * Synchronize User Profile and Security Data in Firestore
+ */
+export async function syncUserProfile(user: any): Promise<UserSecurityProfile> {
+    const profile: UserSecurityProfile = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName || user.email?.split('@')[0] || 'Music Fan',
+        photoURL: user.photoURL || null,
+        emailVerified: Boolean(user.emailVerified),
+        authProvider: user.providerData?.[0]?.providerId || 'firebase',
+        lastLoginAt: Date.now(),
+        securityLevel: user.emailVerified ? 'enhanced' : 'standard',
+        verificationSentAt: Date.now()
+    };
+
+    // Save to localStorage as immediate offline cache
+    try {
+        localStorage.setItem(`user_profile_${user.uid}`, JSON.stringify(profile));
+        localStorage.setItem('active_user_uid', user.uid);
+    } catch (e) {}
+
+    // Persist to Firestore
+    try {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, profile, { merge: true });
+    } catch (err) {
+        console.warn('Firestore profile sync warning (using local secure cache):', err);
+    }
+
+    return profile;
+}
+
+/**
+ * Get User Security Profile
+ */
+export async function getUserProfile(userId: string): Promise<UserSecurityProfile | null> {
+    if (!userId) return null;
+    try {
+        const userRef = doc(db, 'users', userId);
+        const snap = await getDoc(userRef);
+        if (snap.exists()) {
+            return snap.data() as UserSecurityProfile;
+        }
+    } catch (err) {
+        console.warn('Error reading user profile from Firestore:', err);
+    }
+
+    // Fallback to local storage
+    try {
+        const local = localStorage.getItem(`user_profile_${userId}`);
+        if (local) return JSON.parse(local);
+    } catch (e) {}
+
+    return null;
+}

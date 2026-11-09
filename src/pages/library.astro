@@ -84,7 +84,7 @@ const stats = [
                 } else {
                     likedList.innerHTML = likedSongs.map((track: any) => `
                         <div class="track-trigger flex items-center justify-between p-3 rounded-2xl hover:bg-white/10 group transition-all cursor-pointer"
-                             data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist || '')}" data-artwork="${escapeAttr(track.thumbnail || track.image || '')}">
+                             data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist || '')}" data-artist-id="${track.artistId || ''}" data-artwork="${escapeAttr(track.thumbnail || track.image || '')}">
                             <div class="flex items-center gap-4">
                                 <img src="${track.thumbnail || track.image || '/favicon.svg'}" referrerpolicy="no-referrer" class="w-12 h-12 rounded-xl object-cover transition-opacity duration-300 opacity-0 bg-muted" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" />
                                 <div>

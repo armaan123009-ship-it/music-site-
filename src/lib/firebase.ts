@@ -14,8 +14,32 @@ const firebaseConfig = {
 // Initialize Firebase app if not already initialized
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
+
+let authInstance: any = null;
+function getAuthInstance() {
+    if (!authInstance) {
+        authInstance = getAuth(app);
+    }
+    return authInstance;
+}
+
+export const auth = new Proxy({}, {
+    get(target, prop) {
+        const instance = getAuthInstance();
+        const value = instance[prop];
+        if (typeof value === 'function') {
+            return value.bind(instance);
+        }
+        return value;
+    },
+    set(target, prop, value) {
+        const instance = getAuthInstance();
+        instance[prop] = value;
+        return true;
+    }
+}) as any;
+
+export const googleProvider = new GoogleAuthProvider();
 
 export default app;

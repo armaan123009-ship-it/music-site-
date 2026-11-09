@@ -607,6 +607,7 @@ import {
         streamUrlCache: {},
         parsedLyrics: [],
         lastActiveLyricIdx: -1,
+        lyricOffsetMs: 0,
         isPreFetching: false,
         preFetchedTrackId: null,
         isDraggingProgress: false,
@@ -1173,10 +1174,18 @@ import {
         const lines = lrcText.split(/\r?\n/);
         const lyrics: LyricLine[] = [];
         const stampRegex = /\[\s*(\d+)\s*[:\.]\s*(\d+)(?:[,\.:]\s*(\d+))?\s*\]/g;
+        let lrcOffsetSec = 0;
 
         for (const line of lines) {
             const trimmed = line.trim();
             if (!trimmed) continue;
+
+            // Handle [offset:+/-ms] header in standard LRC (e.g. [offset:500])
+            const offsetMatch = trimmed.match(/^\[offset:\s*([+-]?\d+)\s*\]/i);
+            if (offsetMatch) {
+                lrcOffsetSec = parseInt(offsetMatch[1], 10) / 1000;
+                continue;
+            }
 
             const matches = [...trimmed.matchAll(stampRegex)];
             if (matches.length === 0) continue;
@@ -1190,10 +1199,10 @@ import {
                 const msVal = parseInt(msStr, 10);
                 const fractionalSeconds = msVal / Math.pow(10, msStr.length);
 
-                const time = minutes * 60 + seconds + fractionalSeconds;
+                const time = minutes * 60 + seconds + fractionalSeconds + lrcOffsetSec;
 
-                if (isFinite(time) && !isNaN(time)) {
-                    lyrics.push({ time, text });
+                if (isFinite(time) && !isNaN(time) && time >= 0) {
+                    lyrics.push({ time, text: text || "♪" });
                 }
             }
         }
@@ -1240,6 +1249,21 @@ import {
         document.getElementById("player-artwork"),
         document.getElementById("immersive-artwork"),
     ];
+
+    function updateArtistUI(track: any) {
+        artistEls().forEach((el) => {
+            if (!el) return;
+            if (track && track.artistId) {
+                const isImmersive = el.id === 'immersive-artist';
+                const linkClass = isImmersive 
+                    ? "hover:underline text-primary font-black hover:text-white transition-all"
+                    : "hover:underline hover:text-white transition-all";
+                el.innerHTML = `<a href="/artist?id=${track.artistId}" class="${linkClass}">${track.artist}</a>`;
+            } else {
+                el.textContent = track ? track.artist : '';
+            }
+        });
+    }
 
     const miniLikeBtn = () => document.getElementById("mini-like-btn");
     const miniLikeIcon = () => document.getElementById("mini-like-icon");
@@ -1618,7 +1642,7 @@ import {
         try {
             // Update UI details immediately for instant feedback
             titleEls().forEach((el) => el && (el.textContent = track.title));
-            artistEls().forEach((el) => el && (el.textContent = track.artist));
+            updateArtistUI(track);
             artworkEls().forEach((el) => {
                 if (el) {
                     el.classList.add("opacity-0");
@@ -1903,12 +1927,13 @@ import {
         const lyr = lyricsContent();
         if (lyr)
             lyr.innerHTML =
-                '<p class="animate-pulse text-sm text-white/50 text-center py-8">Fetching lyrics...</p>';
+                '<p class="animate-pulse text-sm text-white/50 text-center py-8">Fetching synchronized lyrics...</p>';
 
         let track = state.currentQueue[state.currentIndex];
         let queryParams = "";
         if (track) {
-            queryParams = `?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}`;
+            const curDuration = (audio && audio.duration && !isNaN(audio.duration)) ? Math.round(audio.duration) : (track.duration || '');
+            queryParams = `?title=${encodeURIComponent(track.title)}&artist=${encodeURIComponent(track.artist)}&duration=${encodeURIComponent(curDuration)}`;
         }
 
         const data = await apiFetch(`/api/lyrics/${id}${queryParams}`);
@@ -1922,6 +1947,15 @@ import {
                 state.lastActiveLyricIdx = -1;
 
                 lyrUpdate.innerHTML = `
+                    <div class="flex items-center justify-between pb-3 px-4 border-b border-white/5 text-xs text-white/50 mb-2 sticky top-0 bg-background/80 backdrop-blur-md z-10">
+                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Synchronized Lyrics</span>
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-[10px] text-white/40">Adjust:</span>
+                            <button id="lyrics-sync-minus" class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white font-mono text-xs cursor-pointer active:scale-95 transition-all" title="Shift lyrics earlier">-0.5s</button>
+                            <span id="lyrics-sync-offset" class="font-mono text-xs text-primary font-bold px-1">${((state.lyricOffsetMs || 0) / 1000).toFixed(1)}s</span>
+                            <button id="lyrics-sync-plus" class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-white font-mono text-xs cursor-pointer active:scale-95 transition-all" title="Shift lyrics later">+0.5s</button>
+                        </div>
+                    </div>
                     <div id="lyrics-lines-container" class="space-y-6 text-center py-10 px-4 transition-all duration-300">
                         ${state.parsedLyrics
                             .map(
@@ -1936,6 +1970,25 @@ import {
                     </div>
                 `;
 
+                // Bind sync adjuster buttons
+                document.getElementById('lyrics-sync-minus')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    state.lyricOffsetMs = (state.lyricOffsetMs || 0) - 500;
+                    const offsetEl = document.getElementById('lyrics-sync-offset');
+                    if (offsetEl) offsetEl.textContent = `${(state.lyricOffsetMs / 1000).toFixed(1)}s`;
+                    state.lastActiveLyricIdx = -1;
+                    updateActiveLyric(audio.currentTime);
+                });
+
+                document.getElementById('lyrics-sync-plus')?.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    state.lyricOffsetMs = (state.lyricOffsetMs || 0) + 500;
+                    const offsetEl = document.getElementById('lyrics-sync-offset');
+                    if (offsetEl) offsetEl.textContent = `${(state.lyricOffsetMs / 1000).toFixed(1)}s`;
+                    state.lastActiveLyricIdx = -1;
+                    updateActiveLyric(audio.currentTime);
+                });
+
                 lyrUpdate.querySelectorAll(".lyric-line").forEach((el) => {
                     el.addEventListener("click", () => {
                         const seekTime = parseFloat(
@@ -1943,6 +1996,7 @@ import {
                         );
                         if (!isNaN(seekTime)) {
                             audio.currentTime = seekTime;
+                            state.lastActiveLyricIdx = -1;
                             updateActiveLyric(seekTime); // Highlight and scroll immediately on click!
                         }
                     });
@@ -1978,11 +2032,15 @@ import {
         )
             return;
 
+        // Apply sync offset calibration (including 120ms anticipation for human perception & bluetooth audio latency)
+        const offsetSec = ((state.lyricOffsetMs || 0) / 1000) + 0.12;
+        const targetTime = currentTime + offsetSec;
+
         let activeIdx = -1;
         for (let i = 0; i < state.parsedLyrics.length; i++) {
             const lyric = state.parsedLyrics[i];
             if (lyric && isFinite(lyric.time) && !isNaN(lyric.time)) {
-                if (currentTime >= lyric.time) {
+                if (targetTime >= lyric.time) {
                     activeIdx = i;
                 } else {
                     break;
@@ -2024,7 +2082,8 @@ import {
         relContainer.innerHTML =
             '<p class="animate-pulse text-xs text-white/50 text-center py-8">Fetching suggestions...</p>';
         try {
-            const tracks = await fetchSuggestions(id);
+            const currentTrack = state.currentQueue[state.currentIndex];
+            const tracks = await fetchSuggestions(id, currentTrack?.title || '', currentTrack?.artist || '');
             if (tracks && tracks.length > 0) {
                 relContainer.innerHTML = tracks
                     .map(
@@ -2186,7 +2245,7 @@ import {
             (el) => el && (el.textContent = "Autoplay recommendations..."),
         );
         try {
-            const suggestions = await fetchSuggestions(lastTrack.id);
+            const suggestions = await fetchSuggestions(lastTrack.id, lastTrack.title || '', lastTrack.artist || '');
             if (suggestions && suggestions.length > 0) {
                 const newTracks = suggestions.filter(
                     (s: any) =>
@@ -2260,7 +2319,7 @@ import {
 
             // Sync UI details synchronously
             titleEls().forEach((el) => el && (el.textContent = track.title));
-            artistEls().forEach((el) => el && (el.textContent = track.artist));
+            updateArtistUI(track);
             artworkEls().forEach(
                 (el) => el && ((el as HTMLImageElement).src = track.image),
             );
@@ -2449,7 +2508,7 @@ import {
         if (state.currentQueue.length > 0 && state.currentIndex !== -1) {
             const track = state.currentQueue[state.currentIndex];
             titleEls().forEach((el) => el && (el.textContent = track.title));
-            artistEls().forEach((el) => el && (el.textContent = track.artist));
+            updateArtistUI(track);
             artworkEls().forEach(
                 (el) => el && ((el as HTMLImageElement).src = track.image),
             );
@@ -2492,9 +2551,7 @@ import {
                     titleEls().forEach(
                         (el) => el && (el.textContent = track.title),
                     );
-                    artistEls().forEach(
-                        (el) => el && (el.textContent = track.artist),
-                    );
+                    updateArtistUI(track);
                     artworkEls().forEach(
                         (el) =>
                             el && ((el as HTMLImageElement).src = track.image),
@@ -2888,154 +2945,56 @@ import {
                 window.location.hostname === "localhost" ||
                 window.location.hostname === "127.0.0.1";
 
-            // For production Vercel deployment (non-localhost) OR mobile Capacitor apps,
-            // we resolve a Cobalt tunnel URL client-side and trigger a native download.
-            // This completely bypasses Vercel's backend payload response limits and IP blocks.
-            if (!isLocalhost || isCapacitor) {
-                try {
-                    const resolvedUrl = await resolveDownloadClientSide(track.id, 8000); // 8s timeout for download streams
-                    if (resolvedUrl) {
-                        if (isCapacitor) {
-                            window.open(resolvedUrl, "_system");
-                        } else {
-                            window.open(resolvedUrl, "_blank");
-                        }
-                        updateDownloadProgress("Downloading...", false);
-                        showToast("Download started!");
-                        return;
-                    }
-                } catch (e) {
-                    console.error("[Client Download] Failed to resolve Cobalt download URL:", e);
-                }
-
-                // If Cobalt fails on production, we fall back to the chunk downloader right below to download the song in chunks
-                console.log("[Client Download] Client-side Cobalt failed. Falling back to chunk downloader...");
-            }
-
+            // Priority 1: Request direct high-speed audio link via backend (completely bypasses Vercel 4.5MB response limit)
             try {
-                let streamUrl = state.currentStreamUrl;
-                let proxyUrl = state.currentProxyUrl;
-
-                // Force resolving a fresh signed stream link for the download operation
-                const data = await apiFetch(`/stream/${track.id}`);
-                if (data) {
-                    streamUrl = data.url;
-                    proxyUrl = data.proxy_url.startsWith("http")
-                        ? data.proxy_url
-                        : `${API_BASE}${data.proxy_url}`;
-                }
-
-                if (!streamUrl) {
-                    throw new Error("Unable to resolve streaming URL");
-                }
-
-                // Proceed directly to chunk downloader for all environments to bypass Vercel constraints.
-                // Range requests for 0-0 to retrieve total size via Content-Range
-                const testRes = await fetch(proxyUrl, {
-                    headers: { Range: "bytes=0-0" },
-                });
-
-                if (!testRes.ok) {
-                    throw new Error(
-                        `Failed to initialize stream download: ${testRes.status}`,
-                    );
-                }
-
-                const contentRange = testRes.headers.get("Content-Range");
-                let totalSize = 0;
-                if (contentRange) {
-                    const parts = contentRange.split("/");
-                    if (parts.length > 1) {
-                        totalSize = parseInt(parts[1]);
+                updateDownloadProgress("Resolving audio link...", true);
+                const dlData = await apiFetch(`/api/download/${track.id}?mode=json&title=${encodeURIComponent(track.title)}`);
+                
+                if (dlData && dlData.download_url) {
+                    const downloadUrl = dlData.download_url;
+                    const safeName = dlData.filename || `${track.title}.mp3`;
+                    
+                    if (isCapacitor) {
+                        window.open(downloadUrl, "_system");
+                    } else {
+                        const a = document.createElement("a");
+                        a.href = downloadUrl;
+                        a.download = safeName;
+                        a.target = "_blank";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
                     }
-                }
-
-                if (!totalSize) {
-                    const cl = testRes.headers.get("Content-Length");
-                    totalSize = cl ? parseInt(cl) : 0;
-                }
-
-                if (!totalSize) {
-                    // Fallback to direct download
-                    window.location.href = `${API_BASE}/api/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                    updateDownloadProgress("Downloading...", false);
+                    updateDownloadProgress("Download started", false);
+                    showToast("Download started!");
                     return;
                 }
+            } catch (jsonDlErr) {
+                console.warn("[Download] JSON resolver notice, trying direct stream trigger:", jsonDlErr);
+            }
 
-                console.log(
-                    `[Chunk Downloader] Total size: ${totalSize} bytes`,
-                );
-
-                // 2.5 MB chunk size (staying safely below Vercel's 4.5MB limit)
-                const chunkSize = 2.5 * 1024 * 1024;
-                const blobs = [];
-                let start = 0;
-
-                while (start < totalSize) {
-                    const end = Math.min(start + chunkSize - 1, totalSize - 1);
-                    const progress = Math.round((start / totalSize) * 100);
-                    updateDownloadProgress(`Downloading: ${progress}%`, true);
-                    console.log(
-                        `[Chunk Downloader] Fetching range: ${start}-${end}`,
-                    );
-
-                    const chunkRes = await fetch(proxyUrl, {
-                        headers: { Range: `bytes=${start}-${end}` },
-                    });
-
-                    if (!chunkRes.ok) {
-                        throw new Error(
-                            `Failed to download audio chunk: ${chunkRes.status}`,
-                        );
-                    }
-
-                    const blob = await chunkRes.blob();
-                    blobs.push(blob);
-                    start += chunkSize;
-                }
-
-                updateDownloadProgress("Saving...", true);
-
-                const finalBlob = new Blob(blobs, { type: "audio/mpeg" });
-                const downloadUrl = URL.createObjectURL(finalBlob);
-
-                const link = document.createElement("a");
-                link.href = downloadUrl;
-                link.download = `${track.title}.mp3`;
-                document.body.appendChild(link);
-                link.click();
-
-                document.body.removeChild(link);
-                URL.revokeObjectURL(downloadUrl);
-                updateDownloadProgress("Download complete", false);
-                console.log("[Chunk Downloader] Download complete!");
-            } catch (err) {
-                console.error("[Chunk Downloader] Download failed:", err);
-                updateDownloadProgress("Retrying...", true);
-                try {
-                    // Clean single-request cross-origin fetch downloader (using explicit download route)
-                    const downloadUrl = `${API_BASE}/download/${track.id}?title=${encodeURIComponent(track.title)}`;
-                    const response = await fetch(downloadUrl);
-                    if (!response.ok) throw new Error("Server returned status " + response.status);
-                    
-                    const blob = await response.blob();
-                    const objectUrl = URL.createObjectURL(blob);
-                    
+            // Priority 2: Direct browser trigger to /api/download (with 302 redirect fallback)
+            try {
+                updateDownloadProgress("Downloading...", true);
+                const directUrl = `${API_BASE}/api/download/${track.id}?redirect=true&title=${encodeURIComponent(track.title)}`;
+                
+                if (isCapacitor) {
+                    window.open(directUrl, "_system");
+                } else {
                     const a = document.createElement("a");
-                    a.href = objectUrl;
+                    a.href = directUrl;
                     a.download = `${track.title}.mp3`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
-                    URL.revokeObjectURL(objectUrl);
-                    
-                    updateDownloadProgress("Download complete", false);
-                    showToast("Download started!");
-                } catch (fetchErr) {
-                    console.error("[Single Fetch Downloader] Download failed:", fetchErr);
-                    updateDownloadProgress("Failed", false);
-                    showToast("Download failed. Please try again later.");
                 }
+                updateDownloadProgress("Download started", false);
+                showToast("Download started!");
+                return;
+            } catch (err) {
+                console.error("[Download] Fallback trigger error:", err);
+                updateDownloadProgress("Failed", false);
+                showToast("Download failed. Please try again.");
             }
         };
 
@@ -3510,6 +3469,7 @@ import {
                         id: ds.id,
                         title: ds.title,
                         artist: ds.artist,
+                        artistId: ds.artistId || null,
                         artwork: ds.artwork || ds.image,
                         image: ds.artwork || ds.image,
                     };
@@ -3527,6 +3487,7 @@ import {
                                         id: sDs.id,
                                         title: sDs.title,
                                         artist: sDs.artist,
+                                        artistId: sDs.artistId || null,
                                         artwork: sDs.artwork || sDs.image,
                                         image: sDs.artwork || sDs.image,
                                     });
