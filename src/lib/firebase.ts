@@ -4,9 +4,17 @@ import { getFirestore } from 'firebase/firestore';
 
 export const GOOGLE_CLIENT_ID = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID || "161268743227-d1dtao524e18tur2ilh6h7jmh6evujsj.apps.googleusercontent.com";
 
-// Resolve valid API key (prefer explicit key or project key over invalid demo strings)
+// Check if a real, valid Firebase API key is configured (not dummy or empty)
 const rawApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY;
-const apiKey = (rawApiKey && rawApiKey.startsWith("AIzaSy")) 
+export const hasValidFirebaseApiKey = Boolean(
+    rawApiKey && 
+    rawApiKey.startsWith("AIzaSy") && 
+    rawApiKey !== "AIzaSyD4sC5H6EHd97Fl9aHvcek9F2UO1KXVIVU" &&
+    rawApiKey !== "your_firebase_api_key" &&
+    rawApiKey !== "demo-api-key"
+);
+
+const apiKey = hasValidFirebaseApiKey
     ? rawApiKey 
     : (import.meta.env.PUBLIC_YOUTUBE_API_KEY || "AIzaSyD4sC5H6EHd97Fl9aHvcek9F2UO1KXVIVU");
 
