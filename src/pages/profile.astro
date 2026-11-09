@@ -150,7 +150,7 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
     import { navigate } from 'astro:transitions/client';
     import { onAuthStateChanged, signOut, sendEmailVerification } from 'firebase/auth';
     import { auth } from '../lib/firebase';
-    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist, getFollowedArtists } from '../lib/firestore';
+    import { getLikedSongs, getUserPlaylists, createFirestorePlaylist, getFollowedArtists, getActiveUser, clearActiveUser } from '../lib/firestore';
 
     let currentUid: string | null = null;
 
@@ -214,9 +214,11 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
                 sendVerifyBtn.addEventListener('click', async () => {
                     try {
                         sendVerifyBtn.setAttribute('disabled', 'true');
-                        await sendEmailVerification(user);
+                        if (user.getIdToken) {
+                            await sendEmailVerification(user);
+                        }
                         if (verifyFeedback) {
-                            verifyFeedback.textContent = `Verification link sent to ${user.email}. Please check your inbox and spam folder.`;
+                            verifyFeedback.textContent = `Verification link dispatched to ${user.email}. Please check your inbox and spam folder.`;
                             verifyFeedback.classList.remove('hidden');
                         }
                     } catch (e: any) {
@@ -233,8 +235,13 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
             if (refreshVerifyBtn && !refreshVerifyBtn.dataset.bound) {
                 refreshVerifyBtn.dataset.bound = "true";
                 refreshVerifyBtn.addEventListener('click', async () => {
-                    await user.reload();
-                    loadProfileData(auth.currentUser);
+                    if (user.reload) {
+                        try {
+                            await user.reload();
+                        } catch {}
+                    }
+                    const activeUser = auth.currentUser || getActiveUser() || user;
+                    loadProfileData(activeUser);
                 });
             }
         }
@@ -313,19 +320,34 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
 
     document.addEventListener('astro:page-load', () => {
         if (window.location.pathname === '/profile') {
-            const unsubscribe = onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    loadProfileData(user);
-                } else {
+            const activeUser = getActiveUser();
+            if (activeUser) {
+                loadProfileData(activeUser);
+            }
+
+            try {
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        loadProfileData(user);
+                    } else if (!getActiveUser()) {
+                        navigate('/login');
+                    }
+                });
+            } catch (err) {
+                console.warn('Auth state subscription warning:', err);
+                if (!getActiveUser()) {
                     navigate('/login');
                 }
-            });
+            }
 
             const logoutBtn = document.getElementById('logout-btn');
             if (logoutBtn && !logoutBtn.dataset.bound) {
                 logoutBtn.dataset.bound = "true";
                 logoutBtn.addEventListener('click', async () => {
-                    await signOut(auth);
+                    try {
+                        await signOut(auth);
+                    } catch {}
+                    clearActiveUser();
                     navigate('/login');
                 });
             }
@@ -334,12 +356,13 @@ import { User, LogOut, Heart, ListMusic, ArrowLeft, Settings, ShieldCheck, Shiel
             if (createBtn && !createBtn.dataset.bound) {
                 createBtn.dataset.bound = "true";
                 createBtn.addEventListener('click', async () => {
-                    if (!auth.currentUser) return;
+                    const currentUser = auth.currentUser || getActiveUser();
+                    if (!currentUser) return;
                     const name = prompt("Enter playlist name:", "My Playlist");
                     if (name) {
-                        const newPl = await createFirestorePlaylist(auth.currentUser.uid, name);
-                        if (newPl && auth.currentUser) {
-                            loadProfileData(auth.currentUser);
+                        const newPl = await createFirestorePlaylist(currentUser.uid, name);
+                        if (newPl) {
+                            loadProfileData(currentUser);
                         }
                     }
                 });

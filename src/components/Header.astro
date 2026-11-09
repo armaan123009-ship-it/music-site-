@@ -247,18 +247,32 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
         if (searchInput) bindSearch(searchInput);
         if (mobileSearchInput) bindSearch(mobileSearchInput);
 
-        // Firebase Auth labels & status
+        // Check active user from dual-tier storage & Firebase Auth
         let isUserLoggedIn = false;
-        import('../lib/firebase').then(({ auth }) => {
-            import('firebase/auth').then(({ onAuthStateChanged }) => {
-                onAuthStateChanged(auth, (user) => {
-                    isUserLoggedIn = !!user;
-                    if (authLabel) {
-                        authLabel.textContent = user ? (user.displayName || user.email?.split('@')[0] || 'Account') : 'Sign In';
-                    }
-                });
-            });
-        });
+        import('../lib/firestore').then(({ getActiveUser }) => {
+            const activeUser = getActiveUser();
+            if (activeUser) {
+                isUserLoggedIn = true;
+                if (authLabel) {
+                    authLabel.textContent = activeUser.displayName || activeUser.email?.split('@')[0] || 'Account';
+                }
+            }
+        }).catch(() => {});
+
+        try {
+            import('../lib/firebase').then(({ auth }) => {
+                import('firebase/auth').then(({ onAuthStateChanged }) => {
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            isUserLoggedIn = true;
+                            if (authLabel) {
+                                authLabel.textContent = user.displayName || user.email?.split('@')[0] || 'Account';
+                            }
+                        }
+                    });
+                }).catch(() => {});
+            }).catch(() => {});
+        } catch {}
 
         if (authBtn && !authBtn.dataset.bound) {
             authBtn.dataset.bound = "true";

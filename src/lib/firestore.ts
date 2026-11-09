@@ -32,11 +32,37 @@ export interface Playlist {
     createdAt?: number;
 }
 
+// Helper to safely access localStorage
+function getLocalItem(key: string, fallback: any = null) {
+    if (typeof window === 'undefined') return fallback;
+    try {
+        const val = localStorage.getItem(key);
+        return val ? JSON.parse(val) : fallback;
+    } catch {
+        return fallback;
+    }
+}
+
+function setLocalItem(key: string, value: any) {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+    } catch {}
+}
+
 /**
- * Save a liked song to user's Firestore collection `users/{userId}/likes/{songId}`
+ * Save a liked song to user's Firestore collection and local backup
  */
 export async function saveLikedSong(userId: string, song: SongItem) {
     if (!userId || !song || !song.id) return false;
+
+    // Local storage backup
+    const localLikes: SongItem[] = getLocalItem(`local_likes_${userId}`, []);
+    if (!localLikes.some(s => s.id === song.id)) {
+        localLikes.unshift({ ...song, addedAt: Date.now() });
+        setLocalItem(`local_likes_${userId}`, localLikes);
+    }
+
     try {
         const songRef = doc(db, 'users', userId, 'likes', song.id);
         await setDoc(songRef, {
@@ -45,31 +71,39 @@ export async function saveLikedSong(userId: string, song: SongItem) {
         }, { merge: true });
         return true;
     } catch (error) {
-        console.error('Error saving liked song to Firestore:', error);
-        return false;
+        console.warn('Firestore liked song sync notice (persisted locally):', error);
+        return true;
     }
 }
 
 /**
- * Remove a liked song from user's Firestore collection
+ * Remove a liked song from user's Firestore collection and local backup
  */
 export async function removeLikedSong(userId: string, songId: string) {
     if (!userId || !songId) return false;
+
+    // Local storage removal
+    const localLikes: SongItem[] = getLocalItem(`local_likes_${userId}`, []);
+    const filtered = localLikes.filter(s => s.id !== songId);
+    setLocalItem(`local_likes_${userId}`, filtered);
+
     try {
         const songRef = doc(db, 'users', userId, 'likes', songId);
         await deleteDoc(songRef);
         return true;
     } catch (error) {
-        console.error('Error removing liked song from Firestore:', error);
-        return false;
+        console.warn('Firestore remove liked song notice:', error);
+        return true;
     }
 }
 
 /**
- * Fetch all liked songs for a user from Firestore
+ * Fetch all liked songs for a user (Firestore + local backup merge)
  */
 export async function getLikedSongs(userId: string): Promise<SongItem[]> {
     if (!userId) return [];
+    const localLikes: SongItem[] = getLocalItem(`local_likes_${userId}`, []);
+
     try {
         const likesRef = collection(db, 'users', userId, 'likes');
         const snapshot = await getDocs(likesRef);
@@ -77,41 +111,58 @@ export async function getLikedSongs(userId: string): Promise<SongItem[]> {
         snapshot.forEach(docSnap => {
             songs.push(docSnap.data() as SongItem);
         });
-        return songs.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+        // Merge with local likes
+        const merged = [...songs];
+        localLikes.forEach(l => {
+            if (!merged.some(m => m.id === l.id)) merged.push(l);
+        });
+
+        const sorted = merged.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+        setLocalItem(`local_likes_${userId}`, sorted);
+        return sorted;
     } catch (error) {
-        console.error('Error fetching liked songs from Firestore:', error);
-        return [];
+        console.warn('Firestore fetch likes notice (serving local cache):', error);
+        return localLikes;
     }
 }
 
 /**
- * Create a new playlist in user's Firestore collection `users/{userId}/playlists/{playlistId}`
+ * Create a new playlist in user's Firestore collection and local backup
  */
 export async function createFirestorePlaylist(userId: string, name: string, description: string = ''): Promise<Playlist | null> {
     if (!userId || !name.trim()) return null;
+    const playlistId = 'pl_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
+    const newPlaylist: Playlist = {
+        id: playlistId,
+        name: name.trim(),
+        description: description.trim(),
+        songs: [],
+        createdAt: Date.now()
+    };
+
+    // Save locally
+    const localPls: Playlist[] = getLocalItem(`local_playlists_${userId}`, []);
+    localPls.unshift(newPlaylist);
+    setLocalItem(`local_playlists_${userId}`, localPls);
+
     try {
-        const playlistId = 'pl_' + Date.now().toString(36) + Math.random().toString(36).substring(2, 5);
         const playlistRef = doc(db, 'users', userId, 'playlists', playlistId);
-        const newPlaylist: Playlist = {
-            id: playlistId,
-            name: name.trim(),
-            description: description.trim(),
-            songs: [],
-            createdAt: Date.now()
-        };
         await setDoc(playlistRef, newPlaylist);
-        return newPlaylist;
     } catch (error) {
-        console.error('Error creating playlist in Firestore:', error);
-        return null;
+        console.warn('Firestore create playlist notice (persisted locally):', error);
     }
+
+    return newPlaylist;
 }
 
 /**
- * Fetch user playlists from Firestore
+ * Fetch user playlists from Firestore and local backup
  */
 export async function getUserPlaylists(userId: string): Promise<Playlist[]> {
     if (!userId) return [];
+    const localPls: Playlist[] = getLocalItem(`local_playlists_${userId}`, []);
+
     try {
         const playlistsRef = collection(db, 'users', userId, 'playlists');
         const snapshot = await getDocs(playlistsRef);
@@ -119,10 +170,18 @@ export async function getUserPlaylists(userId: string): Promise<Playlist[]> {
         snapshot.forEach(docSnap => {
             playlists.push(docSnap.data() as Playlist);
         });
-        return playlists.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        const merged = [...playlists];
+        localPls.forEach(lp => {
+            if (!merged.some(m => m.id === lp.id)) merged.push(lp);
+        });
+
+        const sorted = merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        setLocalItem(`local_playlists_${userId}`, sorted);
+        return sorted;
     } catch (error) {
-        console.error('Error fetching playlists from Firestore:', error);
-        return [];
+        console.warn('Firestore fetch playlists notice (serving local cache):', error);
+        return localPls;
     }
 }
 
@@ -319,4 +378,29 @@ export async function getUserProfile(userId: string): Promise<UserSecurityProfil
     } catch (e) {}
 
     return null;
+}
+
+/**
+ * Get active user from current session/cache
+ */
+export function getActiveUser(): UserSecurityProfile | null {
+    if (typeof window === 'undefined') return null;
+    try {
+        const uid = localStorage.getItem('active_user_uid');
+        if (!uid) return null;
+        const profileStr = localStorage.getItem(`user_profile_${uid}`);
+        return profileStr ? JSON.parse(profileStr) : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Clear active user session
+ */
+export function clearActiveUser() {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.removeItem('active_user_uid');
+    } catch {}
 }

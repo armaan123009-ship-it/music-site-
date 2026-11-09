@@ -72,9 +72,10 @@ import { Music, ArrowLeft } from 'lucide-react';
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, getRedirectResult, sendEmailVerification } from 'firebase/auth';
-    import { auth, googleProvider } from '../lib/firebase';
+    import { signInWithEmailAndPassword, getRedirectResult, sendEmailVerification } from 'firebase/auth';
+    import { auth } from '../lib/firebase';
     import { syncUserProfile } from '../lib/firestore';
+    import { performGoogleSignIn } from '../lib/googleAuth';
 
     const form = document.getElementById('login-form') as HTMLFormElement;
     const errorMsg = document.getElementById('error-msg') as HTMLDivElement;
@@ -84,14 +85,16 @@ import { Music, ArrowLeft } from 'lucide-react';
     const googleBtnText = document.getElementById('google-btn-text') as HTMLSpanElement;
 
     // Check if user just returned from Google OAuth redirect
-    getRedirectResult(auth).then(async (result) => {
-        if (result && result.user) {
-            await syncUserProfile(result.user);
-            navigate('/profile');
-        }
-    }).catch((err) => {
-        console.error('Redirect result error:', err);
-    });
+    try {
+        getRedirectResult(auth).then(async (result) => {
+            if (result && result.user) {
+                await syncUserProfile(result.user);
+                navigate('/profile');
+            }
+        }).catch((err) => {
+            console.warn('Redirect result notice:', err);
+        });
+    } catch {}
 
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -109,7 +112,7 @@ import { Music, ArrowLeft } from 'lucide-react';
                 
                 if (!userCred.user.emailVerified) {
                     if (noticeMsg) {
-                        noticeMsg.innerHTML = `Signed in. Security notice: Please verify your email. <button id="resend-verify" class="underline font-bold text-white ml-1">Send Verification Link</button>`;
+                        noticeMsg.innerHTML = `Signed in. Security notice: Please verify your email. <button id="resend-verify" class="underline font-bold text-white ml-1 cursor-pointer">Send Verification Link</button>`;
                         noticeMsg.classList.remove('hidden');
                         document.getElementById('resend-verify')?.addEventListener('click', async () => {
                             await sendEmailVerification(userCred.user);
@@ -137,28 +140,15 @@ import { Music, ArrowLeft } from 'lucide-react';
         if (googleBtnText) googleBtnText.textContent = "Connecting to Google...";
 
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            if (result.user) {
-                await syncUserProfile(result.user);
+            const user = await performGoogleSignIn();
+            if (user) {
                 navigate('/profile');
             }
         } catch (err: any) {
-            console.warn('Google Popup blocked or failed, attempting redirect fallback:', err);
-            if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
-                try {
-                    await signInWithRedirect(auth, googleProvider);
-                    return;
-                } catch (redirectErr: any) {
-                    if (errorMsg) {
-                        errorMsg.textContent = redirectErr.message || 'Google sign in redirect failed.';
-                        errorMsg.classList.remove('hidden');
-                    }
-                }
-            } else {
-                if (errorMsg) {
-                    errorMsg.textContent = err.message || 'Google sign in failed. Please ensure third-party cookies/popups are enabled.';
-                    errorMsg.classList.remove('hidden');
-                }
+            console.error('Google Sign-in error:', err);
+            if (errorMsg) {
+                errorMsg.textContent = err.message || 'Google sign in failed. Please ensure popups are enabled.';
+                errorMsg.classList.remove('hidden');
             }
         } finally {
             if (googleBtn) googleBtn.disabled = false;

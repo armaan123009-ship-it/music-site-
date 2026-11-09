@@ -76,9 +76,10 @@ import { Music, ArrowLeft } from 'lucide-react';
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-    import { auth, googleProvider } from '../lib/firebase';
+    import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, getRedirectResult } from 'firebase/auth';
+    import { auth } from '../lib/firebase';
     import { syncUserProfile } from '../lib/firestore';
+    import { performGoogleSignIn } from '../lib/googleAuth';
 
     const form = document.getElementById('register-form') as HTMLFormElement;
     const errorMsg = document.getElementById('error-msg') as HTMLDivElement;
@@ -87,13 +88,17 @@ import { Music, ArrowLeft } from 'lucide-react';
     const googleBtn = document.getElementById('google-btn') as HTMLButtonElement;
     const googleBtnText = document.getElementById('google-btn-text') as HTMLSpanElement;
 
-    // Check redirect result
-    getRedirectResult(auth).then(async (result) => {
-        if (result && result.user) {
-            await syncUserProfile(result.user);
-            navigate('/profile');
-        }
-    }).catch(console.error);
+    // Check redirect result safely
+    try {
+        getRedirectResult(auth).then(async (result) => {
+            if (result && result.user) {
+                await syncUserProfile(result.user);
+                navigate('/profile');
+            }
+        }).catch((err) => {
+            console.warn('Redirect result notice:', err);
+        });
+    } catch {}
 
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -143,28 +148,15 @@ import { Music, ArrowLeft } from 'lucide-react';
         if (googleBtnText) googleBtnText.textContent = "Connecting to Google...";
 
         try {
-            const result = await signInWithPopup(auth, googleProvider);
-            if (result.user) {
-                await syncUserProfile(result.user);
+            const user = await performGoogleSignIn();
+            if (user) {
                 navigate('/profile');
             }
         } catch (err: any) {
-            console.warn('Google Popup error:', err);
-            if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
-                try {
-                    await signInWithRedirect(auth, googleProvider);
-                    return;
-                } catch (redirectErr: any) {
-                    if (errorMsg) {
-                        errorMsg.textContent = redirectErr.message || 'Google sign up redirect failed.';
-                        errorMsg.classList.remove('hidden');
-                    }
-                }
-            } else {
-                if (errorMsg) {
-                    errorMsg.textContent = err.message || 'Google sign up failed.';
-                    errorMsg.classList.remove('hidden');
-                }
+            console.error('Google Sign-up error:', err);
+            if (errorMsg) {
+                errorMsg.textContent = err.message || 'Google sign up failed. Please ensure popups are enabled.';
+                errorMsg.classList.remove('hidden');
             }
         } finally {
             if (googleBtn) googleBtn.disabled = false;

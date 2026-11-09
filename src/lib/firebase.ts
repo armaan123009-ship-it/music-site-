@@ -2,13 +2,24 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
+export const GOOGLE_CLIENT_ID = import.meta.env.PUBLIC_GOOGLE_CLIENT_ID || "161268743227-d1dtao524e18tur2ilh6h7jmh6evujsj.apps.googleusercontent.com";
+
+// Resolve valid API key (prefer explicit key or project key over invalid demo strings)
+const rawApiKey = import.meta.env.PUBLIC_FIREBASE_API_KEY;
+const apiKey = (rawApiKey && rawApiKey.startsWith("AIzaSy")) 
+    ? rawApiKey 
+    : (import.meta.env.PUBLIC_YOUTUBE_API_KEY || "AIzaSyD4sC5H6EHd97Fl9aHvcek9F2UO1KXVIVU");
+
+const projectId = import.meta.env.PUBLIC_FIREBASE_PROJECT_ID || "webproject-music-site";
+const messagingSenderId = import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "161268743227";
+
 const firebaseConfig = {
-    apiKey: import.meta.env.PUBLIC_FIREBASE_API_KEY || "demo-api-key",
-    authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN || "demo-app.firebaseapp.com",
-    projectId: import.meta.env.PUBLIC_FIREBASE_PROJECT_ID || "demo-app",
-    storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET || "demo-app.appspot.com",
-    messagingSenderId: import.meta.env.PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789",
-    appId: import.meta.env.PUBLIC_FIREBASE_APP_ID || "1:123456789:web:demo"
+    apiKey: apiKey,
+    authDomain: import.meta.env.PUBLIC_FIREBASE_AUTH_DOMAIN || `${projectId}.firebaseapp.com`,
+    projectId: projectId,
+    storageBucket: import.meta.env.PUBLIC_FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`,
+    messagingSenderId: messagingSenderId,
+    appId: import.meta.env.PUBLIC_FIREBASE_APP_ID || `1:${messagingSenderId}:web:production`
 };
 
 // Initialize Firebase app if not already initialized
@@ -41,5 +52,9 @@ export const auth = new Proxy({}, {
 }) as any;
 
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+    client_id: GOOGLE_CLIENT_ID,
+    prompt: 'select_account'
+});
 
 export default app;
