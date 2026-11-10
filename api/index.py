@@ -496,8 +496,8 @@ def add_to_playlist():
     return jsonify({"success": True, "message": "Song added to playlist"})
 
 # ---------- HEALTH CHECK ----------
-@app.route('/health')
-@app.route('/api/health')
+@app.route('/health', methods=['GET', 'HEAD', 'OPTIONS'])
+@app.route('/api/health', methods=['GET', 'HEAD', 'OPTIONS'])
 def health():
     return jsonify({
         "status": "ok",
@@ -506,8 +506,18 @@ def health():
     }), 200
 
 # ---------- ROOT REDIRECT TO FRONTEND ----------
-@app.route('/')
+@app.route('/', methods=['GET', 'HEAD', 'OPTIONS'])
 def root():
+    user_agent = request.headers.get('User-Agent', '')
+    # If Render health check probe (Go-http-client) or direct JSON API check, respond with 200 OK
+    if 'Go-http-client' in user_agent or request.headers.get('Accept') == 'application/json':
+        return jsonify({
+            "status": "ok",
+            "service": "music-backend-api",
+            "site": "https://music-site-red.vercel.app/",
+            "timestamp": time.time()
+        }), 200
+    # For browser users, redirect directly to the frontend site
     return redirect("https://music-site-red.vercel.app/", code=302)
 
 def get_cached_trending_songs():
