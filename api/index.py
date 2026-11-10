@@ -492,6 +492,16 @@ def add_to_playlist():
     db.session.commit()
     return jsonify({"success": True})
 
+# ---------- HEALTH CHECK ----------
+@app.route('/health')
+@app.route('/api/health')
+def health():
+    return jsonify({
+        "status": "ok",
+        "service": "music-backend-api",
+        "timestamp": time.time()
+    }), 200
+
 # ---------- STATIC SERVING (For local testing) ----------
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

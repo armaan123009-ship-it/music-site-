@@ -71,11 +71,56 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 
 	const escapeAttr = (str: any) => str ? String(str).replace(/"/g, '&quot;') : '';
 
+	const FALLBACK_HITS = [
+		{ id: "kOn-HdEg6AQ", title: "Beat It", artist: "Michael Jackson", image: "https://i.ytimg.com/vi/kOn-HdEg6AQ/hqdefault.jpg" },
+		{ id: "28jp-30w8Lg", title: "Paparazzi", artist: "Lady Gaga", image: "https://i.ytimg.com/vi/28jp-30w8Lg/hqdefault.jpg" },
+		{ id: "1f5dO89GtuE", title: "Runaway", artist: "AURORA", image: "https://i.ytimg.com/vi/1f5dO89GtuE/hqdefault.jpg" },
+		{ id: "OPoSuyu0dsY", title: "9 to 5", artist: "Dolly Parton", image: "https://i.ytimg.com/vi/OPoSuyu0dsY/hqdefault.jpg" },
+		{ id: "d5NnDC716wg", title: "Lonely in the Future", artist: "The Strokes", image: "https://i.ytimg.com/vi/d5NnDC716wg/hqdefault.jpg" },
+		{ id: "xukbqwRuN5w", title: "Choosin' Texas", artist: "Ella Langley", image: "https://i.ytimg.com/vi/xukbqwRuN5w/hqdefault.jpg" },
+		{ id: "jJWIzuHdDFk", title: "Mr. Do Something", artist: "Lil Baby", image: "https://i.ytimg.com/vi/jJWIzuHdDFk/hqdefault.jpg" },
+		{ id: "ljAH6jNaApU", title: "BbY WOW", artist: "KAROL G", image: "https://i.ytimg.com/vi/ljAH6jNaApU/hqdefault.jpg" }
+	];
+
 	async function loadHomeContent() {
 		const container = document.getElementById('home-dynamic-content');
 		if (!container) return;
 
+		let loaded = false;
+		const fallbackTimer = setTimeout(() => {
+			if (!loaded && container && container.innerHTML.includes('Waking up')) {
+				container.innerHTML = `
+					<section class="animate-in fade-in duration-700 space-y-6">
+						<div class="flex items-end justify-between">
+							<div class="space-y-1">
+								<p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Instant Picks</p>
+								<h2 class="text-3xl font-black tracking-tighter text-white">Popular Right Now</h2>
+							</div>
+						</div>
+						<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-y-3.5 gap-x-6">
+							${FALLBACK_HITS.map((track: any) => `
+								<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+									 data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist)}" data-artist-id="" data-artwork="${escapeAttr(track.image)}">
+									<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+										<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+											<img src="${track.image}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 opacity-0" onload="this.classList.remove('opacity-0')" alt="${escapeAttr(track.title)}" />
+										</div>
+										<div class="min-w-0">
+											<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">${track.title}</h3>
+											<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">${track.artist} • Popular</p>
+										</div>
+									</div>
+								</div>
+							`).join('')}
+						</div>
+					</section>
+				`;
+			}
+		}, 3000);
+
 		const homeSections = await fetchHome();
+		loaded = true;
+		clearTimeout(fallbackTimer);
 		if (homeSections && homeSections.length > 0) {
 			container.innerHTML = homeSections.map((section: any, idx: number) => {
 				// Style first section or recommendation sections as Quick Picks rows
