@@ -1760,9 +1760,9 @@ import {
             audio.onerror = null;
             audio.pause();
 
-            // Direct YouTube embed player playback for production deployments to ensure instant <100ms audio playback with 0 errors
-            if (!isLocalhost || state.usingYoutubeEmbed) {
-                state.usingYoutubeEmbed = true;
+            // Use native HTML5 audio streaming for background play, lockscreen media session & native controls.
+            // YouTube embed is reserved strictly as a fallback if direct streaming encounters an error.
+            if (state.usingYoutubeEmbed) {
                 updateMediaSession(track);
                 miniPlayer?.classList.remove("translate-y-full");
                 if (!playWithYoutubeEmbed(track)) {
@@ -2873,22 +2873,21 @@ import {
 
         // Attach event listeners to player controls
         const togglePlay = () => {
-            const nextPlayingState = !state.isPlaying;
-            syncPlayPauseUI(nextPlayingState);
-
             if (state.usingYoutubeEmbed) {
-                if (ytPlayer && typeof ytPlayer.playVideo === "function") {
-                    try {
-                        if (nextPlayingState) {
-                            ytPlayer.playVideo();
-                            requestWakeLock();
-                        } else {
-                            ytPlayer.pauseVideo();
-                            releaseWakeLock();
-                        }
-                    } catch (e) {
-                        console.error("[YouTube API] togglePlay error:", e);
+                if (!state.isPlaying) {
+                    if (ytPlayer && typeof ytPlayer.playVideo === "function") {
+                        try { ytPlayer.playVideo(); } catch (e) {}
                     }
+                    youtubeCommand("playVideo");
+                    syncPlayPauseUI(true);
+                    requestWakeLock();
+                } else {
+                    if (ytPlayer && typeof ytPlayer.pauseVideo === "function") {
+                        try { ytPlayer.pauseVideo(); } catch (e) {}
+                    }
+                    youtubeCommand("pauseVideo");
+                    syncPlayPauseUI(false);
+                    releaseWakeLock();
                 }
                 return;
             }
@@ -2897,7 +2896,8 @@ import {
             if (
                 !currentSrc ||
                 currentSrc === window.location.href ||
-                currentSrc.endsWith("/")
+                currentSrc.endsWith("/") ||
+                currentSrc === SILENT_DATA_URI
             ) {
                 if (
                     state.currentIndex !== -1 &&
@@ -2909,22 +2909,22 @@ import {
                 }
             }
 
-            if (nextPlayingState) {
+            if (audio.paused) {
+                syncUnlockAudio();
                 audio
                     .play()
                     .then(() => {
+                        syncPlayPauseUI(true);
                         requestWakeLock();
                     })
                     .catch((err) => {
-                        console.warn(
-                            "Audio play failed, reverting UI state:",
-                            err,
-                        );
+                        console.warn("Audio play failed, reverting UI state:", err);
                         syncPlayPauseUI(false);
                         releaseWakeLock();
                     });
             } else {
                 audio.pause();
+                syncPlayPauseUI(false);
                 releaseWakeLock();
             }
         };
@@ -3172,12 +3172,12 @@ import {
                 window.location.hostname === "localhost" ||
                 window.location.hostname === "127.0.0.1";
 
-            // Priority 1: Request direct high-speed audio link via backend (completely bypasses Vercel 4.5MB response limit)
+            // Priority 1: Request direct high-speed audio link via backend
             try {
                 updateDownloadProgress("Resolving audio link...", true);
                 const dlData = await apiFetch(`/api/download/${track.id}?mode=json&title=${encodeURIComponent(track.title)}`);
                 
-                if (dlData && dlData.download_url) {
+                if (dlData && dlData.download_url && !dlData.error) {
                     const downloadUrl = dlData.download_url;
                     const safeName = dlData.filename || `${track.title}.mp3`;
                     
@@ -3193,33 +3193,58 @@ import {
                         document.body.removeChild(a);
                     }
                     updateDownloadProgress("Download started", false);
-                    showToast("Download started!");
+                    showToast("Download started! 🎵");
                     return;
                 }
             } catch (jsonDlErr) {
-                console.warn("[Download] JSON resolver notice, trying direct stream trigger:", jsonDlErr);
+                console.warn("[Download] Backend JSON notice, falling back to client resolver:", jsonDlErr);
             }
 
-            // Priority 2: Direct browser trigger to /api/download (with 302 redirect fallback)
+            // Priority 2: Direct Client-side Cobalt Resolver (runs from client browser IP)
             try {
-                updateDownloadProgress("Downloading...", true);
-                const directUrl = `${API_BASE}/api/download/${track.id}?redirect=true&title=${encodeURIComponent(track.title)}`;
-                
+                updateDownloadProgress("Resolving via CDN...", true);
+                const clientUrl = await resolveDownloadClientSide(track.id, 6000);
+                if (clientUrl) {
+                    const safeName = `${track.title}.mp3`;
+                    if (isCapacitor) {
+                        window.open(clientUrl, "_system");
+                    } else {
+                        const a = document.createElement("a");
+                        a.href = clientUrl;
+                        a.download = safeName;
+                        a.target = "_blank";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                    }
+                    updateDownloadProgress("Download started", false);
+                    showToast("Download started! 🎵");
+                    return;
+                }
+            } catch (clientErr) {
+                console.warn("[Download] Client resolver notice:", clientErr);
+            }
+
+            // Priority 3: Direct pure audio stream link from backend /play/<id>
+            try {
+                updateDownloadProgress("Starting stream download...", true);
+                const playUrl = `${API_BASE}/play/${track.id}`;
                 if (isCapacitor) {
-                    window.open(directUrl, "_system");
+                    window.open(playUrl, "_system");
                 } else {
                     const a = document.createElement("a");
-                    a.href = directUrl;
+                    a.href = playUrl;
                     a.download = `${track.title}.mp3`;
+                    a.target = "_blank";
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                 }
                 updateDownloadProgress("Download started", false);
-                showToast("Download started!");
+                showToast("Download started! 🎵");
                 return;
             } catch (err) {
-                console.error("[Download] Fallback trigger error:", err);
+                console.error("[Download] Fallback stream error:", err);
                 updateDownloadProgress("Failed", false);
                 showToast("Download failed. Please try again.");
             }

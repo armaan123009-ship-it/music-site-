@@ -44,45 +44,58 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
                 </button>
                 
                 <!-- Dropdown Menu -->
-                <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-48 rounded-2xl bg-card border border-white/10 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div class="px-4 py-2 border-b border-white/5">
-                        <span class="text-xs font-bold text-muted-foreground uppercase tracking-widest">Select Theme</span>
+                <div id="theme-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-card border border-white/10 shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 max-h-[85vh] overflow-y-auto">
+                    <div class="px-4 py-2 border-b border-white/5 flex items-center justify-between">
+                        <span class="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Spicetify Studio</span>
+                        <span class="text-[9px] px-1.5 py-0.5 rounded bg-primary/20 text-primary font-bold">Pro</span>
                     </div>
                     <div class="p-1.5 space-y-1">
-                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spotify-green">
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spotify-green">
                             <span class="w-3 h-3 rounded-full bg-[#1ed760] shadow-[0_0_8px_rgba(30,215,96,0.5)]"></span>
-                            Spotify Green
+                            Spicetify Sleek (Green)
                         </button>
-                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-cyber-purple">
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spicetify-bloom">
+                            <span class="w-3 h-3 rounded-full bg-[#f43f5e] shadow-[0_0_8px_rgba(244,63,94,0.6)]"></span>
+                            Spicetify Bloom (Neon)
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spicetify-catppuccin">
+                            <span class="w-3 h-3 rounded-full bg-[#cba6f7] shadow-[0_0_8px_rgba(203,166,247,0.6)]"></span>
+                            Catppuccin Mocha
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spicetify-tokyonight">
+                            <span class="w-3 h-3 rounded-full bg-[#7aa2f7] shadow-[0_0_8px_rgba(122,162,247,0.6)]"></span>
+                            Tokyo Night (Midnight)
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spicetify-nord">
+                            <span class="w-3 h-3 rounded-full bg-[#88c0d0] shadow-[0_0_8px_rgba(136,192,208,0.6)]"></span>
+                            Nord Frost (Arctic)
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spicetify-dribbblish">
+                            <span class="w-3 h-3 rounded-full bg-[#ff5c7c] shadow-[0_0_8px_rgba(255,92,124,0.6)]"></span>
+                            Dribbblish (Coral)
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-spicetify-gruvbox">
+                            <span class="w-3 h-3 rounded-full bg-[#fabd2f] shadow-[0_0_8px_rgba(250,189,47,0.6)]"></span>
+                            Gruvbox (Warm Gold)
+                        </button>
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-cyber-purple">
                             <span class="w-3 h-3 rounded-full bg-[#a855f7] shadow-[0_0_8px_rgba(168,85,247,0.5)]"></span>
                             Cyberpunk Purple
                         </button>
-                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-deep-crimson">
-                            <span class="w-3 h-3 rounded-full bg-[#b91c1c] shadow-[0_0_8px_rgba(185,28,28,0.5)]"></span>
-                            Deep Crimson
-                        </button>
-                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-midnight-blue">
+                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-midnight-blue">
                             <span class="w-3 h-3 rounded-full bg-[#1d4ed8] shadow-[0_0_8px_rgba(29,78,216,0.5)]"></span>
                             Midnight Blue
-                        </button>
-                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-slate-gray">
-                            <span class="w-3 h-3 rounded-full bg-[#64748b] shadow-[0_0_8px_rgba(100,116,139,0.5)]"></span>
-                            Slate Gray
-                        </button>
-                        <button class="theme-option w-full text-left px-3 py-2 rounded-xl text-sm font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-monochrome">
-                            <span class="w-3 h-3 rounded-full bg-white border border-white/20 shadow-[0_0_8px_rgba(255,255,255,0.4)]"></span>
-                            Monochrome Slate
                         </button>
                         
                         <!-- Custom Color Theme Options -->
                         <div class="border-t border-white/5 mt-1 pt-1.5 px-3 flex flex-col gap-1.5">
                             <button class="theme-option w-full text-left py-1.5 rounded-xl text-xs font-bold flex items-center gap-3 hover:bg-white/5 transition-all text-white cursor-pointer" data-theme="theme-custom">
                                 <span id="custom-theme-indicator" class="w-3.5 h-3.5 rounded-full bg-primary border border-white/10 shadow-[0_0_8px_var(--primary)] shrink-0"></span>
-                                Custom Accent
+                                Custom Spicetify Hex
                             </button>
                             <div class="flex items-center justify-between pl-6 pr-2">
-                                <span class="text-[10px] font-bold text-muted-foreground uppercase">Choose Color</span>
-                                <input type="color" id="custom-color-picker" class="w-7 h-7 rounded-md cursor-pointer bg-transparent border-0 p-0" value="#FF3D77" style="border: none; outline: none;" />
+                                <span class="text-[10px] font-bold text-muted-foreground uppercase">Pick Accent</span>
+                                <input type="color" id="custom-color-picker" class="w-7 h-7 rounded-md cursor-pointer bg-transparent border-0 p-0" value="#1ed760" style="border: none; outline: none;" />
                             </div>
                         </div>
                     </div>

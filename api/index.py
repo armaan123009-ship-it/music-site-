@@ -1062,14 +1062,14 @@ def resolve_stream_url(video_id):
         ("Invidious", fetch_invidious_stream_url),
         ("Piped", fetch_piped_stream_url),
         ("Cobalt", fetch_cobalt_stream_url),
+        ("yt-dlp", extract_stream_url_fast),
     ]
-    resolvers.append(("yt-dlp", extract_stream_url_fast))
     
     resolved_url = None
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(resolvers)) as executor:
         future_to_resolver = {executor.submit(func, video_id): name for name, func in resolvers}
         try:
-            for future in concurrent.futures.as_completed(future_to_resolver, timeout=4.5):
+            for future in concurrent.futures.as_completed(future_to_resolver, timeout=8.0):
                 name = future_to_resolver[future]
                 try:
                     res = future.result()
@@ -1082,6 +1082,10 @@ def resolve_stream_url(video_id):
         except concurrent.futures.TimeoutError:
             print("[Parallel Resolver] as_completed loop timed out waiting for slower resolvers")
                 
+    if not resolved_url:
+        print(f"[Resolver] Parallel pool completed without hit, trying direct yt-dlp fallback...")
+        resolved_url = extract_stream_url_fast(video_id) or extract_stream_url(video_id)
+
     if resolved_url:
         set_cached_stream_url(video_id, resolved_url)
         return resolved_url
@@ -1395,7 +1399,12 @@ def download_audio(video_id):
             del stream_cache[video_id]
         url = resolve_stream_url(video_id)
         if not url:
-            raise Exception("Failed to resolve stream URL from available resolvers")
+            url = extract_stream_url(video_id) or extract_stream_url_fast(video_id)
+        
+        # Absolute fallback to internal audio streamer if resolvers could not get direct CDN URL
+        if not url:
+            host = request.host_url.rstrip('/') if request.host_url else "https://music-backend-api-9cg6.onrender.com"
+            url = f"{host}/play/{video_id}"
             
         # Return direct URL for client-side download to avoid Vercel 4.5MB payload limit
         if json_mode:

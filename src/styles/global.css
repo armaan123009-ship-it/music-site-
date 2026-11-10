@@ -415,6 +415,164 @@
     --sidebar-border: oklch(1 0 250 / 8%);
 }
 
+/* ================= SPICETIFY MASTER SUITE THEMES ================= */
+
+/* 1. Spicetify Bloom: Vibrant Neon Magenta, Violet Glow & Glass */
+.theme-spicetify-bloom {
+    --background: oklch(0.10 0.02 320);
+    --foreground: oklch(0.99 0 0);
+    --card: oklch(0.15 0.04 325 / 75%);
+    --card-foreground: oklch(0.99 0 0);
+    --popover: oklch(0.14 0.04 325);
+    --popover-foreground: oklch(0.99 0 0);
+    --primary: oklch(0.68 0.28 350); /* Bloom Electric Rose */
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.24 0.09 315);
+    --secondary-foreground: oklch(0.99 0 0);
+    --muted: oklch(0.18 0.04 320);
+    --muted-foreground: oklch(0.75 0.06 320);
+    --accent: oklch(0.20 0.06 325);
+    --accent-foreground: oklch(0.99 0 0);
+    --border: oklch(1 0.1 350 / 15%);
+    --input: oklch(1 0.1 350 / 18%);
+    --ring: oklch(0.68 0.28 350);
+    --sidebar: oklch(0.11 0.03 320);
+    --sidebar-foreground: oklch(0.99 0 0);
+    --sidebar-primary: oklch(0.68 0.28 350);
+    --sidebar-accent: oklch(0.19 0.05 325);
+    --sidebar-border: oklch(1 0.1 350 / 15%);
+}
+
+/* 2. Spicetify Catppuccin Mocha: Soft Lavender & Warm Dark Pastels */
+.theme-spicetify-catppuccin {
+    --background: oklch(0.16 0.02 275);
+    --foreground: oklch(0.95 0.01 270);
+    --card: oklch(0.19 0.025 275);
+    --card-foreground: oklch(0.95 0.01 270);
+    --popover: oklch(0.18 0.025 275);
+    --popover-foreground: oklch(0.95 0.01 270);
+    --primary: oklch(0.76 0.15 295); /* Catppuccin Lavender */
+    --primary-foreground: oklch(0.16 0.02 275);
+    --secondary: oklch(0.24 0.04 275);
+    --secondary-foreground: oklch(0.95 0.01 270);
+    --muted: oklch(0.22 0.02 275);
+    --muted-foreground: oklch(0.72 0.03 275);
+    --accent: oklch(0.22 0.03 285);
+    --accent-foreground: oklch(0.95 0.01 270);
+    --border: oklch(1 0.04 295 / 12%);
+    --input: oklch(1 0.04 295 / 16%);
+    --ring: oklch(0.76 0.15 295);
+    --sidebar: oklch(0.14 0.02 275);
+    --sidebar-foreground: oklch(0.95 0.01 270);
+    --sidebar-primary: oklch(0.76 0.15 295);
+    --sidebar-accent: oklch(0.20 0.03 285);
+    --sidebar-border: oklch(1 0.04 295 / 12%);
+}
+
+/* 3. Spicetify Tokyo Night: Midnight Azure with Electric Cyan Highlights */
+.theme-spicetify-tokyonight {
+    --background: oklch(0.14 0.025 260);
+    --foreground: oklch(0.96 0.01 240);
+    --card: oklch(0.18 0.035 255);
+    --card-foreground: oklch(0.96 0.01 240);
+    --popover: oklch(0.16 0.035 255);
+    --popover-foreground: oklch(0.96 0.01 240);
+    --primary: oklch(0.72 0.17 250); /* Tokyo Night Blue */
+    --primary-foreground: oklch(0.12 0.02 260);
+    --secondary: oklch(0.22 0.06 250);
+    --secondary-foreground: oklch(0.96 0.01 240);
+    --muted: oklch(0.20 0.03 255);
+    --muted-foreground: oklch(0.70 0.04 250);
+    --accent: oklch(0.21 0.05 255);
+    --accent-foreground: oklch(0.96 0.01 240);
+    --border: oklch(1 0.08 250 / 14%);
+    --input: oklch(1 0.08 250 / 18%);
+    --ring: oklch(0.72 0.17 250);
+    --sidebar: oklch(0.12 0.02 260);
+    --sidebar-foreground: oklch(0.96 0.01 240);
+    --sidebar-primary: oklch(0.72 0.17 250);
+    --sidebar-accent: oklch(0.19 0.04 255);
+    --sidebar-border: oklch(1 0.08 250 / 14%);
+}
+
+/* 4. Spicetify Nord: Polar Night Slate & Arctic Frost Cyan */
+.theme-spicetify-nord {
+    --background: oklch(0.22 0.02 240);
+    --foreground: oklch(0.96 0.01 220);
+    --card: oklch(0.26 0.025 235);
+    --card-foreground: oklch(0.96 0.01 220);
+    --popover: oklch(0.24 0.025 235);
+    --popover-foreground: oklch(0.96 0.01 220);
+    --primary: oklch(0.78 0.10 215); /* Nord Frost Cyan */
+    --primary-foreground: oklch(0.18 0.02 240);
+    --secondary: oklch(0.30 0.03 235);
+    --secondary-foreground: oklch(0.96 0.01 220);
+    --muted: oklch(0.28 0.02 235);
+    --muted-foreground: oklch(0.75 0.03 220);
+    --accent: oklch(0.29 0.03 225);
+    --accent-foreground: oklch(0.96 0.01 220);
+    --border: oklch(1 0.04 215 / 12%);
+    --input: oklch(1 0.04 215 / 15%);
+    --ring: oklch(0.78 0.10 215);
+    --sidebar: oklch(0.20 0.02 240);
+    --sidebar-foreground: oklch(0.96 0.01 220);
+    --sidebar-primary: oklch(0.78 0.10 215);
+    --sidebar-accent: oklch(0.27 0.025 235);
+    --sidebar-border: oklch(1 0.04 215 / 12%);
+}
+
+/* 5. Spicetify Dribbblish: Minimalist Obsidian Dark with Radiant Coral */
+.theme-spicetify-dribbblish {
+    --background: oklch(0.13 0 0);
+    --foreground: oklch(0.99 0 0);
+    --card: oklch(0.17 0.01 15);
+    --card-foreground: oklch(0.99 0 0);
+    --popover: oklch(0.16 0.01 15);
+    --popover-foreground: oklch(0.99 0 0);
+    --primary: oklch(0.68 0.24 15); /* Dribbblish Coral Pink */
+    --primary-foreground: oklch(0.99 0 0);
+    --secondary: oklch(0.23 0.03 15);
+    --secondary-foreground: oklch(0.99 0 0);
+    --muted: oklch(0.20 0.01 15);
+    --muted-foreground: oklch(0.74 0.03 15);
+    --accent: oklch(0.21 0.03 15);
+    --accent-foreground: oklch(0.99 0 0);
+    --border: oklch(1 0.06 15 / 12%);
+    --input: oklch(1 0.06 15 / 15%);
+    --ring: oklch(0.68 0.24 15);
+    --sidebar: oklch(0.11 0 0);
+    --sidebar-foreground: oklch(0.99 0 0);
+    --sidebar-primary: oklch(0.68 0.24 15);
+    --sidebar-accent: oklch(0.19 0.02 15);
+    --sidebar-border: oklch(1 0.06 15 / 12%);
+}
+
+/* 6. Spicetify Gruvbox: Retro Warm Earth & Gold */
+.theme-spicetify-gruvbox {
+    --background: oklch(0.17 0.015 70);
+    --foreground: oklch(0.94 0.02 85);
+    --card: oklch(0.21 0.025 70);
+    --card-foreground: oklch(0.94 0.02 85);
+    --popover: oklch(0.19 0.025 70);
+    --popover-foreground: oklch(0.94 0.02 85);
+    --primary: oklch(0.80 0.17 85); /* Gruvbox Gold */
+    --primary-foreground: oklch(0.16 0.02 70);
+    --secondary: oklch(0.27 0.04 70);
+    --secondary-foreground: oklch(0.94 0.02 85);
+    --muted: oklch(0.24 0.02 70);
+    --muted-foreground: oklch(0.75 0.03 80);
+    --accent: oklch(0.25 0.03 75);
+    --accent-foreground: oklch(0.94 0.02 85);
+    --border: oklch(1 0.05 85 / 12%);
+    --input: oklch(1 0.05 85 / 15%);
+    --ring: oklch(0.80 0.17 85);
+    --sidebar: oklch(0.15 0.015 70);
+    --sidebar-foreground: oklch(0.94 0.02 85);
+    --sidebar-primary: oklch(0.80 0.17 85);
+    --sidebar-accent: oklch(0.23 0.025 70);
+    --sidebar-border: oklch(1 0.05 85 / 12%);
+}
+
 
 
 @layer base {
