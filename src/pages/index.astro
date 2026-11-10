@@ -43,12 +43,89 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 
 			<!-- Dynamic Home Sections -->
 			<div id="home-dynamic-content" class="space-y-12">
-				<div class="flex flex-col items-center justify-center py-32 space-y-4 opacity-50">
-					<div class="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center border border-white/5">
-						<Play className="w-8 h-8 text-primary animate-pulse" />
+				<section class="animate-in fade-in duration-700 space-y-6">
+					<div class="flex items-end justify-between">
+						<div class="space-y-1">
+							<p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Curated for you</p>
+							<h2 class="text-3xl font-black tracking-tighter text-white">Quick picks</h2>
+						</div>
 					</div>
-					<p class="font-black tracking-tighter text-xl text-white">Waking up the music servers...</p>
-				</div>
+
+					<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-y-3.5 gap-x-6">
+						<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+							 data-id="xTvyyoF_LZY" data-title="Shape of You" data-artist="Ed Sheeran" data-artist-id="" data-artwork="https://i.ytimg.com/vi/xTvyyoF_LZY/hqdefault.jpg">
+							<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+								<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+									<img src="https://i.ytimg.com/vi/xTvyyoF_LZY/hqdefault.jpg" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" alt="Shape of You" />
+								</div>
+								<div class="min-w-0">
+									<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">Shape of You</h3>
+									<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">Ed Sheeran • Popular</p>
+								</div>
+							</div>
+						</div>
+						<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+							 data-id="ORrFJ63nlcA" data-title="Perfect" data-artist="Ed Sheeran" data-artist-id="" data-artwork="https://i.ytimg.com/vi/ORrFJ63nlcA/hqdefault.jpg">
+							<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+								<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+									<img src="https://i.ytimg.com/vi/ORrFJ63nlcA/hqdefault.jpg" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" alt="Perfect" />
+								</div>
+								<div class="min-w-0">
+									<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">Perfect</h3>
+									<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">Ed Sheeran • Global Hit</p>
+								</div>
+							</div>
+						</div>
+						<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+							 data-id="kOn-HdEg6AQ" data-title="Beat It" data-artist="Michael Jackson" data-artist-id="" data-artwork="https://i.ytimg.com/vi/kOn-HdEg6AQ/hqdefault.jpg">
+							<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+								<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+									<img src="https://i.ytimg.com/vi/kOn-HdEg6AQ/hqdefault.jpg" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" alt="Beat It" />
+								</div>
+								<div class="min-w-0">
+									<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">Beat It</h3>
+									<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">Michael Jackson • Classic</p>
+								</div>
+							</div>
+						</div>
+						<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+							 data-id="28jp-30w8Lg" data-title="Paparazzi" data-artist="Lady Gaga" data-artist-id="" data-artwork="https://i.ytimg.com/vi/28jp-30w8Lg/hqdefault.jpg">
+							<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+								<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+									<img src="https://i.ytimg.com/vi/28jp-30w8Lg/hqdefault.jpg" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" alt="Paparazzi" />
+								</div>
+								<div class="min-w-0">
+									<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">Paparazzi</h3>
+									<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">Lady Gaga • Pop Hit</p>
+								</div>
+							</div>
+						</div>
+						<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+							 data-id="1f5dO89GtuE" data-title="Runaway" data-artist="AURORA" data-artist-id="" data-artwork="https://i.ytimg.com/vi/1f5dO89GtuE/hqdefault.jpg">
+							<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+								<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+									<img src="https://i.ytimg.com/vi/1f5dO89GtuE/hqdefault.jpg" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" alt="Runaway" />
+								</div>
+								<div class="min-w-0">
+									<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">Runaway</h3>
+									<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">AURORA • Atmospheric</p>
+								</div>
+							</div>
+						</div>
+						<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
+							 data-id="fcnDmrtj6Sk" data-title="Dai Dai" data-artist="Shakira" data-artist-id="" data-artwork="https://i.ytimg.com/vi/fcnDmrtj6Sk/hqdefault.jpg">
+							<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
+								<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
+									<img src="https://i.ytimg.com/vi/fcnDmrtj6Sk/hqdefault.jpg" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" alt="Dai Dai" />
+								</div>
+								<div class="min-w-0">
+									<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">Dai Dai</h3>
+									<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">Shakira • Latin Hit</p>
+								</div>
+							</div>
+						</div>
+					</div>
+				</section>
 			</div>
 
 
@@ -86,41 +163,7 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 		const container = document.getElementById('home-dynamic-content');
 		if (!container) return;
 
-		let loaded = false;
-		const fallbackTimer = setTimeout(() => {
-			if (!loaded && container && container.innerHTML.includes('Waking up')) {
-				container.innerHTML = `
-					<section class="animate-in fade-in duration-700 space-y-6">
-						<div class="flex items-end justify-between">
-							<div class="space-y-1">
-								<p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Instant Picks</p>
-								<h2 class="text-3xl font-black tracking-tighter text-white">Popular Right Now</h2>
-							</div>
-						</div>
-						<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-y-3.5 gap-x-6">
-							${FALLBACK_HITS.map((track: any) => `
-								<div class="track-trigger flex items-center justify-between p-2 rounded-2xl hover:bg-white/5 group transition-all cursor-pointer"
-									 data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist)}" data-artist-id="" data-artwork="${escapeAttr(track.image)}">
-									<div class="flex items-center gap-3.5 pointer-events-none min-w-0 flex-1">
-										<div class="relative w-12 h-12 rounded-xl overflow-hidden border border-white/5 bg-white/5 shrink-0">
-											<img src="${track.image}" loading="lazy" class="w-full h-full object-cover group-hover:scale-105 transition-all duration-500 opacity-0" onload="this.classList.remove('opacity-0')" alt="${escapeAttr(track.title)}" />
-										</div>
-										<div class="min-w-0">
-											<h3 class="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">${track.title}</h3>
-											<p class="text-xs text-muted-foreground truncate font-medium mt-0.5">${track.artist} • Popular</p>
-										</div>
-									</div>
-								</div>
-							`).join('')}
-						</div>
-					</section>
-				`;
-			}
-		}, 3000);
-
 		const homeSections = await fetchHome();
-		loaded = true;
-		clearTimeout(fallbackTimer);
 		if (homeSections && homeSections.length > 0) {
 			container.innerHTML = homeSections.map((section: any, idx: number) => {
 				// Style first section or recommendation sections as Quick Picks rows
@@ -132,7 +175,7 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 							<div class="flex items-end justify-between">
 								<div class="space-y-1">
 									<p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Curated for you</p>
-									<h2 class="text-3xl font-black tracking-tighter text-white">Quick picks</h2>
+									<h2 class="text-3xl font-black tracking-tighter text-white">${section.title || 'Quick picks'}</h2>
 								</div>
 								<div class="flex items-center gap-3">
 									<button class="px-4 py-1.5 rounded-full bg-white/5 border border-white/5 hover:bg-white/10 text-xs font-bold text-white transition-all cursor-pointer">Play all</button>
@@ -205,51 +248,6 @@ const moodFilters = ["Podcasts", "Energize", "Feel good", "Relax", "Workout", "F
 					`;
 				}
 			}).join('');
-		} else {
-			// Fallback: try fetching trending music
-			try {
-				const { fetchTrending } = await import('../lib/api');
-				const trending = await fetchTrending();
-				if (trending && trending.length > 0) {
-					container.innerHTML = `
-						<section class="animate-in fade-in duration-700 space-y-6">
-							<div class="flex items-end justify-between">
-								<div class="space-y-1">
-									<p class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">Trending Now</p>
-									<h2 class="text-3xl font-black tracking-tighter text-white">Popular Worldwide</h2>
-								</div>
-							</div>
-							<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
-								${trending.slice(0, 18).map((track: any) => `
-									<div class="track-trigger group space-y-3 cursor-pointer"
-										 data-id="${track.id}" data-title="${escapeAttr(track.title)}" data-artist="${escapeAttr(track.artist)}" data-artist-id="${track.artistId || ''}" data-artwork="${escapeAttr(track.image)}">
-										<div class="relative aspect-square rounded-[2rem] overflow-hidden shadow-xl border border-white/5 bg-white/5">
-											<img src="${track.image}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-full object-cover transition-all duration-700 group-hover:scale-105 opacity-0" onload="this.classList.remove('opacity-0')" onerror="this.onerror=null; this.src='https://i.ytimg.com/vi/${track.id}/hqdefault.jpg';" alt="${escapeAttr(track.title)}" />
-											<div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-												<div class="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-lg">
-													<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-												</div>
-											</div>
-										</div>
-										<h3 class="font-bold text-sm truncate text-white group-hover:text-primary transition-colors">${track.title}</h3>
-										<p class="text-xs text-muted-foreground truncate font-medium">${track.artist}</p>
-									</div>
-								`).join('')}
-							</div>
-						</section>
-					`;
-					return;
-				}
-			} catch (e) {}
-
-			container.innerHTML = `
-				<div class="flex flex-col items-center justify-center py-20 space-y-4 text-center">
-					<p class="font-black text-xl text-white">Connecting to music services...</p>
-					<button onclick="window.location.reload()" class="px-6 py-2.5 rounded-full bg-primary text-primary-foreground font-bold text-xs uppercase tracking-wider hover:opacity-90 transition-all cursor-pointer">
-						Refresh
-					</button>
-				</div>
-			`;
 		}
 	}
 

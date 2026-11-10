@@ -77,16 +77,63 @@ function setCache(key: string, data: any) {
     } catch (e) { }
 }
 
+const DEFAULT_POPULAR_PICKS = [
+    { id: "xTvyyoF_LZY", title: "Shape of You", artist: "Ed Sheeran", image: "https://i.ytimg.com/vi/xTvyyoF_LZY/hqdefault.jpg" },
+    { id: "ORrFJ63nlcA", title: "Perfect", artist: "Ed Sheeran", image: "https://i.ytimg.com/vi/ORrFJ63nlcA/hqdefault.jpg" },
+    { id: "kOn-HdEg6AQ", title: "Beat It", artist: "Michael Jackson", image: "https://i.ytimg.com/vi/kOn-HdEg6AQ/hqdefault.jpg" },
+    { id: "28jp-30w8Lg", title: "Paparazzi", artist: "Lady Gaga", image: "https://i.ytimg.com/vi/28jp-30w8Lg/hqdefault.jpg" },
+    { id: "1f5dO89GtuE", title: "Runaway", artist: "AURORA", image: "https://i.ytimg.com/vi/1f5dO89GtuE/hqdefault.jpg" },
+    { id: "OPoSuyu0dsY", title: "9 to 5", artist: "Dolly Parton", image: "https://i.ytimg.com/vi/OPoSuyu0dsY/hqdefault.jpg" },
+    { id: "fcnDmrtj6Sk", title: "Dai Dai", artist: "Shakira", image: "https://i.ytimg.com/vi/fcnDmrtj6Sk/hqdefault.jpg" },
+    { id: "d5NnDC716wg", title: "Lonely in the Future", artist: "The Strokes", image: "https://i.ytimg.com/vi/d5NnDC716wg/hqdefault.jpg" },
+    { id: "xukbqwRuN5w", title: "Choosin' Texas", artist: "Ella Langley", image: "https://i.ytimg.com/vi/xukbqwRuN5w/hqdefault.jpg" },
+    { id: "jJWIzuHdDFk", title: "Mr. Do Something", artist: "Lil Baby", image: "https://i.ytimg.com/vi/jJWIzuHdDFk/hqdefault.jpg" },
+    { id: "ljAH6jNaApU", title: "BbY WOW", artist: "KAROL G", image: "https://i.ytimg.com/vi/ljAH6jNaApU/hqdefault.jpg" },
+    { id: "vRjaGgDsWSo", title: "Casa Tupka", artist: "Yo Yo Honey Singh", image: "https://i.ytimg.com/vi/vRjaGgDsWSo/hqdefault.jpg" }
+];
+
 export async function fetchHome() {
     const cached = getCache('home', 600000); // 10 mins cache
-    if (cached) {
-        // Refresh in background silently for instant UI rendering
-        apiFetch('/api/home').then(data => data && setCache('home', data)).catch(() => {});
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+        // Silently revalidate in background without blocking UI
+        apiFetch('/api/home').then(data => {
+            if (data && Array.isArray(data) && data.length > 0) setCache('home', data);
+        }).catch(() => {});
         return cached;
     }
-    const data = await apiFetch('/api/home');
-    if (data) setCache('home', data);
-    return data || [];
+
+    try {
+        const data = await apiFetch('/api/home');
+        if (data && Array.isArray(data) && data.length > 0) {
+            setCache('home', data);
+            return data;
+        }
+    } catch (e) {
+        console.warn('Direct /api/home fetch failed, trying trending fallback...', e);
+    }
+
+    // Fallback 1: Try /api/trending which is fast and reliable
+    try {
+        const trending = await fetchTrending();
+        if (trending && Array.isArray(trending) && trending.length > 0) {
+            const fallbackSections = [
+                { title: "Quick Picks", items: trending.slice(0, 12) },
+                { title: "Trending Worldwide", items: trending.slice(12, 24) }
+            ];
+            setCache('home', fallbackSections);
+            return fallbackSections;
+        }
+    } catch (e) {
+        console.warn('Trending fallback failed, using curated picks', e);
+    }
+
+    // Fallback 2: Guaranteed instant curated tracks
+    return [
+        {
+            title: "Quick Picks",
+            items: DEFAULT_POPULAR_PICKS
+        }
+    ];
 }
 
 export async function fetchTrending() {

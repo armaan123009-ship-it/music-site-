@@ -510,79 +510,10 @@ def health():
 def root():
     return redirect("https://music-site-red.vercel.app/", code=302)
 
-# ---------- API ENDPOINTS ----------
-@app.route("/api/home")
-def home():
-    cached = get_cached_api("home", duration=900)  # 15 mins cache
+def get_cached_trending_songs():
+    cached = get_cached_api("trending", duration=1800)
     if cached is not None:
-        return jsonify(cached)
-    
-    sections = []
-    try:
-        try:
-            home_data = yt.get_home(limit=5)
-            for section in home_data:
-                items = [format_song(i) for i in section.get('contents', []) if format_song(i)][:12]
-                if items:
-                    sections.append({"title": section.get('title', 'Recommended'), "items": items})
-        except Exception as e:
-            print(f"[Home API] Native home failed: {e}")
-        
-        if not sections:
-            playlist_id = 'PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0'
-            try:
-                charts = yt.get_charts()
-                videos = charts.get('videos', [])
-                if videos:
-                    playlist_id = videos[0].get('playlistId') or playlist_id
-            except Exception as e:
-                print(f"[Home API] Charts check failed: {e}")
-            
-            try:
-                playlist = yt.get_playlist(playlist_id)
-                items = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)][:12]
-                if items:
-                    sections.append({"title": "Trending Now", "items": items})
-            except Exception as e:
-                print(f"[Home API] Native playlist fetch failed: {e}")
-                
-        if not sections:
-            print("[Home API] Native YTMusic results empty. Running official YouTube API search fallbacks...")
-            fallbacks = [
-                ("Trending Now", "music trending hits"),
-                ("Chill Vibes", "lofi chill beats study sleep"),
-                ("Gaming Arena", "gaming music synthwave"),
-                ("Classic Hits", "classic rock pop 80s 90s hits")
-            ]
-            for title, query in fallbacks:
-                items = search_youtube_official(query, max_results=12)
-                if items:
-                    sections.append({"title": title, "items": items})
-                    
-        if sections:
-            set_cached_api("home", sections)
-        return jsonify(sections)
-    except Exception as e:
-        print(f"[Home API] Outer exception: {e}. Building official YouTube fallbacks...")
-        fallbacks = [
-            ("Trending Now", "music trending hits"),
-            ("Chill Vibes", "lofi chill beats study sleep"),
-            ("Gaming Arena", "gaming music synthwave"),
-            ("Classic Hits", "classic rock pop 80s 90s hits")
-        ]
-        sections = []
-        for title, query in fallbacks:
-            items = search_youtube_official(query, max_results=12)
-            if items:
-                sections.append({"title": title, "items": items})
-        return jsonify(sections)
-
-@app.route("/api/trending")
-def trending():
-    cached = get_cached_api("trending", duration=1800)  # 30 mins cache
-    if cached is not None:
-        return jsonify(cached)
-    
+        return cached
     songs = []
     try:
         playlist_id = 'PL4fGSI1pDJn6t3TXLGiiJdD-sZbrG3tG0'
@@ -593,29 +524,73 @@ def trending():
                 playlist_id = videos[0].get('playlistId') or playlist_id
         except Exception as e:
             print(f"[Trending API] Charts fetch failed: {e}")
-        
         try:
             playlist = yt.get_playlist(playlist_id)
             songs = [format_song(i) for i in playlist.get('tracks', []) if format_song(i)]
         except Exception as e:
             print(f"[Trending API] Native playlist fetch failed: {e}")
-            
         if not songs:
-            print("[Trending API] YTMusic trends empty. Falling back to official YouTube Data API trending...")
             official_songs = get_trending_youtube_official()
             if official_songs:
                 songs = official_songs
-                
         if songs:
             set_cached_api("trending", songs)
-        return jsonify(songs)
+        return songs
     except Exception as e:
-        print(f"[Trending API] Exception: {e}. Trying official YouTube Data API fallback...")
-        official_songs = get_trending_youtube_official()
+        official_songs = get_trending_youtube_official() or []
         if official_songs:
             set_cached_api("trending", official_songs)
-            return jsonify(official_songs)
+        return official_songs
+
+# ---------- API ENDPOINTS ----------
+@app.route("/api/home")
+def home():
+    cached = get_cached_api("home", duration=900)  # 15 mins cache
+    if cached is not None:
+        return jsonify(cached)
+    
+    sections = []
+    try:
+        # 1. Fetch trending songs (fast, cached and guaranteed to succeed on datacenter IPs)
+        trending_songs = get_cached_trending_songs()
+        if trending_songs and len(trending_songs) >= 6:
+            sections.append({
+                "title": "Quick Picks",
+                "items": trending_songs[:12]
+            })
+            if len(trending_songs) > 12:
+                sections.append({
+                    "title": "Trending Worldwide",
+                    "items": trending_songs[12:24]
+                })
+            if len(trending_songs) > 24:
+                sections.append({
+                    "title": "Top Hits",
+                    "items": trending_songs[24:36]
+                })
+
+        if not sections:
+            fallbacks = [
+                ("Quick Picks", "top trending global songs hits"),
+                ("Chill Vibes", "lofi chill beats study sleep"),
+                ("Gaming Arena", "gaming music synthwave electronic"),
+            ]
+            for title, query in fallbacks:
+                items = search_youtube_official(query, max_results=12)
+                if items:
+                    sections.append({"title": title, "items": items})
+
+        if sections:
+            set_cached_api("home", sections)
+        return jsonify(sections)
+    except Exception as e:
+        print(f"[Home API] Outer exception: {e}")
         return jsonify([])
+
+@app.route("/api/trending")
+def trending():
+    songs = get_cached_trending_songs()
+    return jsonify(songs)
 
 @app.route("/api/explore")
 @app.route("/api/latest")
