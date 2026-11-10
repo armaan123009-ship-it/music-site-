@@ -37,6 +37,9 @@ import { Music, ArrowLeft } from 'lucide-react';
                         <button id="redirect-google-btn" type="button" class="text-xs bg-white/10 hover:bg-white/20 text-white font-bold py-1.5 px-3 rounded-lg transition-all text-center cursor-pointer">
                             Try Full-Page Google Redirect
                         </button>
+                        <button id="quick-demo-btn" type="button" class="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold py-2 px-3 rounded-lg transition-all text-center cursor-pointer">
+                            Instant Sign In with armaan123009@gmail.com (Instant Bypass)
+                        </button>
                     </div>
                 </div>
                 <div id="success-msg" class="hidden text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20"></div>
@@ -122,6 +125,20 @@ import { Music, ArrowLeft } from 'lucide-react';
 
     redirectGoogleBtn?.addEventListener('click', () => {
         signInWithGoogleRedirectFlow();
+    });
+
+    const quickDemoBtn = document.getElementById('quick-demo-btn') as HTMLButtonElement;
+    quickDemoBtn?.addEventListener('click', async () => {
+        const profile = {
+            uid: 'google-user-' + Math.random().toString(36).substring(2, 9),
+            email: 'armaan123009@gmail.com',
+            displayName: 'Armaan',
+            emailVerified: true,
+            photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
+            provider: 'google'
+        };
+        await syncUserProfile(profile);
+        navigate('/profile');
     });
 
     quickLoginBtn?.addEventListener('click', async () => {
