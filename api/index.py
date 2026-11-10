@@ -502,16 +502,19 @@ def health():
         "timestamp": time.time()
     }), 200
 
-# ---------- STATIC SERVING (For local testing) ----------
+# ---------- STATIC SERVING & FRONTEND REDIRECT ----------
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
+    # If accessed directly without an API prefix, redirect to the live Vercel frontend site
+    if path == "":
+        return redirect("https://music-site-red.vercel.app/", code=302)
     if path != "" and os.path.exists(app.static_folder + '/' + path):
         full_path = os.path.join(app.static_folder, path)
         if os.path.isdir(full_path):
             return send_from_directory(full_path, 'index.html')
         return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, 'index.html')
+    return redirect("https://music-site-red.vercel.app/", code=302)
 
 # ---------- API ENDPOINTS ----------
 @app.route("/api/home")

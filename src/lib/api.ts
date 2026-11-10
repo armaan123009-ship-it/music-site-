@@ -1,5 +1,7 @@
+export const PRODUCTION_RENDER_BACKEND = "https://music-backend-api-9cg6.onrender.com";
+
 const getApiBase = () => {
-    // Priority 1: Render backend URL or custom API URL
+    // Priority 1: Render backend URL or custom API URL from env
     if (import.meta.env.PUBLIC_RENDER_API_URL) {
         return import.meta.env.PUBLIC_RENDER_API_URL.replace(/\/$/, '');
     }
@@ -23,23 +25,22 @@ const getApiBase = () => {
         const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
         const isCapacitor = (window as any).Capacitor || window.location.protocol === 'capacitor:' || window.location.origin.includes('capacitor');
 
-        // Dev environment ports
+        // Dev environment ports (when testing with local python app.py)
         const devFrontPorts = new Set(['4321', '4320', '3000', '5173']);
-
         if (isLocalhost && devFrontPorts.has(window.location.port)) {
             return 'http://127.0.0.1:5000';
         }
 
-        // Production / Mobile Web: fallback to current origin if standard HTTP/S
-        if (window.location.protocol.startsWith('http') && !isCapacitor) {
-            return window.location.origin;
+        // On Capacitor APK or Mobile App: use the dedicated Render backend
+        if (isCapacitor) {
+            return PRODUCTION_RENDER_BACKEND;
         }
 
-        // Fallback for Capacitor APK when no PUBLIC_API_URL is supplied:
-        return 'http://127.0.0.1:5000';
+        // Production web on Vercel: use dedicated Render backend for heavy streaming and search
+        return PRODUCTION_RENDER_BACKEND;
     }
 
-    return 'http://127.0.0.1:5000'; // Fallback for SSR
+    return PRODUCTION_RENDER_BACKEND; // Default fallback
 };
 
 export const API_BASE = getApiBase();
