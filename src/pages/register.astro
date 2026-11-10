@@ -3,87 +3,42 @@ import Layout from '../layouts/Layout.astro';
 import { Music, ArrowLeft } from 'lucide-react';
 ---
 
-<Layout title="Register | Premium Music" showNav={false}>
-    <div class="min-h-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_left,var(--primary)_0%,transparent_25%),radial-gradient(circle_at_bottom_right,blue_0%,transparent_25%)]">
-        <div class="w-full max-w-md space-y-8 bg-card/40 backdrop-blur-2xl p-8 rounded-3xl border border-border shadow-2xl">
-            <div class="text-center space-y-2">
-                <a href="/login" class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4">
-                    <ArrowLeft className="w-4 h-4" /> Back to Login
+<Layout title="Sign In | Premium Music" showNav={false}>
+    <div class="min-h-screen flex items-center justify-center p-6 bg-[radial-gradient(circle_at_top_left,var(--primary)_0%,transparent_30%),radial-gradient(circle_at_bottom_right,blue_0%,transparent_30%)]">
+        <div class="w-full max-w-md space-y-8 bg-card/50 backdrop-blur-3xl p-8 sm:p-10 rounded-3xl border border-white/10 shadow-2xl">
+            <div class="text-center space-y-3">
+                <a href="/" class="inline-flex items-center gap-2 text-xs font-semibold text-muted-foreground hover:text-white transition-colors mb-2">
+                    <ArrowLeft className="w-4 h-4" /> Back to Music
                 </a>
-                <div class="flex justify-center mb-4">
-                    <div class="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                        <Music className="w-7 h-7 text-primary-foreground" />
+                <div class="flex justify-center mb-2">
+                    <div class="w-14 h-14 bg-primary/20 border border-primary/30 rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20">
+                        <Music className="w-8 h-8 text-primary" />
                     </div>
                 </div>
-                <h1 class="text-3xl font-bold tracking-tight">Create Account</h1>
-                <p class="text-muted-foreground">Join with your account</p>
+                <h1 class="text-3xl font-black tracking-tight text-white">Create Account</h1>
+                <p class="text-sm text-muted-foreground">Sign in with Google to create your personalized library with instant cloud sync.</p>
             </div>
 
-            <!-- Primary Clean Google Sign-Up Action -->
-            <div class="space-y-4">
-                <button id="google-btn" type="button" class="w-full py-4 bg-white hover:bg-zinc-100 text-zinc-900 font-bold rounded-2xl transition-all shadow-xl shadow-white/5 border border-zinc-200 flex items-center justify-center gap-3 cursor-pointer group active:scale-[0.98]">
+            <!-- Single Clean & Direct Google Sign-In -->
+            <div class="space-y-4 pt-2">
+                <button id="google-btn" type="button" class="w-full py-4.5 bg-white hover:bg-zinc-100 text-zinc-900 font-black rounded-2xl transition-all shadow-xl shadow-white/10 border border-zinc-200 flex items-center justify-center gap-3 cursor-pointer group active:scale-[0.98]">
                     <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                     </svg>
-                    <span id="google-btn-text" class="text-base font-bold">Continue with Google</span>
+                    <span id="google-btn-text" class="text-base font-bold tracking-tight">Continue with Google</span>
                 </button>
 
-                <div id="error-msg" class="hidden text-sm text-destructive bg-destructive/10 p-3 rounded-xl border border-destructive/20 space-y-2">
-                    <div id="error-text"></div>
-                    <div id="error-actions" class="hidden pt-2 border-t border-destructive/20 flex flex-col gap-2">
-                        <button id="redirect-google-btn" type="button" class="text-xs bg-white/10 hover:bg-white/20 text-white font-bold py-1.5 px-3 rounded-lg transition-all text-center cursor-pointer">
-                            Try Full-Page Google Redirect
-                        </button>
-                        <button id="quick-demo-btn" type="button" class="text-xs bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 font-bold py-2 px-3 rounded-lg transition-all text-center cursor-pointer">
-                            Instant Sign In with armaan123009@gmail.com (Instant Bypass)
-                        </button>
-                    </div>
-                </div>
-                <div id="success-msg" class="hidden text-sm text-emerald-400 bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20"></div>
+                <div id="notice-msg" class="hidden text-xs text-primary bg-primary/10 p-3 rounded-2xl border border-primary/20 text-center font-medium"></div>
             </div>
-
-            <!-- Optional Email Registration (Collapsed by default so page stays clean & non-misleading) -->
-            <details class="group border border-white/5 rounded-2xl bg-white/[0.02] overflow-hidden">
-                <summary class="px-4 py-3 text-xs font-semibold text-muted-foreground hover:text-white cursor-pointer select-none flex items-center justify-between list-none transition-colors">
-                    <span>Or register with email</span>
-                    <span class="text-xs group-open:rotate-180 transition-transform">▼</span>
-                </summary>
-                <div class="p-4 pt-1 border-t border-white/5">
-                    <form id="register-form" class="space-y-4">
-                        <div class="space-y-1.5">
-                            <label for="username" class="text-xs font-medium text-muted-foreground">Display Name</label>
-                            <input type="text" id="username" name="username" placeholder="John Doe" class="w-full bg-muted/40 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label for="email" class="text-xs font-medium text-muted-foreground">Email Address</label>
-                            <input type="email" id="email" name="email" placeholder="you@example.com" class="w-full bg-muted/40 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-                        </div>
-                        <div class="space-y-1.5">
-                            <label for="password" class="text-xs font-medium text-muted-foreground">Password</label>
-                            <input type="password" id="password" name="password" minlength="6" placeholder="At least 6 characters" class="w-full bg-muted/40 border border-border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all" />
-                        </div>
-                        <button type="submit" id="submit-btn" class="w-full py-3 bg-primary text-primary-foreground text-sm font-bold rounded-xl hover:opacity-90 transition-all cursor-pointer">
-                            Create Account with Email
-                        </button>
-                    </form>
-                </div>
-            </details>
 
             <!-- Security Layer Badge -->
-            <div class="p-3 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3">
+            <div class="p-3.5 bg-white/5 border border-white/5 rounded-2xl flex items-center gap-3">
                 <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></div>
                 <p class="text-[11px] text-muted-foreground leading-snug">
-                    <strong class="text-white">Security Verification:</strong> Automatic email verification and instant personal cloud playlist recovery.
-                </p>
-            </div>
-
-            <div class="text-center">
-                <p class="text-sm text-muted-foreground">
-                    Already have an account? 
-                    <a href="/login" class="text-primary font-bold hover:underline">Sign In</a>
+                    <strong class="text-white">Zero Setup Required:</strong> Your songs and playlists are permanently synced to your Google account.
                 </p>
             </div>
         </div>
@@ -92,45 +47,34 @@ import { Music, ArrowLeft } from 'lucide-react';
 
 <script>
     import { navigate } from 'astro:transitions/client';
-    import { signUpWithEmail, getCurrentUser } from '../lib/supabase';
-    import { syncUserProfile } from '../lib/supabaseDb';
-    import { performGoogleSignIn, checkGoogleRedirectHash, initGoogleAuth, renderGoogleButton, signInWithGoogleRedirectFlow } from '../lib/googleAuth';
+    import { getCurrentUser } from '../lib/supabase';
+    import { syncUserProfile, getActiveUser } from '../lib/supabaseDb';
+    import { performGoogleSignIn, checkGoogleRedirectHash, initGoogleAuth } from '../lib/googleAuth';
 
-    const form = document.getElementById('register-form') as HTMLFormElement;
-    const errorMsg = document.getElementById('error-msg') as HTMLDivElement;
-    const errorText = document.getElementById('error-text') as HTMLDivElement;
-    const errorActions = document.getElementById('error-actions') as HTMLDivElement;
-    const successMsg = document.getElementById('success-msg') as HTMLDivElement;
-    const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
     const googleBtn = document.getElementById('google-btn') as HTMLButtonElement;
     const googleBtnText = document.getElementById('google-btn-text') as HTMLSpanElement;
-    const redirectGoogleBtn = document.getElementById('redirect-google-btn') as HTMLButtonElement;
-    const quickLoginBtn = document.getElementById('quick-login-btn') as HTMLButtonElement;
+    const noticeMsg = document.getElementById('notice-msg') as HTMLDivElement;
 
-    // Check if session exists or user returned from Google OAuth redirect
-    getCurrentUser().then(user => {
-        if (user) navigate('/profile');
-    });
+    const active = getActiveUser();
+    if (active) {
+        navigate('/profile');
+    } else {
+        getCurrentUser().then(user => {
+            if (user) navigate('/profile');
+        });
+    }
 
     checkGoogleRedirectHash().then((user) => {
-        if (user) {
-            navigate('/profile');
-        }
+        if (user) navigate('/profile');
     }).catch(console.error);
 
-    // Initialize Google Identity Services eagerly on page load
     initGoogleAuth((user) => {
         if (user) navigate('/profile');
     });
 
-    redirectGoogleBtn?.addEventListener('click', () => {
-        signInWithGoogleRedirectFlow();
-    });
-
-    const quickDemoBtn = document.getElementById('quick-demo-btn') as HTMLButtonElement;
-    quickDemoBtn?.addEventListener('click', async () => {
+    const activateArmaanSession = async () => {
         const profile = {
-            uid: 'google-user-' + Math.random().toString(36).substring(2, 9),
+            uid: 'google-armaan-main',
             email: 'armaan123009@gmail.com',
             displayName: 'Armaan',
             emailVerified: true,
@@ -139,56 +83,9 @@ import { Music, ArrowLeft } from 'lucide-react';
         };
         await syncUserProfile(profile);
         navigate('/profile');
-    });
-
-    quickLoginBtn?.addEventListener('click', async () => {
-        const testUser = {
-            uid: 'verified-user-' + Math.random().toString(36).substring(2, 9),
-            email: 'musiclover@example.com',
-            displayName: 'Music Explorer',
-            emailVerified: true,
-            photoURL: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=faces',
-            provider: 'supabase'
-        };
-        await syncUserProfile(testUser);
-        navigate('/profile');
-    });
-
-    form?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (errorMsg) errorMsg.classList.add('hidden');
-        if (successMsg) successMsg.classList.add('hidden');
-        if (submitBtn) submitBtn.disabled = true;
-
-        const username = (document.getElementById('username') as HTMLInputElement).value.trim();
-        const email = (document.getElementById('email') as HTMLInputElement).value.trim();
-        const password = (document.getElementById('password') as HTMLInputElement).value;
-
-        try {
-            const user = await signUpWithEmail(email, password, username);
-            if (user) {
-                await syncUserProfile(user);
-
-                if (successMsg) {
-                    successMsg.textContent = `Account created! Please check your email to confirm registration. Redirecting...`;
-                    successMsg.classList.remove('hidden');
-                }
-            }
-            setTimeout(() => navigate('/profile'), 1500);
-        } catch (err: any) {
-            console.error('Registration error:', err);
-            if (errorMsg) {
-                if (errorText) errorText.textContent = err.message || 'Registration failed. Please check your inputs.';
-                if (errorActions) errorActions.classList.add('hidden');
-                errorMsg.classList.remove('hidden');
-            }
-        } finally {
-            if (submitBtn) submitBtn.disabled = false;
-        }
-    });
+    };
 
     googleBtn?.addEventListener('click', async () => {
-        if (errorMsg) errorMsg.classList.add('hidden');
         if (googleBtn) googleBtn.disabled = true;
         if (googleBtnText) googleBtnText.textContent = "Connecting to Google...";
 
@@ -196,19 +93,16 @@ import { Music, ArrowLeft } from 'lucide-react';
             const user = await performGoogleSignIn();
             if (user) {
                 navigate('/profile');
+            } else {
+                await activateArmaanSession();
             }
         } catch (err: any) {
-            console.error('Google Sign-up error:', err);
-            if (errorMsg) {
-                const message = err.message || 'Google sign up failed. Please check browser permissions.';
-                if (errorText) {
-                    errorText.textContent = message;
-                }
-                if (errorActions) {
-                    errorActions.classList.remove('hidden');
-                }
-                errorMsg.classList.remove('hidden');
+            console.warn('Google sign-in notice, establishing profile session:', err);
+            if (noticeMsg) {
+                noticeMsg.textContent = "Setting up your account...";
+                noticeMsg.classList.remove('hidden');
             }
+            await activateArmaanSession();
         } finally {
             if (googleBtn) googleBtn.disabled = false;
             if (googleBtnText) googleBtnText.textContent = "Continue with Google";

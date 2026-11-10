@@ -155,12 +155,11 @@ export async function toggleLike(song: any, action: 'add' | 'remove') {
         const { getCurrentUser } = await import('./supabase');
         const { saveLikedSong, removeLikedSong, getActiveUser } = await import('./supabaseDb');
         const currentUser = await getCurrentUser() || getActiveUser();
-        if (currentUser) {
-            if (action === 'add') {
-                await saveLikedSong(currentUser.uid, song);
-            } else {
-                await removeLikedSong(currentUser.uid, song.id);
-            }
+        const userId = currentUser ? currentUser.uid : 'guest';
+        if (action === 'add') {
+            await saveLikedSong(userId, song);
+        } else {
+            await removeLikedSong(userId, song.id);
         }
     } catch (e) {
         console.error('Supabase toggleLike error:', e);
@@ -178,23 +177,22 @@ export async function getUserData() {
         const { getCurrentUser } = await import('./supabase');
         const { getLikedSongs, getUserPlaylists, getActiveUser } = await import('./supabaseDb');
         const currentUser = await getCurrentUser() || getActiveUser();
-        if (currentUser) {
-            const [liked_songs, playlists] = await Promise.all([
-                getLikedSongs(currentUser.uid),
-                getUserPlaylists(currentUser.uid)
-            ]);
-            return {
-                logged_in: true,
-                username: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-                email: currentUser.email,
-                liked_songs,
-                playlists
-            };
-        }
+        const userId = currentUser ? currentUser.uid : 'guest';
+        const [liked_songs, playlists] = await Promise.all([
+            getLikedSongs(userId),
+            getUserPlaylists(userId)
+        ]);
+        return {
+            logged_in: Boolean(currentUser),
+            username: currentUser ? (currentUser.displayName || currentUser.email?.split('@')[0] || 'User') : 'Guest Explorer',
+            email: currentUser ? currentUser.email : null,
+            liked_songs,
+            playlists
+        };
     } catch (e) {
         console.error('Supabase getUserData error:', e);
     }
-    return await apiFetch('/api/user_data') || { logged_in: false };
+    return await apiFetch('/api/user_data') || { logged_in: false, liked_songs: [], playlists: [] };
 }
 
 export async function createPlaylist(name: string) {
@@ -202,11 +200,10 @@ export async function createPlaylist(name: string) {
         const { getCurrentUser } = await import('./supabase');
         const { createPlaylist: createSupabasePlaylist, getActiveUser } = await import('./supabaseDb');
         const currentUser = await getCurrentUser() || getActiveUser();
-        if (currentUser) {
-            const playlist = await createSupabasePlaylist(currentUser.uid, name);
-            if (playlist) {
-                return { success: true, playlist };
-            }
+        const userId = currentUser ? currentUser.uid : 'guest';
+        const playlist = await createSupabasePlaylist(userId, name);
+        if (playlist) {
+            return { success: true, playlist };
         }
     } catch (e) {
         console.error('Supabase createPlaylist error:', e);
@@ -223,10 +220,9 @@ export async function addToPlaylist(playlistId: string, song: any) {
         const { getCurrentUser } = await import('./supabase');
         const { addSongToPlaylist, getActiveUser } = await import('./supabaseDb');
         const currentUser = await getCurrentUser() || getActiveUser();
-        if (currentUser) {
-            const success = await addSongToPlaylist(currentUser.uid, playlistId, song);
-            if (success) return { success: true };
-        }
+        const userId = currentUser ? currentUser.uid : 'guest';
+        const success = await addSongToPlaylist(userId, playlistId, song);
+        if (success) return { success: true };
     } catch (e) {
         console.error('Supabase addToPlaylist error:', e);
     }

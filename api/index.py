@@ -441,56 +441,59 @@ def logout():
     return jsonify({"success": True})
 
 @app.route("/api/like", methods=["POST"])
-@login_required
 def like_song():
-    data = request.json
-    song = data.get("song")
+    data = request.json or {}
+    song = data.get("song") or {}
     action = data.get("action") # 'add' or 'remove'
     
-    liked = current_user.get_liked_songs()
-    if action == "add":
-        if not any(s['id'] == song['id'] for s in liked):
-            liked.append(song)
-    else:
-        liked = [s for s in liked if s['id'] != song['id']]
-    
-    current_user.set_liked_songs(liked)
-    db.session.commit()
-    return jsonify({"success": True, "liked_songs": liked})
+    if current_user and current_user.is_authenticated:
+        liked = current_user.get_liked_songs()
+        if action == "add":
+            if not any(s.get('id') == song.get('id') for s in liked):
+                liked.append(song)
+        else:
+            liked = [s for s in liked if s.get('id') != song.get('id')]
+        
+        current_user.set_liked_songs(liked)
+        db.session.commit()
+        return jsonify({"success": True, "liked_songs": liked})
+    return jsonify({"success": True, "message": "Synced to client library"})
 
 @app.route("/api/playlists")
-@login_required
 def get_user_playlists():
-    return jsonify(current_user.get_playlists())
+    if current_user and current_user.is_authenticated:
+        return jsonify(current_user.get_playlists())
+    return jsonify([])
 
 @app.route("/api/playlists/create", methods=["POST"])
-@login_required
 def create_playlist():
-    name = request.json.get("name", "New Playlist")
-    playlists = current_user.get_playlists()
-    new_id = f"pl_{int(db.func.now().timestamp())}"
-    playlists.append({"id": new_id, "name": name, "songs": []})
-    current_user.set_playlists(playlists)
-    db.session.commit()
-    return jsonify({"success": True, "playlists": playlists})
+    name = (request.json or {}).get("name", "New Playlist")
+    new_id = f"pl_{int(time.time())}"
+    if current_user and current_user.is_authenticated:
+        playlists = current_user.get_playlists()
+        playlists.append({"id": new_id, "name": name, "songs": []})
+        current_user.set_playlists(playlists)
+        db.session.commit()
+        return jsonify({"success": True, "playlists": playlists})
+    return jsonify({"success": True, "playlist": {"id": new_id, "name": name, "songs": []}})
 
 @app.route("/api/playlists/add", methods=["POST"])
-@login_required
 def add_to_playlist():
-    data = request.json
+    data = request.json or {}
     playlist_id = data.get("playlist_id")
-    song = data.get("song")
+    song = data.get("song") or {}
     
-    playlists = current_user.get_playlists()
-    for pl in playlists:
-        if pl['id'] == playlist_id:
-            if not any(s['id'] == song['id'] for s in pl['songs']):
-                pl['songs'].append(song)
-            break
-            
-    current_user.set_playlists(playlists)
-    db.session.commit()
-    return jsonify({"success": True})
+    if current_user and current_user.is_authenticated:
+        playlists = current_user.get_playlists()
+        for pl in playlists:
+            if pl.get('id') == playlist_id:
+                if not any(s.get('id') == song.get('id') for s in pl.get('songs', [])):
+                    pl['songs'].append(song)
+                break
+        current_user.set_playlists(playlists)
+        db.session.commit()
+        return jsonify({"success": True, "playlists": playlists})
+    return jsonify({"success": True, "message": "Song added to playlist"})
 
 # ---------- HEALTH CHECK ----------
 @app.route('/health')
@@ -502,18 +505,9 @@ def health():
         "timestamp": time.time()
     }), 200
 
-# ---------- STATIC SERVING & FRONTEND REDIRECT ----------
-@app.route('/', defaults={'path': ''})
-@app.route('/<path:path>')
-def serve(path):
-    # If accessed directly without an API prefix, redirect to the live Vercel frontend site
-    if path == "":
-        return redirect("https://music-site-red.vercel.app/", code=302)
-    if path != "" and os.path.exists(app.static_folder + '/' + path):
-        full_path = os.path.join(app.static_folder, path)
-        if os.path.isdir(full_path):
-            return send_from_directory(full_path, 'index.html')
-        return send_from_directory(app.static_folder, path)
+# ---------- ROOT REDIRECT TO FRONTEND ----------
+@app.route('/')
+def root():
     return redirect("https://music-site-red.vercel.app/", code=302)
 
 # ---------- API ENDPOINTS ----------
@@ -708,6 +702,9 @@ def explore_api():
     }
     set_cached_api(cache_key, payload)
     return jsonify(payload)
+
+@app.route("/api/search")
+def search():
     q = request.args.get('q', '')
     if not q: return jsonify([])
     cache_key = f"search_{q}"
@@ -733,10 +730,12 @@ def explore_api():
 
 
 # Helper functions for resolving stream URLs with fallbacks to bypass blocks
-IS_PRODUCTION_ENV = bool(os.environ.get('VERCEL') or os.environ.get('FLASK_ENV') == 'production')
+# On serverless (Vercel), heavy yt-dlp extraction is bypassed to prevent function timeouts;
+# On Render (dedicated container), yt-dlp runs at full native speed with Android client emulation.
+IS_VERCEL_ENV = bool(os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV') or os.environ.get('AWS_LAMBDA_FUNCTION_NAME'))
 
 def extract_stream_url(video_id):
-    if IS_PRODUCTION_ENV:
+    if IS_VERCEL_ENV:
         return None
 
     ydl_opts = {
@@ -770,7 +769,7 @@ def extract_stream_url(video_id):
 
 def extract_stream_url_fast(video_id):
     """Fast yt-dlp extraction: android client only, single attempt. Used in /play for speed."""
-    if IS_PRODUCTION_ENV:
+    if IS_VERCEL_ENV:
         return None
     ydl_opts = {
         'format': 'bestaudio[ext=m4a]/bestaudio/best',
