@@ -558,7 +558,7 @@ import {
         </div>
     </div>
 
-    <audio id="main-audio" preload="auto"></audio>
+    <audio id="main-audio" transition:persist="main-audio" preload="auto" playsinline></audio>
     <!--
         Production-safe playback fallback. Unlike the old /play proxy, this
         uses YouTube's own public embed player and never handles user cookies
@@ -2689,6 +2689,14 @@ import {
         immersivePlayer = document.getElementById("immersive-player");
 
         if (!audio) return;
+
+        // If audio is already active and playing across page navigation, preserve its uninterrupted playback!
+        if (!audio.paused && audio.currentTime > 0) {
+            syncPlayPauseUI(true);
+            updateControlsUI();
+            updateQueueUI();
+            return;
+        }
 
         // Register Media Session action handlers
         if ("mediaSession" in navigator) {

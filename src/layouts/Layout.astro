@@ -21,7 +21,7 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 	<head>
 		<meta charset="UTF-8" />
 		<meta name="description" content={description} />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<meta name="generator" content={Astro.generator} />
 		<title>{title}</title>
@@ -123,7 +123,9 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 			</div>
 
 			<!-- Bottom Panel: Persistent Player -->
-			{showNav && <AudioPlayer />}
+			<div id="persistent-player-shell" transition:persist="persistent-player-shell" style="display: contents;">
+				{showNav && <AudioPlayer />}
+			</div>
 
 			<!-- Mobile Bottom Navigation Bar -->
 			{showNav && <BottomNav active={activeNav} />}
@@ -228,6 +230,14 @@ const { title, description = "Premium Music Experience", showNav = true, activeN
 <style is:global>
 	:root {
 		--font-sans: 'Geist', sans-serif;
+	}
+
+	/* Mobile Spicetify density & scaling */
+	@media (max-width: 640px) {
+		html {
+			font-size: 13.5px;
+			-webkit-text-size-adjust: 100%;
+		}
 	}
 	
 	/* Custom Scrollbar */

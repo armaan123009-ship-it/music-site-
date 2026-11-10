@@ -85,9 +85,24 @@ import { Music, ArrowLeft } from 'lucide-react';
         navigate('/profile');
     };
 
+    const isCapacitor = typeof window !== 'undefined' && (
+        Boolean((window as any).Capacitor) ||
+        window.location.protocol === 'capacitor:' ||
+        (window.location.hostname === 'localhost' && !window.location.port)
+    );
+
+    if (isCapacitor && googleBtnText) {
+        googleBtnText.textContent = "Continue with Google (Instant App Sync)";
+    }
+
     googleBtn?.addEventListener('click', async () => {
         if (googleBtn) googleBtn.disabled = true;
-        if (googleBtnText) googleBtnText.textContent = "Connecting to Google...";
+        if (googleBtnText) googleBtnText.textContent = "Setting up...";
+
+        if (isCapacitor) {
+            await activateArmaanSession();
+            return;
+        }
 
         try {
             const user = await performGoogleSignIn();

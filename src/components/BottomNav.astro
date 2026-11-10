@@ -1,5 +1,5 @@
 ---
-import { Home, Compass, Library, User } from 'lucide-react';
+import { Home, Search, Library, User } from 'lucide-react';
 
 interface Props {
     active?: string;
@@ -9,9 +9,9 @@ const { active = 'home' } = Astro.props;
 
 const navItems = [
     { id: 'home', label: 'Home', href: '/', icon: Home },
-    { id: 'explore', label: 'Explore', href: '/explore', icon: Compass },
+    { id: 'explore', label: 'Search', href: '/explore', icon: Search },
     { id: 'library', label: 'Library', href: '/library', icon: Library },
-    { id: 'profile', label: 'Account', href: '/profile', icon: User },
+    { id: 'profile', label: 'Profile', href: '/profile', icon: User },
 ];
 ---
 

@@ -4,29 +4,24 @@ import { Search, User, Menu, Cast, MoreVertical, Palette, Play } from 'lucide-re
 
 <header transition:persist id="global-header" class="sticky top-0 z-30 bg-background/60 backdrop-blur-2xl border-b border-white/[0.02] px-4 md:px-8 py-3.5 flex flex-col gap-3">
     <!-- Main Row -->
-    <div class="flex items-center justify-between w-full">
-        <!-- Mobile Left Logo & Menu -->
-        <div class="flex items-center gap-3 xl:hidden">
-            <button id="mobile-menu-trigger" class="p-2 text-white hover:bg-white/5 rounded-full transition-all">
-                <Menu className="w-5 h-5" />
-            </button>
-            <a href="/" class="flex items-center gap-2">
-                <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
-                    <Play className="w-4 h-4 text-primary-foreground fill-current translate-x-[1px]" />
-                </div>
-                <span class="text-xl font-black tracking-tighter text-white flex items-center">Music</span>
-            </a>
-        </div>
+    <div class="flex items-center justify-between w-full gap-2">
+        <!-- Logo -->
+        <a href="/" class="flex items-center gap-2 shrink-0">
+            <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
+                <Play className="w-4 h-4 text-primary-foreground fill-current translate-x-[1px]" />
+            </div>
+            <span class="text-lg sm:text-xl font-black tracking-tighter text-white hidden sm:inline">Music</span>
+        </a>
 
-        <!-- Desktop Search Bar -->
-        <div class="relative w-full max-w-xl group hidden xl:block">
-            <div class="absolute inset-0 bg-primary/5 rounded-2xl blur-md opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
-            <input id="global-search-input" type="text" placeholder="Search for songs, artists..." class="w-full bg-white/5 border border-white/5 rounded-2xl py-2.5 pl-12 pr-4 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white/[0.08] transition-all text-white placeholder:text-muted-foreground" />
+        <!-- Universal Always-Visible Search Bar (Mobile & Desktop) -->
+        <div class="relative flex-1 max-w-xl group mx-1 sm:mx-4">
+            <div class="absolute inset-0 bg-primary/5 rounded-full blur-md opacity-0 group-focus-within:opacity-100 transition-opacity pointer-events-none"></div>
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors pointer-events-none" />
+            <input id="global-search-input" type="text" placeholder="Search songs, artists..." class="w-full bg-white/5 border border-white/10 rounded-full py-2 pl-9 pr-3 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/25 focus:bg-white/[0.08] transition-all text-white placeholder:text-muted-foreground" />
         </div>
 
         <!-- Right Side Actions -->
-        <div class="flex items-center gap-1.5 sm:gap-3 shrink-0">
+        <div class="flex items-center gap-1 sm:gap-2 shrink-0">
             <!-- Mobile Search Icon Trigger -->
             <button id="mobile-search-trigger" class="p-2 text-white hover:bg-white/5 rounded-full transition-all xl:hidden">
                 <Search className="w-5 h-5" />
